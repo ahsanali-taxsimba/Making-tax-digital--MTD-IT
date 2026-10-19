@@ -7,8 +7,21 @@ import { Roles } from "../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AuthUser } from "../common/types";
-import { CreateBusinessDto, SubmitEopsDto, SubmitFinalDeclarationDto, SubmitItsaUpdateDto } from "./dto/itsa.dto";
+import { CreateBusinessDto, PreviewItsaUpdateDto, SubmitEopsDto, SubmitFinalDeclarationDto, SubmitItsaUpdateDto } from "./dto/itsa.dto";
 import { ItsaService } from "./itsa.service";
+
+@ApiTags("mtd-itsa")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller("itsa")
+export class ItsaMappingController {
+  constructor(private readonly itsa: ItsaService) {}
+
+  @Get("mapping")
+  mapping() {
+    return this.itsa.mapping();
+  }
+}
 
 @ApiTags("mtd-itsa")
 @ApiBearerAuth()
@@ -16,6 +29,17 @@ import { ItsaService } from "./itsa.service";
 @Controller("clients/:id/itsa")
 export class ItsaController {
   constructor(private readonly itsa: ItsaService) {}
+
+  @Get("mapping")
+  clientMapping(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.itsa.clientMapping(user, id);
+  }
+
+  @Post("updates/preview")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  preview(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: PreviewItsaUpdateDto) {
+    return this.itsa.previewUpdate(user, id, dto);
+  }
 
   @Get("obligations")
   @Throttle({ default: { limit: 20, ttl: 60000 } })

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ChartProfile, ClientType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { decorateAccountWithItsa } from "../itsa/mtd-itsa.mapping";
 import {
   CHART_OF_ACCOUNTS,
   defaultProfileForClientType,
@@ -14,10 +15,13 @@ export class ChartOfAccountsService {
   constructor(private readonly prisma: PrismaService) {}
 
   templates(profile?: string) {
-    if (!profile) {
-      return CHART_OF_ACCOUNTS;
-    }
-    return [getChart(toChartProfile(profile))];
+    const charts = profile ? [getChart(toChartProfile(profile))] : CHART_OF_ACCOUNTS;
+    return charts.map((chart) => ({
+      ...chart,
+      accounts: chart.accounts.map((account) =>
+        decorateAccountWithItsa({ ...account, profile: toChartProfile(chart.profile) }),
+      ),
+    }));
   }
 
   async provision(clientId: string, type: ClientType, extraProfiles: ChartProfile[] = []) {
@@ -52,13 +56,14 @@ export class ChartOfAccountsService {
       include: { transactions: { orderBy: { date: "desc" }, take: 25 } },
       orderBy: [{ profile: "asc" }, { code: "asc" }],
     });
+    const decorated = accounts.map((account) => decorateAccountWithItsa(account));
     const grouped = CHART_OF_ACCOUNTS.map((template) => {
       const key = toChartProfile(template.profile);
       return {
         profile: template.profile,
-        accounts: accounts.filter((account) => account.profile === key),
+        accounts: decorated.filter((account) => account.profile === key),
       };
     }).filter((group) => group.accounts.length > 0);
-    return { profile: profile ? profile.toLowerCase() : undefined, charts: grouped, accounts };
+    return { profile: profile ? profile.toLowerCase() : undefined, charts: grouped, accounts: decorated };
   }
 }

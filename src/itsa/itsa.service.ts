@@ -10,7 +10,8 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { TasksService } from "../tasks/tasks.service";
 import { WebhooksService } from "../webhooks/webhooks.service";
-import { CreateBusinessDto, SubmitEopsDto, SubmitFinalDeclarationDto, SubmitItsaUpdateDto } from "./dto/itsa.dto";
+import { CreateBusinessDto, PreviewItsaUpdateDto, SubmitEopsDto, SubmitFinalDeclarationDto, SubmitItsaUpdateDto } from "./dto/itsa.dto";
+import { chartProfileForBusinessType, lookupItsaMapping, MTD_ITSA_MAPPING } from "./mtd-itsa.mapping";
 
 @Injectable()
 export class ItsaService {
@@ -79,6 +80,31 @@ export class ItsaService {
     });
   }
 
+  mapping() {
+    return MTD_ITSA_MAPPING;
+  }
+
+  async clientMapping(user: AuthUser, clientId: string) {
+    const client = await this.requireItsaClient(user, clientId);
+    const accounts = await this.prisma.ledger.findMany({
+      where: { clientId: client.id },
+      orderBy: [{ profile: "asc" }, { code: "asc" }],
+    });
+    return {
+      mapping: MTD_ITSA_MAPPING,
+      accounts: accounts.map((account) => ({
+        ...account,
+        itsa: lookupItsaMapping(account.profile, account.code) ?? null,
+      })),
+    };
+  }
+
+  async previewUpdate(user: AuthUser, clientId: string, dto: PreviewItsaUpdateDto) {
+    const client = await this.requireItsaClient(user, clientId);
+    const business = await this.requireBusiness(client.id, dto.businessId);
+    return this.rollUpFromLedger(client.id, business.type, dto.periodStart, dto.periodEnd);
+  }
+
   async listUpdates(user: AuthUser, clientId: string) {
     await this.requireItsaClient(user, clientId);
     return this.prisma.itsaUpdate.findMany({
@@ -91,6 +117,14 @@ export class ItsaService {
   async submitUpdate(user: AuthUser, clientId: string, dto: SubmitItsaUpdateDto) {
     const client = await this.requireItsaClient(user, clientId);
     const business = await this.requireBusiness(client.id, dto.businessId);
+    const rolled = dto.fromLedger
+      ? await this.rollUpFromLedger(client.id, business.type, dto.periodStart, dto.periodEnd)
+      : null;
+    const incomes = rolled?.incomes ?? dto.incomes;
+    const expenses = rolled?.expenses ?? dto.expenses;
+    if (!incomes || !expenses) {
+      throw new BadRequestException("incomes and expenses are required unless fromLedger is true");
+    }
     const ctx = await this.connections.getCallContext(client.id);
     const result = await this.itsa.submitQuarterlyUpdate(ctx, client.nino!, {
       businessId: business.hmrcBusinessId ?? business.id,
@@ -98,8 +132,8 @@ export class ItsaService {
       periodId: dto.periodId,
       periodStart: dto.periodStart,
       periodEnd: dto.periodEnd,
-      incomes: dto.incomes,
-      expenses: dto.expenses,
+      incomes,
+      expenses,
     });
     const saved = await this.prisma.itsaUpdate.create({
       data: {
@@ -109,8 +143,8 @@ export class ItsaService {
         periodId: dto.periodId,
         periodStart: new Date(dto.periodStart),
         periodEnd: new Date(dto.periodEnd),
-        incomes: dto.incomes,
-        expenses: dto.expenses,
+        incomes,
+        expenses,
         status: "SUBMITTED",
         hmrcPeriodId: result.data.periodId,
         correlationId: result.correlationId,
@@ -209,6 +243,54 @@ export class ItsaService {
         hmrcBusinessId: dto.hmrcBusinessId,
       },
     });
+  }
+
+  private async rollUpFromLedger(clientId: string, businessType: string, periodStart: string, periodEnd: string) {
+    const profile = chartProfileForBusinessType(businessType);
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    const accounts = await this.prisma.ledger.findMany({
+      where: { clientId, profile },
+      include: {
+        transactions: { where: { date: { gte: start, lte: end } } },
+      },
+    });
+    const incomes: Record<string, number> = {};
+    const expenses: Record<string, number> = {};
+    const excluded: Array<{ code: number; category: string; amount: number; reason: string }> = [];
+    const lines: Array<{ code: number; name: string; amount: number; category: string; hmrcKey: string }> = [];
+
+    for (const account of accounts) {
+      const amount = account.transactions.reduce((sum, txn) => sum + Number(txn.amount), 0);
+      if (amount === 0) {
+        continue;
+      }
+      const mapping = lookupItsaMapping(account.profile, account.code);
+      if (!mapping) {
+        excluded.push({ code: account.code, category: account.name, amount, reason: "unmapped" });
+        continue;
+      }
+      if (!mapping.includedInQuarterlyUpdate) {
+        excluded.push({
+          code: account.code,
+          category: mapping.category,
+          amount,
+          reason: mapping.bucket === "capital_items" ? "capital_not_in_quarterly_update" : "disallowable",
+        });
+        continue;
+      }
+      const target = mapping.bucket.endsWith("income") ? incomes : expenses;
+      target[mapping.hmrcKey] = Number(((target[mapping.hmrcKey] ?? 0) + amount).toFixed(2));
+      lines.push({
+        code: account.code,
+        name: account.name,
+        amount,
+        category: mapping.category,
+        hmrcKey: mapping.hmrcKey,
+      });
+    }
+
+    return { profile, incomes, expenses, excluded, lines };
   }
 
   private async requireItsaClient(user: AuthUser, clientId: string) {

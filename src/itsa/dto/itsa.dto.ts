@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsDateString, IsObject, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsDateString, IsObject, IsOptional, IsString, ValidateIf } from "class-validator";
 
 export class SubmitItsaUpdateDto {
   @ApiProperty()
@@ -22,13 +22,34 @@ export class SubmitItsaUpdateDto {
   @IsDateString()
   periodEnd!: string;
 
-  @ApiProperty({ type: "object", additionalProperties: { type: "number" } })
-  @IsObject()
-  incomes!: Record<string, number>;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  fromLedger?: boolean;
 
-  @ApiProperty({ type: "object", additionalProperties: { type: "number" } })
+  @ApiPropertyOptional({ type: "object", additionalProperties: { type: "number" } })
+  @ValidateIf((dto: SubmitItsaUpdateDto) => !dto.fromLedger)
   @IsObject()
-  expenses!: Record<string, number>;
+  incomes?: Record<string, number>;
+
+  @ApiPropertyOptional({ type: "object", additionalProperties: { type: "number" } })
+  @ValidateIf((dto: SubmitItsaUpdateDto) => !dto.fromLedger)
+  @IsObject()
+  expenses?: Record<string, number>;
+}
+
+export class PreviewItsaUpdateDto {
+  @ApiProperty()
+  @IsString()
+  businessId!: string;
+
+  @ApiProperty()
+  @IsDateString()
+  periodStart!: string;
+
+  @ApiProperty()
+  @IsDateString()
+  periodEnd!: string;
 }
 
 export class SubmitEopsDto {

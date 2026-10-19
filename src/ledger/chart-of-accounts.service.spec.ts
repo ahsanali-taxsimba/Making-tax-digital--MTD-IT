@@ -24,6 +24,11 @@ describe("chart of accounts catalog", () => {
     const interest = getChart(ChartProfile.LANDLORD).accounts.find((account) => account.code === 3020);
     expect(interest?.name).toContain("Section 24");
   });
+
+  it("includes sole-trader disallowable codes used by ITSA mapping", () => {
+    const codes = getChart(ChartProfile.SOLE_TRADER).accounts.map((account) => account.code);
+    expect(codes).toEqual(expect.arrayContaining([4300, 4400]));
+  });
 });
 
 describe("ChartOfAccountsService", () => {

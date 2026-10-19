@@ -60,6 +60,25 @@ curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/chart-of-accounts \
 
 Post bookkeeping against a numbered account via `POST /clients/:id/transactions` with that account's `ledgerId`.
 
+Ledger codes roll into HMRC ITSA boxes. Capital spend and disallowable entertainment stay off the quarterly update.
+
+```bash
+curl -s http://localhost:3000/itsa/mapping -H "Authorization: Bearer $TOKEN"
+curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/itsa/updates/preview \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"businessId":"44444444-4444-4444-8444-444444444444","periodStart":"2026-04-06","periodEnd":"2026-07-05"}'
+```
+
+Submit from the ledger instead of typing boxes:
+
+```bash
+curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/itsa/updates \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"businessId":"...","taxYear":"2025-26","periodId":"2026-04-06_2026-07-05","periodStart":"2026-04-06","periodEnd":"2026-07-05","fromLedger":true}'
+```
+
 ## 3. Connect HMRC
 
 ```bash

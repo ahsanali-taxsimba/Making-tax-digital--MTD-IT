@@ -70,6 +70,8 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountsDefinition[] = [
       { code: 3130, name: "Pension Contributions", category: "Expenses", type: "expense" },
       { code: 3140, name: "Training & Courses", category: "Expenses", type: "expense" },
       { code: 3150, name: "Subscriptions", category: "Expenses", type: "expense" },
+      { code: 4300, name: "Non-allowable Entertainment", category: "Disallowable", type: "expense" },
+      { code: 4400, name: "Non-allowable General Expenses", category: "Disallowable", type: "expense" },
       { code: 4000, name: "Equipment (Capital)", category: "Capital", type: "capital" },
       { code: 4010, name: "Vehicles (Capital)", category: "Capital", type: "capital" },
       { code: 4020, name: "Tools & Machinery", category: "Capital", type: "capital" },
