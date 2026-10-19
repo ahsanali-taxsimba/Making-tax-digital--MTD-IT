@@ -20,6 +20,7 @@ controllers  →  application services  →  repositories / Prisma
 - **RBAC:** `ADMIN`, `ACCOUNTANT`, `CLIENT`.
 - **HMRC:** OAuth authorisation-code flow, automatic token refresh, fraud-prevention headers, correlation IDs stored on every interaction.
 - **Envelope:** `{ data, error }` on every response.
+- **Charts of accounts:** landlord, sole trader, and company templates are provisioned when a client is created. Extra profiles can be applied later (for example a sole trader who also lets property).
 
 ## Local development
 

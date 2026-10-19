@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { AuthUser } from "../common/types";
 import { assertClientScope } from "../common/tenancy";
+import { ChartOfAccountsService } from "../ledger/chart-of-accounts.service";
 import { WebhooksService } from "../webhooks/webhooks.service";
 import { ClientsRepository } from "./clients.repository";
 import { CreateClientDto, UpdateClientDto } from "./dto/client.dto";
@@ -13,6 +14,7 @@ export class ClientsService {
     private readonly repo: ClientsRepository,
     private readonly audit: AuditService,
     private readonly webhooks: WebhooksService,
+    private readonly charts: ChartOfAccountsService,
   ) {}
 
   list(user: AuthUser) {
@@ -40,6 +42,7 @@ export class ClientsService {
       nino: dto.nino ?? dto.niNumber,
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
     });
+    await this.charts.provision(client.id, client.type);
     await this.audit.record({ actor: user, clientId: client.id, actionType: "client.created", metadata: { name: client.name } });
     await this.webhooks.emit(user.firmId, "CLIENT_CREATED", { clientId: client.id, name: client.name });
     return client;

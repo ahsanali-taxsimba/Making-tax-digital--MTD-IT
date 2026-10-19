@@ -1,6 +1,7 @@
-import { PrismaClient, ClientType, UserRole, ObligationStatus, LedgerAccountType } from "@prisma/client";
+import { PrismaClient, ClientType, UserRole, ObligationStatus, ChartProfile } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
+import { getChart, toLedgerAccountType } from "../src/ledger/chart-of-accounts.catalog";
 
 const prisma = new PrismaClient();
 
@@ -34,6 +35,20 @@ async function main() {
       niNumber: "AA123456A",
       nino: "AA123456A",
       dateOfBirth: new Date("1986-04-12"),
+    },
+  });
+
+  const landlord = await prisma.client.upsert({
+    where: { id: "66666666-6666-4666-8666-666666666666" },
+    update: {},
+    create: {
+      id: "66666666-6666-4666-8666-666666666666",
+      firmId: firm.id,
+      type: ClientType.LANDLORD,
+      name: "Hartley Lets Portfolio",
+      utr: "5566778899",
+      nino: "CC123456C",
+      niNumber: "CC123456C",
     },
   });
 
@@ -156,14 +171,25 @@ async function main() {
     });
   }
 
-  await prisma.ledger.createMany({
-    data: [
-      { clientId: soleTrader.id, name: "Self-employment income", type: LedgerAccountType.INCOME },
-      { clientId: soleTrader.id, name: "Allowable expenses", type: LedgerAccountType.EXPENSE },
-      { clientId: company.id, name: "Sales", type: LedgerAccountType.INCOME },
-    ],
-    skipDuplicates: true,
-  });
+  const seedChart = async (clientId: string, profile: ChartProfile) => {
+    const chart = getChart(profile);
+    await prisma.ledger.createMany({
+      data: chart.accounts.map((account) => ({
+        clientId,
+        profile,
+        code: account.code,
+        name: account.name,
+        category: account.category,
+        type: toLedgerAccountType(account.type),
+      })),
+      skipDuplicates: true,
+    });
+  };
+
+  await seedChart(soleTrader.id, ChartProfile.SOLE_TRADER);
+  await seedChart(soleTrader.id, ChartProfile.LANDLORD);
+  await seedChart(landlord.id, ChartProfile.LANDLORD);
+  await seedChart(company.id, ChartProfile.COMPANY);
 
   // eslint-disable-next-line no-console
   console.log("Seeded Northbridge Accountants LLP");

@@ -13,6 +13,7 @@ import { FirmsModule } from "./firms/firms.module";
 import { HealthController } from "./health/health.controller";
 import { HmrcModule } from "./hmrc/hmrc.module";
 import { ItsaModule } from "./itsa/itsa.module";
+import { ChartOfAccountsModule } from "./ledger/chart-of-accounts.module";
 import { LedgerModule } from "./ledger/ledger.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PortalModule } from "./portal/portal.module";
@@ -47,6 +48,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
     VatModule,
     ItsaModule,
     DocumentsModule,
+    ChartOfAccountsModule,
     LedgerModule,
     PortalModule,
   ],

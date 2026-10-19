@@ -63,8 +63,14 @@ describe("MTD API (e2e)", () => {
     client: {
       findMany: jest.fn(async () => clients),
       findFirst: jest.fn(async ({ where }: { where: { id: string } }) => clients.find((item) => item.id === where.id) ?? null),
-      create: jest.fn(async ({ data }: { data: { name: string } }) => ({ id: "new-client", firmId: "firm-1", ...data })),
+      create: jest.fn(async ({ data }: { data: { name: string; type?: string } }) => ({
+        id: "new-client",
+        firmId: "firm-1",
+        type: data.type ?? "INDIVIDUAL",
+        ...data,
+      })),
     },
+    ledger: { createMany: jest.fn().mockResolvedValue({ count: 26 }), findMany: jest.fn().mockResolvedValue([]) },
     oauthState: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
     mtdConnection: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     auditLog: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },

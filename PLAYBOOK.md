@@ -34,6 +34,32 @@ curl -s -X POST http://localhost:3000/clients \
   -d '{"type":"INDIVIDUAL","name":"Samira Khan","utr":"1122334455","vatRegistrationNumber":"777777777","nino":"BB123456B","niNumber":"BB123456B"}'
 ```
 
+## 2b. Chart of accounts
+
+A new client gets the matching UK chart automatically:
+
+| Client type | Profile |
+| --- | --- |
+| `INDIVIDUAL` / `PARTNERSHIP` | `sole_trader` |
+| `LANDLORD` | `landlord` |
+| `COMPANY` | `company` |
+
+```bash
+curl -s http://localhost:3000/chart-of-accounts -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:3000/clients/$CLIENT_ID/chart-of-accounts -H "Authorization: Bearer $TOKEN"
+```
+
+Apply a second profile when the same person has a property business:
+
+```bash
+curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/chart-of-accounts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"profile":"landlord"}'
+```
+
+Post bookkeeping against a numbered account via `POST /clients/:id/transactions` with that account's `ledgerId`.
+
 ## 3. Connect HMRC
 
 ```bash

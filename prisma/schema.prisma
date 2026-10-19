@@ -91,6 +91,14 @@ enum LedgerAccountType {
   ASSET
   LIABILITY
   EQUITY
+  CAPITAL
+  BALANCE_SHEET
+}
+
+enum ChartProfile {
+  LANDLORD
+  SOLE_TRADER
+  COMPANY
 }
 
 model Firm {
@@ -352,11 +360,17 @@ model Ledger {
   id           String            @id @default(uuid())
   clientId     String
   client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  profile      ChartProfile      @default(SOLE_TRADER)
+  code         Int
   name         String
+  category     String
   type         LedgerAccountType
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   transactions Transaction[]
+
+  @@unique([clientId, profile, code])
+  @@index([clientId, profile])
 }
 
 model Transaction {
