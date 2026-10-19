@@ -1,47 +1,71 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { IsBoolean, IsDateString, IsNumber, IsOptional, IsString, Min, ValidateIf } from "class-validator";
 
 export class SubmitVatReturnDto {
   @ApiProperty()
   @IsString()
   periodKey!: string;
 
-  @ApiProperty()
-  @IsNumber()
-  vatDueSales!: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  fromLedger?: boolean;
 
-  @ApiProperty()
-  @IsNumber()
-  vatDueAcquisitions!: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  periodStart?: string;
 
-  @ApiProperty()
-  @IsNumber()
-  totalVatDue!: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  periodEnd?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
   @IsNumber()
-  vatReclaimedCurrPeriod!: number;
+  vatDueSales?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
+  @IsNumber()
+  vatDueAcquisitions?: number;
+
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
+  @IsNumber()
+  totalVatDue?: number;
+
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
+  @IsNumber()
+  vatReclaimedCurrPeriod?: number;
+
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
   @IsNumber()
   @Min(0)
-  netVatDue!: number;
+  netVatDue?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
   @IsNumber()
-  totalValueSalesExVAT!: number;
+  totalValueSalesExVAT?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
   @IsNumber()
-  totalValuePurchasesExVAT!: number;
+  totalValuePurchasesExVAT?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
   @IsNumber()
-  totalValueGoodsSuppliedExVAT!: number;
+  totalValueGoodsSuppliedExVAT?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((dto: SubmitVatReturnDto) => !dto.fromLedger)
   @IsNumber()
-  totalAcquisitionsExVAT!: number;
+  totalAcquisitionsExVAT?: number;
 
   @ApiProperty()
   @IsBoolean()
@@ -51,4 +75,19 @@ export class SubmitVatReturnDto {
   @IsOptional()
   @IsString()
   obligationId?: string;
+}
+
+export class PreviewVatReturnDto {
+  @ApiProperty()
+  @IsDateString()
+  periodStart!: string;
+
+  @ApiProperty()
+  @IsDateString()
+  periodEnd!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  periodKey?: string;
 }

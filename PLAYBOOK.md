@@ -112,7 +112,25 @@ Open obligations automatically create tasks (`MTD_VAT_RETURN`, `MTD_ITSA_UPDATE`
 
 ## 5. Submit VAT
 
+Ledger codes roll into HMRC boxes 1–9. Box 3 is calculated as Box 1 + Box 2; Box 5 is the absolute net of Box 3 and Box 4.
+
 ```bash
+curl -s http://localhost:3000/vat/mapping -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:3000/clients/$CLIENT_ID/vat/mapping -H "Authorization: Bearer $TOKEN"
+curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/vat/returns/preview \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"periodStart":"2026-01-01","periodEnd":"2026-03-31","periodKey":"26A1"}'
+```
+
+Submit from the ledger, or type the boxes yourself:
+
+```bash
+curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/vat/returns \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"periodKey":"26A1","fromLedger":true,"finalised":true}'
+
 curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/vat/returns \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \

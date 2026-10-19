@@ -145,6 +145,9 @@ describe("MTD API (e2e)", () => {
       .set("Authorization", `Bearer ${token}`)
       .expect(201);
     expect(start.body.data.redirectUrl).toContain("oauth/authorize");
+
+    const vatMapping = await request(app.getHttpServer()).get("/vat/mapping").set("Authorization", `Bearer ${token}`).expect(200);
+    expect(vatMapping.body.data.boxes.box_5.name).toContain("Net VAT");
   });
 
   it("rejects invalid login payloads", async () => {

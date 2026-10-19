@@ -29,6 +29,13 @@ describe("chart of accounts catalog", () => {
     const codes = getChart(ChartProfile.SOLE_TRADER).accounts.map((account) => account.code);
     expect(codes).toEqual(expect.arrayContaining([4300, 4400]));
   });
+
+  it("adds VAT control accounts to every profile", () => {
+    for (const profile of [ChartProfile.LANDLORD, ChartProfile.SOLE_TRADER, ChartProfile.COMPANY]) {
+      const codes = getChart(profile).accounts.map((account) => account.code);
+      expect(codes).toEqual(expect.arrayContaining([1060, 2200, 2220, 5100, 5110]));
+    }
+  });
 });
 
 describe("ChartOfAccountsService", () => {
@@ -46,6 +53,7 @@ describe("ChartOfAccountsService", () => {
       expect.objectContaining({
         data: expect.arrayContaining([
           expect.objectContaining({ clientId: "client-1", profile: ChartProfile.SOLE_TRADER, code: 1000 }),
+          expect.objectContaining({ clientId: "client-1", profile: ChartProfile.SOLE_TRADER, code: 2200 }),
         ]),
       }),
     );

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ChartProfile, ClientType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { decorateAccountWithItsa } from "../itsa/mtd-itsa.mapping";
+import { decorateAccountWithVat } from "../vat/vat-box.mapping";
 import {
   CHART_OF_ACCOUNTS,
   defaultProfileForClientType,
@@ -19,7 +20,7 @@ export class ChartOfAccountsService {
     return charts.map((chart) => ({
       ...chart,
       accounts: chart.accounts.map((account) =>
-        decorateAccountWithItsa({ ...account, profile: toChartProfile(chart.profile) }),
+        decorateAccountWithVat(decorateAccountWithItsa({ ...account, profile: toChartProfile(chart.profile) })),
       ),
     }));
   }
@@ -56,7 +57,7 @@ export class ChartOfAccountsService {
       include: { transactions: { orderBy: { date: "desc" }, take: 25 } },
       orderBy: [{ profile: "asc" }, { code: "asc" }],
     });
-    const decorated = accounts.map((account) => decorateAccountWithItsa(account));
+    const decorated = accounts.map((account) => decorateAccountWithVat(decorateAccountWithItsa(account)));
     const grouped = CHART_OF_ACCOUNTS.map((template) => {
       const key = toChartProfile(template.profile);
       return {

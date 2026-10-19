@@ -7,8 +7,21 @@ import { Roles } from "../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AuthUser } from "../common/types";
-import { SubmitVatReturnDto } from "./dto/vat.dto";
+import { PreviewVatReturnDto, SubmitVatReturnDto } from "./dto/vat.dto";
 import { VatService } from "./vat.service";
+
+@ApiTags("mtd-vat")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller("vat")
+export class VatMappingController {
+  constructor(private readonly vat: VatService) {}
+
+  @Get("mapping")
+  mapping() {
+    return this.vat.mapping();
+  }
+}
 
 @ApiTags("mtd-vat")
 @ApiBearerAuth()
@@ -16,6 +29,17 @@ import { VatService } from "./vat.service";
 @Controller("clients/:id/vat")
 export class VatController {
   constructor(private readonly vat: VatService) {}
+
+  @Get("mapping")
+  clientMapping(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.vat.clientMapping(user, id);
+  }
+
+  @Post("returns/preview")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  preview(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: PreviewVatReturnDto) {
+    return this.vat.previewReturn(user, id, dto);
+  }
 
   @Get("obligations")
   @Throttle({ default: { limit: 20, ttl: 60000 } })

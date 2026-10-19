@@ -1,4 +1,5 @@
 import { ChartProfile, ClientType, LedgerAccountType } from "@prisma/client";
+import { VAT_LEDGER_ACCOUNTS } from "../vat/vat-box.mapping";
 
 export type ChartAccountType = "income" | "expense" | "capital" | "balance_sheet";
 
@@ -41,6 +42,7 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountsDefinition[] = [
       { code: 4000, name: "Capital Improvements", category: "Capital", type: "capital" },
       { code: 4010, name: "Fixtures & Fittings (Capital)", category: "Capital", type: "capital" },
       { code: 4020, name: "Property Purchase Costs", category: "Capital", type: "capital" },
+      ...VAT_LEDGER_ACCOUNTS,
     ],
   },
   {
@@ -75,6 +77,7 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountsDefinition[] = [
       { code: 4000, name: "Equipment (Capital)", category: "Capital", type: "capital" },
       { code: 4010, name: "Vehicles (Capital)", category: "Capital", type: "capital" },
       { code: 4020, name: "Tools & Machinery", category: "Capital", type: "capital" },
+      ...VAT_LEDGER_ACCOUNTS,
     ],
   },
   {
@@ -108,6 +111,7 @@ export const CHART_OF_ACCOUNTS: ChartOfAccountsDefinition[] = [
       { code: 4500, name: "PAYE/NI Control", category: "Balance Sheet", type: "balance_sheet" },
       { code: 4600, name: "Corporation Tax Liability", category: "Balance Sheet", type: "balance_sheet" },
       { code: 4700, name: "Directors Loan Account", category: "Balance Sheet", type: "balance_sheet" },
+      ...VAT_LEDGER_ACCOUNTS,
     ],
   },
 ];

@@ -22,6 +22,7 @@ controllers  →  application services  →  repositories / Prisma
 - **Envelope:** `{ data, error }` on every response.
 - **Charts of accounts:** landlord, sole trader, and company templates are provisioned when a client is created. Extra profiles can be applied later (for example a sole trader who also lets property).
 - **ITSA mapping:** numbered ledger codes roll into HMRC quarterly-update boxes. Capital items and disallowable expenses are excluded from those submissions.
+- **VAT mapping:** the same ledger codes roll into VAT return boxes 1–9. Box 3 is Box 1 + Box 2; Box 5 is the absolute difference between Box 3 and Box 4. Northern Ireland EU acquisition/supply boxes stay available on every chart.
 
 ## Local development
 
