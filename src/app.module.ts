@@ -1,0 +1,61 @@
+import { Module, ValidationPipe } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { AuditModule } from "./audit/audit.module";
+import { AuthModule } from "./auth/auth.module";
+import { ClientsModule } from "./clients/clients.module";
+import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import configuration from "./config/configuration";
+import { DocumentsModule } from "./documents/documents.module";
+import { FirmsModule } from "./firms/firms.module";
+import { HealthController } from "./health/health.controller";
+import { HmrcModule } from "./hmrc/hmrc.module";
+import { ItsaModule } from "./itsa/itsa.module";
+import { LedgerModule } from "./ledger/ledger.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { PortalModule } from "./portal/portal.module";
+import { PrismaModule } from "./prisma/prisma.module";
+import { TasksModule } from "./tasks/tasks.module";
+import { UsersModule } from "./users/users.module";
+import { VatModule } from "./vat/vat.module";
+import { WebhooksModule } from "./webhooks/webhooks.module";
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: config.get<number>("throttle.ttl") ?? 60000,
+          limit: config.get<number>("throttle.limit") ?? 60,
+        },
+      ],
+    }),
+    PrismaModule,
+    AuditModule,
+    TasksModule,
+    NotificationsModule,
+    WebhooksModule,
+    AuthModule,
+    FirmsModule,
+    UsersModule,
+    ClientsModule,
+    HmrcModule,
+    VatModule,
+    ItsaModule,
+    DocumentsModule,
+    LedgerModule,
+    PortalModule,
+  ],
+  controllers: [HealthController],
+  providers: [
+    { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }) },
+    { provide: APP_FILTER, useClass: HttpExceptionFilter },
+    { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
+})
+export class AppModule {}
