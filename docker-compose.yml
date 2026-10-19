@@ -1,0 +1,45 @@
+name: maxing-tax-digital
+
+services:
+  ui:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    env_file: ./client/.env
+    ports:
+      - "2327:80"
+    restart: always   
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    env_file: ./server/.env
+    volumes:
+      - ./uploads:/uploads
+    ports:
+      - "2326:2326"
+    depends_on:
+      - db
+    restart: always   
+
+  db:
+    image: mongo
+    ports:
+      - "27019:27017"
+    volumes:
+      - ./mongo-data:/data/db
+    restart: always   
+
+  lb:
+    image: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro   
+    depends_on:
+      - api
+      - ui
+    ports:
+      - "80:80"
+      - "443:443"   
+    restart: always
