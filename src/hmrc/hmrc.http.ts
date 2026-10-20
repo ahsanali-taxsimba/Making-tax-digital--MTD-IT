@@ -19,13 +19,19 @@ export class HmrcHttpClient {
   apiBase(environment: HmrcEnvironment): string {
     const live = this.config.get<string>("hmrc.live.baseUrl") ?? this.config.get<string>("hmrc.liveApiBase");
     const sandbox = this.config.get<string>("hmrc.sandbox.baseUrl") ?? this.config.get<string>("hmrc.sandboxApiBase");
-    return environment === "LIVE" ? (live as string) : (sandbox as string);
+    if (this.config.get<string>("hmrc.mode") === "sandbox" || environment !== "LIVE") {
+      return sandbox as string;
+    }
+    return live as string;
   }
 
   authBase(environment: HmrcEnvironment): string {
     const live = this.config.get<string>("hmrc.live.authBaseUrl") ?? this.config.get<string>("hmrc.liveAuthBase");
     const sandbox = this.config.get<string>("hmrc.sandbox.authBaseUrl") ?? this.config.get<string>("hmrc.sandboxAuthBase");
-    return environment === "LIVE" ? (live as string) : (sandbox as string);
+    if (this.config.get<string>("hmrc.mode") === "sandbox" || environment !== "LIVE") {
+      return sandbox as string;
+    }
+    return live as string;
   }
 
   async send(

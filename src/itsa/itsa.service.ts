@@ -26,6 +26,13 @@ import {
 import { ItsaRepository } from "./itsa.repository";
 import { chartProfileForBusinessType, lookupItsaMapping, MTD_ITSA_MAPPING } from "./mtd-itsa.mapping";
 import { ReceiptsService } from "../receipts/receipts.service";
+import { isPropertyBusiness } from "../hmrc/client/hmrc-client.routes";
+import {
+  itsaFinalDeclarationPath,
+  itsaIncomeExpensesPath,
+  itsaUkPropertyEopsPath,
+  itsaUkPropertyPeriodicPath,
+} from "../hmrc/sandbox/hmrc-sandbox.urls";
 
 @Injectable()
 export class ItsaService {
@@ -125,6 +132,37 @@ export class ItsaService {
     return this.repo.listObligations(client.id);
   }
 
+  async incomeAndExpenses(user: AuthUser, clientId: string, businessId?: string) {
+    const client = await this.requireItsaClient(user, clientId);
+    const result = await this.hmrc.get<{
+      obligations?: ItsaObligationDto[];
+      incomes?: Record<string, number>;
+      expenses?: Record<string, number>;
+    }>(itsaIncomeExpensesPath(client.nino), client.id);
+    const business = businessId ? await this.requireBusiness(client.id, businessId) : (await this.repo.listBusinesses(client.id))[0];
+    const rolled = business
+      ? await this.rollUpFromLedger(
+          client.id,
+          business.type,
+          result.data.obligations?.[0]?.start ?? new Date().toISOString().slice(0, 10),
+          result.data.obligations?.[0]?.end ?? new Date().toISOString().slice(0, 10),
+        )
+      : null;
+    await this.audit.record({
+      actor: user,
+      clientId: client.id,
+      actionType: "itsa.income_expenses.fetched",
+      metadata: { correlationId: result.correlationId, sandbox: true },
+    });
+    return {
+      correlationId: result.correlationId,
+      obligations: result.data.obligations ?? [],
+      incomes: rolled?.incomes ?? result.data.incomes ?? {},
+      expenses: rolled?.expenses ?? result.data.expenses ?? {},
+      excluded: rolled?.excluded ?? [],
+    };
+  }
+
   async previewUpdate(user: AuthUser, clientId: string, dto: PreviewItsaUpdateDto) {
     await this.requireItsaClient(user, clientId);
     const business = await this.requireBusiness(clientId, dto.businessId);
@@ -197,19 +235,20 @@ export class ItsaService {
       rolled?.transactionCount ?? 0,
     );
     this.assertValid(validation);
-    const result = await this.hmrc.post<{ periodId: string }>(
-      `/income-tax/${client.nino}/updates`,
-      {
-        businessId: business.hmrcBusinessId ?? business.id,
-        taxYear: dto.taxYear,
-        periodId: dto.periodId,
-        periodStart: dto.periodStart,
-        periodEnd: dto.periodEnd,
-        incomes,
-        expenses,
-      },
-      client.id,
-    );
+    const payload = {
+      businessId: business.hmrcBusinessId ?? business.id,
+      taxYear: dto.taxYear,
+      periodId: dto.periodId,
+      periodStart: dto.periodStart,
+      periodEnd: dto.periodEnd,
+      incomes,
+      expenses,
+      typeOfBusiness: business.type,
+    };
+    const property = isPropertyBusiness(business.type);
+    const result = property
+      ? await this.hmrc.put<{ periodId: string }>(itsaUkPropertyPeriodicPath(client.nino), payload, client.id)
+      : await this.hmrc.post<{ periodId: string }>(`/income-tax/${client.nino}/updates`, payload, client.id);
     const saved = await this.repo.createUpdate({
       clientId: client.id,
       businessId: business.id,
@@ -252,18 +291,17 @@ export class ItsaService {
       quarterlyUpdateCount: updates.length,
     });
     this.assertValid(validation);
-    const result = await this.hmrc.post<{ processingDate: string }>(
-      `/income-tax/${client.nino}/eops`,
-      {
-        businessId: business.hmrcBusinessId ?? business.id,
-        taxYear: dto.taxYear,
-        typeOfBusiness: dto.typeOfBusiness,
-        accountingPeriodStart: dto.accountingPeriodStart,
-        accountingPeriodEnd: dto.accountingPeriodEnd,
-        finalised: dto.finalised,
-      },
-      client.id,
-    );
+    const payload = {
+      businessId: business.hmrcBusinessId ?? business.id,
+      taxYear: dto.taxYear,
+      typeOfBusiness: dto.typeOfBusiness,
+      accountingPeriodStart: dto.accountingPeriodStart,
+      accountingPeriodEnd: dto.accountingPeriodEnd,
+      finalised: dto.finalised,
+    };
+    const result = isPropertyBusiness(dto.typeOfBusiness)
+      ? await this.hmrc.put<{ processingDate: string }>(itsaUkPropertyEopsPath(client.nino), payload, client.id)
+      : await this.hmrc.post<{ processingDate: string }>(`/income-tax/${client.nino}/eops`, payload, client.id);
     const saved = await this.repo.createEops({
       clientId: client.id,
       businessId: business.id,
@@ -295,7 +333,7 @@ export class ItsaService {
     const validation = await this.finalValidation(client.id, dto.taxYear);
     this.assertValid(validation);
     const result = await this.hmrc.post<{ calculationId: string }>(
-      `/income-tax/${client.nino}/final-declaration`,
+      itsaFinalDeclarationPath(client.nino),
       dto,
       client.id,
     );

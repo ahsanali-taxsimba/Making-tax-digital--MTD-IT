@@ -12,7 +12,7 @@ describe("ItsaService", () => {
   const business = { id: "biz-1", clientId: client.id, type: "self-employment", hmrcBusinessId: "XAIS1", tradingName: "Studio" };
   const user = { id: "u1", firmId: "firm-1" } as never;
 
-  const hmrc = { get: jest.fn(), post: jest.fn() };
+  const hmrc = { get: jest.fn(), post: jest.fn(), put: jest.fn() };
   const clients = { get: jest.fn().mockResolvedValue(client) };
   const repo = {
     findBusiness: jest.fn().mockResolvedValue(business),
@@ -147,12 +147,31 @@ describe("ItsaService", () => {
     );
   });
 
+  it("submits a UK property quarterly update with PUT", async () => {
+    repo.findBusiness.mockResolvedValue({ ...business, type: "uk-property" });
+    hmrc.put.mockResolvedValue({ correlationId: "p1", data: { periodId: "q1" } });
+    await service.submitUpdate(user, client.id, {
+      businessId: business.id,
+      taxYear: "2025-26",
+      periodId: "2026-04-06_2026-07-05",
+      periodStart: "2026-04-06",
+      periodEnd: "2026-07-05",
+      incomes: { ukPropertyIncome: 5000 },
+      expenses: { propertyRepairsAndMaintenance: 10 },
+    });
+    expect(hmrc.put).toHaveBeenCalledWith(
+      "/income-tax/AA123456A/uk-property/periodic",
+      expect.objectContaining({ typeOfBusiness: "uk-property", businessId: "XAIS1" }),
+      "client-1",
+    );
+  });
+
   it("submits a final declaration through HmrcClientService.post", async () => {
     hmrc.post.mockResolvedValue({ correlationId: "f1", data: { calculationId: "calc-9" } });
     const saved = await service.submitFinal(user, client.id, { taxYear: "2025-26", finalised: true });
     expect(saved.id).toBe("fd-1");
     expect(hmrc.post).toHaveBeenCalledWith(
-      "/income-tax/AA123456A/final-declaration",
+      "/income-tax/AA123456A/calculations/final-declaration",
       expect.objectContaining({ taxYear: "2025-26", finalised: true }),
       "client-1",
     );

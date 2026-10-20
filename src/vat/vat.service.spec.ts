@@ -258,6 +258,44 @@ describe("VatService", () => {
     expect(result.validation.errors).toContain("Return is zero but ledger shows transactions – check mapping.");
   });
 
+  it("creates a local VAT return draft without calling HMRC", async () => {
+    prisma.vatObligation.findUnique.mockResolvedValue({
+      id: "ob-1",
+      start: new Date("2026-01-01"),
+      end: new Date("2026-03-31"),
+    });
+    prisma.vatReturn.create.mockResolvedValue({
+      id: "draft-1",
+      periodKey: "26A1",
+      vatDueSales: 100,
+      vatDueAcquisitions: 0,
+      totalVatDue: 100,
+      vatReclaimedCurrPeriod: 0,
+      netVatDue: 100,
+      totalValueSalesExVAT: 500,
+      totalValuePurchasesExVAT: 0,
+      totalValueGoodsSuppliedExVAT: 0,
+      totalAcquisitionsExVAT: 0,
+      status: "DRAFT",
+      finalised: false,
+    });
+    const saved = await service.createDraft(user, client.id, {
+      periodKey: "26A1",
+      fromLedger: false,
+      vatDueSales: 100,
+      vatDueAcquisitions: 0,
+      vatReclaimedCurrPeriod: 0,
+      totalValueSalesExVAT: 500,
+      totalValuePurchasesExVAT: 0,
+      totalValueGoodsSuppliedExVAT: 0,
+      totalAcquisitionsExVAT: 0,
+      finalised: false,
+    });
+    expect(hmrc.post).not.toHaveBeenCalled();
+    expect(saved.status).toBe("DRAFT");
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "vat.return.drafted" }));
+  });
+
   it("syncs VAT payments through HmrcClientService.get", async () => {
     hmrc.get.mockResolvedValue({
       correlationId: "pay-1",

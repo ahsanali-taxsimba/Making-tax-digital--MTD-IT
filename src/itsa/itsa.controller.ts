@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { Throttle } from "@nestjs/throttler";
@@ -42,6 +42,12 @@ export class ItsaEngineController {
     return this.itsa.obligations(user, query.clientId);
   }
 
+  @Get("income-expenses")
+  @ApiOperation({ summary: "Fetch HMRC ITSA income and expenses (sandbox GET /income-tax/{nino}/income-expenses)" })
+  incomeExpenses(@CurrentUser() user: AuthUser, @Query() query: ItsaClientQueryDto) {
+    return this.itsa.incomeAndExpenses(user, query.clientId);
+  }
+
   @Post("quarterly-update")
   @ApiOperation({ summary: "Validate quarterly categories and submit via HmrcClientService POST /income-tax/{nino}/updates" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
@@ -50,10 +56,25 @@ export class ItsaEngineController {
     return this.itsa.submitUpdate(user, dto.clientId, dto);
   }
 
+  @Put("uk-property/periodic")
+  @ApiOperation({ summary: "Submit a UK property periodic update via PUT /income-tax/{nino}/uk-property/periodic" })
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  submitPropertyUpdate(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineQuarterlyDto) {
+    return this.itsa.submitUpdate(user, dto.clientId, dto);
+  }
+
   @Post("eops")
   @ApiOperation({ summary: "Validate EOPS completeness and submit via HmrcClientService POST /income-tax/{nino}/eops" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   submitEops(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineEopsDto) {
+    return this.itsa.submitEops(user, dto.clientId, dto);
+  }
+
+  @Put("uk-property/eops")
+  @ApiOperation({ summary: "Submit a UK property EOPS via PUT /income-tax/{nino}/uk-property/eops" })
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  submitPropertyEops(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineEopsDto) {
     return this.itsa.submitEops(user, dto.clientId, dto);
   }
 
@@ -116,6 +137,11 @@ export class ItsaController {
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   obligations(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.itsa.obligations(user, id);
+  }
+
+  @Get("income-expenses")
+  incomeExpenses(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.itsa.incomeAndExpenses(user, id);
   }
 
   @Get("updates")

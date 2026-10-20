@@ -1,0 +1,19 @@
+{
+  "users": [
+    {
+      "type": "organisation",
+      "userId": "sandbox-org-user",
+      "password": "replace-me",
+      "vrn": "888888888",
+      "services": ["mtd-vat"]
+    },
+    {
+      "type": "individual",
+      "userId": "sandbox-ind-user",
+      "password": "replace-me",
+      "nino": "AA123456A",
+      "mtdItId": "XMIT12345678901",
+      "services": ["mtd-income-tax"]
+    }
+  ]
+}

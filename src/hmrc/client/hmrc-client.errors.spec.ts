@@ -44,4 +44,10 @@ describe("handleHMRCError", () => {
     expect(error.errorCode).toBe(HMRC_ERR.BAD_REQUEST);
     expect(error.message).toContain("periodKey is invalid");
   });
+
+  it("maps 404 / 409 / generic 403 onto dedicated sandbox error codes", () => {
+    expect(handleHMRCError({ status: 404, body: { message: "not found" } }).errorCode).toBe(HMRC_ERR.NOT_FOUND);
+    expect(handleHMRCError({ status: 409, body: { message: "duplicate" } }).errorCode).toBe(HMRC_ERR.CONFLICT);
+    expect(handleHMRCError({ status: 403, body: { message: "denied" } }).errorCode).toBe(HMRC_ERR.FORBIDDEN);
+  });
 });

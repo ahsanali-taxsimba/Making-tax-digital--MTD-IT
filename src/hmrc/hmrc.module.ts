@@ -15,14 +15,19 @@ import { HmrcOAuthController } from "./oauth/hmrc-oauth.controller";
 import { HmrcOAuthRepository } from "./oauth/hmrc-oauth.repository";
 import { HmrcOAuthService } from "./oauth/hmrc-oauth.service";
 import { HmrcTokenRefreshService } from "./oauth/hmrc-token-refresh.service";
+import { HmrcSandboxController } from "./sandbox/hmrc-sandbox.controller";
+import { HmrcSandboxService } from "./sandbox/hmrc-sandbox.service";
+import { HmrcTestUserService } from "./sandbox/hmrc-test-user.service";
 
 @Module({
   imports: [ClientsModule],
-  controllers: [MtdController, HmrcOAuthController],
+  controllers: [MtdController, HmrcOAuthController, HmrcSandboxController],
   providers: [
     TokenCryptoService,
     HmrcHttpClient,
     HmrcAppConfigService,
+    HmrcSandboxService,
+    HmrcTestUserService,
     HmrcOAuthRepository,
     MockHmrcVatGateway,
     MockHmrcItsaGateway,
@@ -38,19 +43,19 @@ import { HmrcTokenRefreshService } from "./oauth/hmrc-token-refresh.service";
       provide: HMRC_VAT,
       inject: [ConfigService, MockHmrcVatGateway, LiveHmrcVatGateway],
       useFactory: (config: ConfigService, mock: MockHmrcVatGateway, live: LiveHmrcVatGateway): HmrcVatGateway =>
-        config.get("hmrc.mode") === "live" ? live : mock,
+        config.get("hmrc.mode") === "mock" ? mock : live,
     },
     {
       provide: HMRC_ITSA,
       inject: [ConfigService, MockHmrcItsaGateway, LiveHmrcItsaGateway],
       useFactory: (config: ConfigService, mock: MockHmrcItsaGateway, live: LiveHmrcItsaGateway): HmrcItsaGateway =>
-        config.get("hmrc.mode") === "live" ? live : mock,
+        config.get("hmrc.mode") === "mock" ? mock : live,
     },
     {
       provide: HMRC_OAUTH,
       inject: [ConfigService, MockHmrcOAuthGateway, LiveHmrcOAuthGateway],
       useFactory: (config: ConfigService, mock: MockHmrcOAuthGateway, live: LiveHmrcOAuthGateway): HmrcOAuthGateway =>
-        config.get("hmrc.mode") === "live" ? live : mock,
+        config.get("hmrc.mode") === "mock" ? mock : live,
     },
   ],
   exports: [HmrcOAuthService, HmrcClientService, MtdConnectionService, TokenCryptoService, HMRC_VAT, HMRC_ITSA, HMRC_OAUTH],

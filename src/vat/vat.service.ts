@@ -163,6 +163,37 @@ export class VatService {
     return rows.map((row) => presentStoredReturn(row));
   }
 
+  async createDraft(user: AuthUser, clientId: string, dto: SubmitVatReturnDto) {
+    const client = await this.requireVatClient(user, clientId);
+    const resolved = await this.resolveReturnForValidation(client.id, { ...dto, fromLedger: dto.fromLedger ?? true });
+    const totals = finaliseVatBoxes(resolved.input);
+    const obligation = await this.prisma.vatObligation.findUnique({
+      where: { clientId_periodKey: { clientId: client.id, periodKey: dto.periodKey } },
+    });
+    const saved = await this.prisma.vatReturn.create({
+      data: {
+        clientId: client.id,
+        obligationId: dto.obligationId ?? obligation?.id,
+        periodStart: resolved.periodStart ? new Date(resolved.periodStart) : obligation?.start,
+        periodEnd: resolved.periodEnd ? new Date(resolved.periodEnd) : obligation?.end,
+        periodKey: dto.periodKey,
+        ...totals,
+        finalised: false,
+        status: "DRAFT",
+      },
+    });
+    await this.audit.record({
+      actor: user,
+      clientId: client.id,
+      actionType: "vat.return.drafted",
+      resourceType: "vat_return",
+      resourceId: saved.id,
+      afterData: { periodKey: saved.periodKey, status: saved.status, netVatDue: String(saved.netVatDue) },
+      metadata: { periodKey: dto.periodKey, vatReturnId: saved.id, sandbox: true },
+    });
+    return presentStoredReturn(saved);
+  }
+
   async listSummaries(user: AuthUser, clientId: string) {
     await this.clients.get(user, clientId);
     return this.repo.listSummaries(clientId);

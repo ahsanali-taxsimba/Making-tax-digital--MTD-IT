@@ -53,6 +53,13 @@ export class VatEngineController {
     return this.vat.fetchHmrcReturn(user, query.clientId, periodKey);
   }
 
+  @Post("returns/draft")
+  @ApiOperation({ summary: "Create a local VAT return draft (boxes 1–9) before HMRC submission" })
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  createDraft(@CurrentUser() user: AuthUser, @Body() dto: VatEngineSubmitDto) {
+    return this.vat.createDraft(user, dto.clientId, dto);
+  }
+
   @Post("returns/submit")
   @ApiOperation({ summary: "Validate VAT boxes 1–9 and submit via HmrcClientService POST /organisations/vat/{vrn}/returns" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
@@ -136,6 +143,12 @@ export class VatController {
     @Param("periodKey") periodKey: string,
   ) {
     return this.vat.fetchHmrcReturn(user, id, periodKey);
+  }
+
+  @Post("returns/draft")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  createDraft(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: SubmitVatReturnDto) {
+    return this.vat.createDraft(user, id, dto);
   }
 
   @Post("returns")

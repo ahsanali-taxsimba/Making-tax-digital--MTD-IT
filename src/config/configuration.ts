@@ -19,7 +19,7 @@ export default () => ({
     minVersion: process.env.TLS_MIN_VERSION ?? "TLSv1.3",
   },
   hmrc: {
-    mode: (process.env.HMRC_MODE ?? "mock") as "mock" | "live",
+    mode: (process.env.HMRC_MODE ?? "mock") as "mock" | "sandbox" | "live",
     environment: (process.env.HMRC_ENVIRONMENT ?? "sandbox") as "sandbox" | "live" | "dev",
     clientId: process.env.HMRC_SANDBOX_CLIENT_ID || process.env.HMRC_CLIENT_ID || "",
     clientSecret: process.env.HMRC_SANDBOX_CLIENT_SECRET || process.env.HMRC_CLIENT_SECRET || "",
@@ -51,6 +51,10 @@ export default () => ({
         process.env.HMRC_SANDBOX_API_BASE ||
         "https://test-api.service.hmrc.gov.uk",
       authBaseUrl: process.env.HMRC_SANDBOX_AUTH_BASE ?? "https://test-www.tax.service.gov.uk",
+      authorizeUrl:
+        process.env.HMRC_SANDBOX_AUTHORIZE_URL ||
+        `${process.env.HMRC_SANDBOX_BASE_URL || process.env.HMRC_SANDBOX_API_BASE || "https://test-api.service.hmrc.gov.uk"}/oauth/authorize`,
+      testUsersFile: process.env.HMRC_SANDBOX_TEST_USERS_FILE ?? "",
     },
     live: {
       clientId: process.env.HMRC_LIVE_CLIENT_ID || process.env.HMRC_CLIENT_ID || "",

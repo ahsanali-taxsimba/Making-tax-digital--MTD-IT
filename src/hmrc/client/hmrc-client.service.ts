@@ -10,6 +10,7 @@ import { parseHmrcEnvironment } from "../oauth/hmrc-oauth.utils";
 import { HMRC_ERR, handleHMRCError, HmrcClientError } from "./hmrc-client.errors";
 import { mockHmrcResponse } from "./hmrc-client.mock";
 import { expandLiveCalls, mergeItsaObligations } from "./hmrc-client.routes";
+import { validateHmrcBody } from "../sandbox/hmrc-payload.schema";
 
 export interface HmrcConnectionRef {
   id?: string;
@@ -51,6 +52,16 @@ export class HmrcClientService {
     return this.request<T>("POST", url, clientId, environment, body, options);
   }
 
+  async put<T>(
+    url: string,
+    body: unknown,
+    clientId: string,
+    environment: "sandbox" | "live" | HmrcEnvironment | string = this.apps.defaultEnvironment(),
+    options?: { accept?: string },
+  ): Promise<HmrcHttpResult<T>> {
+    return this.request<T>("PUT", url, clientId, environment, body, options);
+  }
+
   async handleTokenRefresh(connection: HmrcConnectionRef): Promise<string> {
     try {
       return await this.getValidAccessToken(connection.clientId, connection.environment);
@@ -71,41 +82,60 @@ export class HmrcClientService {
   }
 
   private async request<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT",
     url: string,
     clientId: string,
     environment: string,
     body?: unknown,
     options?: { query?: Record<string, string | undefined>; accept?: string },
   ): Promise<HmrcHttpResult<T>> {
-    const env = parseHmrcEnvironment(String(environment));
-    if (!this.apps.isLiveMode()) {
+    const env = this.apps.forceSandbox()
+      ? parseHmrcEnvironment("sandbox")
+      : parseHmrcEnvironment(String(environment));
+    const sandbox = this.apps.usesSandboxHost(env);
+    if (this.apps.isMockMode()) {
       const mocked = mockHmrcResponse(method, url, body);
       if (mocked) {
         await this.audit.record({
           clientId,
           actionType: "hmrc.client.mock",
-          metadata: { method, url, environment: env },
+          metadata: { method, url, environment: env, sandbox, mode: this.apps.mode() },
         });
         return mocked as HmrcHttpResult<T>;
       }
     }
 
+    const payload = this.apps.callsHmrc() ? validateHmrcBody(method, url, body) : body;
     const token = await this.resolveToken(clientId, env);
     const ctx: HmrcCallContext = { clientId, environment: env, accessToken: token };
-    const calls = expandLiveCalls(method, url, body) ?? [
-      { path: url.split("?")[0], accept: options?.accept, body: method === "POST" ? body : undefined },
+    const calls = expandLiveCalls(method, url, payload) ?? [
+      { method, path: url.split("?")[0], accept: options?.accept, body: method === "GET" ? undefined : payload },
     ];
 
     try {
       const results = await Promise.all(
-        calls.map((call) => this.sendWithRefresh(ctx, method, call.path, { ...options, accept: call.accept, body: call.body })),
+        calls.map((call) =>
+          this.sendWithRefresh(ctx, call.method ?? method, call.path, {
+            ...options,
+            accept: call.accept,
+            body: call.body,
+          }),
+        ),
       );
       const merged = this.mergeIfNeeded(url, results);
       await this.audit.record({
         clientId,
         actionType: "hmrc.client.call",
-        metadata: { method, url, environment: env, correlationId: merged.correlationId, status: merged.status },
+        metadata: {
+          method,
+          url,
+          environment: env,
+          sandbox,
+          mode: this.apps.mode(),
+          correlationId: merged.correlationId,
+          status: merged.status,
+          digitalLinks: looksLikeSubmission(method, url),
+        },
       });
       return merged as HmrcHttpResult<T>;
     } catch (error) {
@@ -116,6 +146,8 @@ export class HmrcClientService {
           method,
           url,
           environment: env,
+          sandbox,
+          mode: this.apps.mode(),
           errorCode: error instanceof HmrcClientError ? error.errorCode : "HMRC_ERR_CONNECTION",
         },
       });
@@ -154,7 +186,8 @@ export class HmrcClientService {
   }
 
   private mergeIfNeeded(url: string, results: Array<{ data: unknown; correlationId: string; status: number }>) {
-    if (/\/income-tax\/[^/]+\/obligations$/.test(url.split("?")[0]) && results.length > 1) {
+    const path = url.split("?")[0];
+    if (/\/income-tax\/[^/]+\/obligations$/.test(path) && results.length > 1) {
       return {
         data: { obligations: mergeItsaObligations(results.map((item) => (item.data ?? {}) as { obligations?: Array<Record<string, string>> })) },
         correlationId: results[0].correlationId,
@@ -168,7 +201,7 @@ export class HmrcClientService {
     try {
       return await this.getValidAccessToken(clientId, environment);
     } catch (error) {
-      if (!this.apps.isLiveMode() && !(error instanceof HmrcOAuthError && error.errorCode === "HMRC_OAUTH_ERR_REFRESH_FAILED")) {
+      if (this.apps.isMockMode() && !(error instanceof HmrcOAuthError && error.errorCode === "HMRC_OAUTH_ERR_REFRESH_FAILED")) {
         this.logger.debug(`Using mock access token for ${clientId}`);
         return "mock-access-token";
       }
@@ -180,4 +213,15 @@ export class HmrcClientService {
       throw error;
     }
   }
+}
+
+function looksLikeSubmission(method: string, url: string): boolean {
+  if (method !== "POST" && method !== "PUT") return false;
+  const path = url.split("?")[0];
+  return (
+    /\/organisations\/vat\/[^/]+\/returns$/.test(path) ||
+    /\/income-tax\/[^/]+\/(updates|eops|final-declaration|uk-property\/periodic|uk-property\/eops|calculations\/final-declaration)$/.test(
+      path,
+    )
+  );
 }

@@ -12,6 +12,11 @@ describe("HmrcClientService HMRC calls", () => {
   const http = { send: jest.fn() };
   const apps = {
     isLiveMode: jest.fn().mockReturnValue(true),
+    isMockMode: jest.fn().mockReturnValue(false),
+    callsHmrc: jest.fn().mockReturnValue(true),
+    forceSandbox: jest.fn().mockReturnValue(true),
+    usesSandboxHost: jest.fn().mockReturnValue(true),
+    mode: jest.fn().mockReturnValue("sandbox"),
     defaultEnvironment: jest.fn().mockReturnValue(HmrcEnvironment.SANDBOX),
   };
   const audit = { record: jest.fn() };
@@ -21,6 +26,11 @@ describe("HmrcClientService HMRC calls", () => {
     jest.clearAllMocks();
     oauth.getValidAccessToken.mockResolvedValue("live-token");
     apps.isLiveMode.mockReturnValue(true);
+    apps.isMockMode.mockReturnValue(false);
+    apps.callsHmrc.mockReturnValue(true);
+    apps.forceSandbox.mockReturnValue(true);
+    apps.usesSandboxHost.mockReturnValue(true);
+    apps.mode.mockReturnValue("sandbox");
   });
 
   it("GET VAT obligations", async () => {
@@ -53,14 +63,22 @@ describe("HmrcClientService HMRC calls", () => {
       body: { processingDate: "2026-04-01T00:00:00Z", formBundleNumber: "FB1" },
       correlationId: "vat-sub",
     });
-    const result = await service.post(
-      "/organisations/vat/888888888/returns",
-      { periodKey: "26A1", finalised: true },
-      "client-1",
-      "sandbox",
-    );
+    const boxes = {
+      periodKey: "26A1",
+      vatDueSales: 100,
+      vatDueAcquisitions: 0,
+      totalVatDue: 100,
+      vatReclaimedCurrPeriod: 0,
+      netVatDue: 100,
+      totalValueSalesExVAT: 500,
+      totalValuePurchasesExVAT: 0,
+      totalValueGoodsSuppliedExVAT: 0,
+      totalAcquisitionsExVAT: 0,
+      finalised: true,
+    };
+    const result = await service.post("/organisations/vat/888888888/returns", boxes, "client-1", "sandbox");
     expect(result.data).toEqual(expect.objectContaining({ formBundleNumber: "FB1" }));
-    expect(http.send.mock.calls[0][3]).toEqual(expect.objectContaining({ body: { periodKey: "26A1", finalised: true } }));
+    expect(http.send.mock.calls[0][3]).toEqual(expect.objectContaining({ body: boxes }));
   });
 
   it("GET VAT payments", async () => {
@@ -109,6 +127,56 @@ describe("HmrcClientService HMRC calls", () => {
       "client-1",
     );
     expect(http.send.mock.calls[0][2]).toContain("/individuals/business/end-of-period-statement/nino/AA123456A/XAIS1");
+  });
+
+  it("PUT ITSA UK property periodic update", async () => {
+    http.send.mockResolvedValue({ ok: true, status: 200, body: { periodId: "q1" }, correlationId: "prop" });
+    await service.put(
+      "/income-tax/AA123456A/uk-property/periodic",
+      {
+        businessId: "XAIS1",
+        taxYear: "2025-26",
+        periodId: "q1",
+        periodStart: "2026-04-06",
+        periodEnd: "2026-07-05",
+        incomes: { periodAmount: 10 },
+        expenses: {},
+        typeOfBusiness: "uk-property",
+      },
+      "client-1",
+      "sandbox",
+    );
+    expect(http.send.mock.calls[0][1]).toBe("PUT");
+    expect(http.send.mock.calls[0][2]).toBe("/individuals/business/property/uk/AA123456A/XAIS1/2025-26/q1");
+  });
+
+  it("GET ITSA income and expenses", async () => {
+    http.send.mockResolvedValue({ ok: true, status: 200, body: { obligations: [] }, correlationId: "ie" });
+    await service.get("/income-tax/AA123456A/income-expenses", "client-1", "sandbox");
+    expect(http.send.mock.calls[0][2]).toBe("/obligations/details/AA123456A/income-and-expenditure");
+  });
+
+  it("maps sandbox 404 and 409", async () => {
+    http.send.mockResolvedValue({ ok: false, status: 404, body: { message: "missing" }, correlationId: "n" });
+    await expect(service.get("/organisations/vat/888888888/payments", "client-1")).rejects.toMatchObject({
+      errorCode: HMRC_ERR.NOT_FOUND,
+    });
+    http.send.mockResolvedValue({ ok: false, status: 409, body: { message: "already submitted" }, correlationId: "d" });
+    await expect(
+      service.post("/organisations/vat/888888888/returns", {
+        periodKey: "26A1",
+        vatDueSales: 1,
+        vatDueAcquisitions: 0,
+        totalVatDue: 1,
+        vatReclaimedCurrPeriod: 0,
+        netVatDue: 1,
+        totalValueSalesExVAT: 1,
+        totalValuePurchasesExVAT: 0,
+        totalValueGoodsSuppliedExVAT: 0,
+        totalAcquisitionsExVAT: 0,
+        finalised: true,
+      }, "client-1"),
+    ).rejects.toMatchObject({ errorCode: HMRC_ERR.CONFLICT });
   });
 
   it("POST ITSA final declaration", async () => {

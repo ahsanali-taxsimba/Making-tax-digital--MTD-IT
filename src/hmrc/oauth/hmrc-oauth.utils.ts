@@ -8,6 +8,7 @@ export interface HmrcAppSettings {
   redirectUri: string;
   baseUrl: string;
   authBaseUrl: string;
+  authorizeUrl?: string;
 }
 
 export function parseHmrcEnvironment(value?: string | null): HmrcEnvironment {
@@ -31,7 +32,7 @@ export function parseHmrcEnvironment(value?: string | null): HmrcEnvironment {
 }
 
 export function buildHmrcAuthorizeUrl(app: HmrcAppSettings, state: string, scopes: string[]): string {
-  const url = new URL("/oauth/authorize", app.authBaseUrl);
+  const url = app.authorizeUrl ? new URL(app.authorizeUrl) : new URL("/oauth/authorize", app.authBaseUrl);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", app.clientId);
   url.searchParams.set("redirect_uri", app.redirectUri);

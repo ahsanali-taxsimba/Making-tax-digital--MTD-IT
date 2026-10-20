@@ -72,7 +72,7 @@ VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callb
 | Assistant | wendy.h@example.net | PracticeAdmin123! |
 | Client portal | tom.h@example.org | PracticeAdmin123! |
 
-`HMRC_MODE=mock` is the default. `HmrcClientService` then returns canned VAT/ITSA obligations and accepts submissions so the full accountant workflow can be exercised without HMRC credentials. In `HMRC_MODE=live` the same `get`/`post` methods refresh tokens and call the official HMRC APIs.
+`HMRC_MODE=mock` is the default. `HmrcClientService` then returns canned VAT/ITSA obligations and accepts submissions so the full accountant workflow can be exercised without HMRC credentials. `HMRC_MODE=sandbox` calls the real HMRC sandbox (`https://test-api.service.hmrc.gov.uk`) for OAuth, VAT, and ITSA. `HMRC_MODE=live` uses production HMRC hosts when `HMRC_ENVIRONMENT=live`. The API Gateway injects `x-mtd-hmrc-sandbox`, `x-mtd-hmrc-mode`, and `x-mtd-hmrc-environment` on every response. `GET /hmrc/environment` returns the active flag and URL catalog.
 
 `YAPILY_MODE=mock` is the default for Open Banking. `POST /yapily/consent/start` returns a mock authorisation URL; after the callback the consent token is encrypted at rest and never returned to the browser. `GET /yapily/accounts` upserts bank accounts, `GET /yapily/accounts/:id/transactions` enriches merchant/category fields and can `autoPost=true` to match invoices/bills or post bank-feed journals, and `GET /yapily/accounts/:id/balance` updates `BankAccount.balance`. Unmatched lines stay available to `POST /bookkeeping/bank/accounts/:id/reconcile`.
 
@@ -80,7 +80,7 @@ VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callb
 
 Every HMRC failure is returned as `{ data: null, error: { errorCode, message, details? } }` with one of:
 
-`HMRC_ERR_TOKEN_EXPIRED` · `HMRC_ERR_TOKEN_REFRESH_FAILED` · `HMRC_ERR_UNAUTHORISED` · `HMRC_ERR_INVALID_SCOPE` · `HMRC_ERR_RATE_LIMIT` · `HMRC_ERR_SERVER` · `HMRC_ERR_BAD_REQUEST` · `HMRC_ERR_CONNECTION`
+`HMRC_ERR_TOKEN_EXPIRED` · `HMRC_ERR_TOKEN_REFRESH_FAILED` · `HMRC_ERR_UNAUTHORISED` · `HMRC_ERR_INVALID_SCOPE` · `HMRC_ERR_FORBIDDEN` · `HMRC_ERR_NOT_FOUND` · `HMRC_ERR_CONFLICT` · `HMRC_ERR_RATE_LIMIT` · `HMRC_ERR_SERVER` · `HMRC_ERR_BAD_REQUEST` · `HMRC_ERR_CONNECTION`
 
 ## Connect to the HMRC sandbox
 
@@ -90,17 +90,19 @@ Every HMRC failure is returned as `{ data: null, error: { errorCode, message, de
 4. Put the client id/secret in `.env` and set:
 
 ```env
-HMRC_MODE=live
+HMRC_MODE=sandbox
 HMRC_ENVIRONMENT=sandbox
 HMRC_SANDBOX_CLIENT_ID=...
 HMRC_SANDBOX_CLIENT_SECRET=...
-HMRC_SANDBOX_REDIRECT_URI=http://localhost:3000/hmrc/oauth/callback
+HMRC_SANDBOX_REDIRECT_URI=http://localhost:2327/hmrc/callback
 HMRC_SANDBOX_BASE_URL=https://test-api.service.hmrc.gov.uk
+HMRC_SANDBOX_AUTHORIZE_URL=https://test-api.service.hmrc.gov.uk/oauth/authorize
 ```
 
-5. Create a sandbox organisation (VAT) and individual (ITSA) test user.
-6. `GET /hmrc/oauth/start?clientId=&environment=sandbox` and complete the HMRC grant screen.
-7. Fetch obligations, then submit a VAT return or quarterly update.
+5. Create a sandbox organisation (VAT) and individual (ITSA) test user:
+   `POST /hmrc/sandbox/test-users` with `{ "type": "organisation" }` or `{ "type": "individual" }`, or load credentials from `HMRC_SANDBOX_TEST_USERS_FILE`.
+6. `POST /hmrc/sandbox/test-users/:id/login` with `{ "clientId": "..." }` returns the grant URL plus the test-user password. Complete the HMRC grant screen.
+7. Fetch VAT obligations (`GET /vat/obligations`) or ITSA obligations (`GET /itsa/obligations`), create a VAT draft (`POST /vat/returns/draft`), then submit (`POST /vat/returns/submit`). ITSA: `PUT /itsa/uk-property/periodic`, `PUT /itsa/uk-property/eops`, `POST /itsa/final-declaration`. Digital links remain at `GET /digital-links/:resourceId` and `GET /digital-links/itsa/:resourceId`.
 
 Fraud-prevention headers are attached on every live HMRC call. Production access still requires HMRC’s own approval process.
 

@@ -5,6 +5,9 @@ export const HMRC_ERR = {
   TOKEN_REFRESH_FAILED: "HMRC_ERR_TOKEN_REFRESH_FAILED",
   UNAUTHORISED: "HMRC_ERR_UNAUTHORISED",
   INVALID_SCOPE: "HMRC_ERR_INVALID_SCOPE",
+  FORBIDDEN: "HMRC_ERR_FORBIDDEN",
+  NOT_FOUND: "HMRC_ERR_NOT_FOUND",
+  CONFLICT: "HMRC_ERR_CONFLICT",
   RATE_LIMIT: "HMRC_ERR_RATE_LIMIT",
   SERVER: "HMRC_ERR_SERVER",
   BAD_REQUEST: "HMRC_ERR_BAD_REQUEST",
@@ -50,8 +53,23 @@ export function handleHMRCError(
   if (status === 401) {
     return new HmrcClientError(HMRC_ERR.UNAUTHORISED, "HMRC rejected the access token", payload, 401, response.correlationId);
   }
-  if (status === 403 || /scope/.test(blob)) {
+  if (status === 403 && /scope/.test(blob)) {
     return new HmrcClientError(HMRC_ERR.INVALID_SCOPE, "HMRC token is missing a required scope", payload, 403, response.correlationId);
+  }
+  if (status === 403) {
+    return new HmrcClientError(HMRC_ERR.FORBIDDEN, message || "HMRC refused the request", payload, 403, response.correlationId);
+  }
+  if (status === 404) {
+    return new HmrcClientError(HMRC_ERR.NOT_FOUND, message || "HMRC resource was not found", payload, 404, response.correlationId);
+  }
+  if (status === 409) {
+    return new HmrcClientError(
+      HMRC_ERR.CONFLICT,
+      message || "HMRC rejected a duplicate submission",
+      payload,
+      409,
+      response.correlationId,
+    );
   }
   if (status === 429) {
     return new HmrcClientError(HMRC_ERR.RATE_LIMIT, "HMRC rate limit exceeded", payload, 429, response.correlationId);
@@ -68,7 +86,12 @@ function statusFor(code: HmrcClientErrorCode): number {
     case HMRC_ERR.UNAUTHORISED:
       return 401;
     case HMRC_ERR.INVALID_SCOPE:
+    case HMRC_ERR.FORBIDDEN:
       return 403;
+    case HMRC_ERR.NOT_FOUND:
+      return 404;
+    case HMRC_ERR.CONFLICT:
+      return 409;
     case HMRC_ERR.RATE_LIMIT:
       return 429;
     case HMRC_ERR.SERVER:

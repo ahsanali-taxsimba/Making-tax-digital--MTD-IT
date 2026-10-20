@@ -65,6 +65,11 @@ enum HmrcEnvironment {
   LIVE
 }
 
+enum HmrcTestUserKind {
+  ORGANISATION
+  INDIVIDUAL
+}
+
 enum ObligationStatus {
   OPEN
   FULFILLED
@@ -1041,6 +1046,28 @@ model HmrcInteraction {
   responseBody  Json?
   errorCode     String?
   createdAt     DateTime @default(now())
+}
+
+/// HMRC Developer Hub sandbox test users (create-test-user API).
+model HmrcSandboxTestUser {
+  id          String            @id @default(uuid())
+  kind        HmrcTestUserKind
+  hmrcUserId  String
+  passwordEnc String
+  vrn         String?
+  nino        String?
+  saUtr       String?
+  mtdItId     String?
+  ctUtr       String?
+  eoriNumber  String?
+  services    String[]
+  clientId    String?
+  rawPayload  Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([kind])
+  @@index([clientId])
 }
 
 enum MatchingStatus {

@@ -19,5 +19,8 @@ describe("mapHmrcError", () => {
     expect(mapHmrcError(429, {}).code).toBe("HMRC_ERR_RATE_LIMIT");
     expect(mapHmrcError(0, {}).code).toBe("HMRC_ERR_CONNECTION");
     expect(mapHmrcError(400, {}).code).toBe("HMRC_ERR_BAD_REQUEST");
+    expect(mapHmrcError(403, {}).code).toBe("HMRC_ERR_FORBIDDEN");
+    expect(mapHmrcError(404, {}).code).toBe("HMRC_ERR_NOT_FOUND");
+    expect(mapHmrcError(409, {}).code).toBe("HMRC_ERR_CONFLICT");
   });
 });

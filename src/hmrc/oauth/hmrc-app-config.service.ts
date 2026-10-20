@@ -3,6 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import { HmrcEnvironment } from "@prisma/client";
 import { TokenCryptoService } from "../../common/crypto/token-crypto.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { hmrcCallsUpstream, hmrcUsesSandboxHost, parseHmrcMode, HmrcRuntimeMode } from "../sandbox/hmrc-sandbox.mode";
+import { HMRC_SANDBOX_API_BASE, HMRC_SANDBOX_AUTH_BASE } from "../sandbox/hmrc-sandbox.urls";
 import { assertAppConfigured, HmrcAppSettings, parseHmrcEnvironment } from "./hmrc-oauth.utils";
 
 @Injectable()
@@ -34,17 +36,20 @@ export class HmrcAppConfigService implements OnModuleInit {
       baseUrl: block?.baseUrl ?? this.config.get<string>(env === "LIVE" ? "hmrc.liveApiBase" : "hmrc.sandboxApiBase") ?? "",
       authBaseUrl:
         block?.authBaseUrl ?? this.config.get<string>(env === "LIVE" ? "hmrc.liveAuthBase" : "hmrc.sandboxAuthBase") ?? "",
+      authorizeUrl: block?.authorizeUrl,
     };
   }
 
   requireSettings(environment: HmrcEnvironment | string, requireSecrets = false): HmrcAppSettings {
     const app = this.settings(environment);
-    const liveMode = this.config.get<string>("hmrc.mode") === "live";
-    assertAppConfigured(app, requireSecrets || liveMode);
+    assertAppConfigured(app, requireSecrets || this.callsHmrc());
     return app;
   }
 
   defaultEnvironment(): HmrcEnvironment {
+    if (this.forceSandbox()) {
+      return HmrcEnvironment.SANDBOX;
+    }
     return parseHmrcEnvironment(this.config.get<string>("hmrc.environment"));
   }
 
@@ -56,8 +61,48 @@ export class HmrcAppConfigService implements OnModuleInit {
     return this.config.get<number>("hmrc.refreshSkewMs") ?? 60_000;
   }
 
+  mode(): HmrcRuntimeMode {
+    return parseHmrcMode(this.config.get<string>("hmrc.mode"));
+  }
+
   isLiveMode(): boolean {
-    return this.config.get<string>("hmrc.mode") === "live";
+    return this.mode() === "live";
+  }
+
+  isSandboxMode(): boolean {
+    return this.mode() === "sandbox";
+  }
+
+  isMockMode(): boolean {
+    return !this.callsHmrc();
+  }
+
+  callsHmrc(): boolean {
+    return hmrcCallsUpstream(this.mode());
+  }
+
+  forceSandbox(): boolean {
+    return this.mode() === "sandbox";
+  }
+
+  usesSandboxHost(environment?: HmrcEnvironment | string): boolean {
+    return hmrcUsesSandboxHost(this.mode(), environment ?? this.defaultEnvironment());
+  }
+
+  sandboxFlag(): boolean {
+    return this.usesSandboxHost();
+  }
+
+  testUsersFile(): string {
+    return this.config.get<string>("hmrc.sandbox.testUsersFile") ?? "";
+  }
+
+  sandboxApiBase(): string {
+    return this.settings(HmrcEnvironment.SANDBOX).baseUrl || HMRC_SANDBOX_API_BASE;
+  }
+
+  sandboxAuthBase(): string {
+    return this.settings(HmrcEnvironment.SANDBOX).authBaseUrl || HMRC_SANDBOX_AUTH_BASE;
   }
 
   private async persistFromEnv(environment: HmrcEnvironment): Promise<void> {

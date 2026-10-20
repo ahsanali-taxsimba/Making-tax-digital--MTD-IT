@@ -13,7 +13,22 @@ export class HmrcApiError extends Error {
 
 export function mapHmrcError(status: number, body: unknown, correlationId?: string): HmrcApiError {
   const payload = (body ?? {}) as { code?: string; message?: string; errors?: unknown };
-  const mapped = status === 401 ? "HMRC_ERR_UNAUTHORISED" : status === 429 ? "HMRC_ERR_RATE_LIMIT" : status >= 500 ? "HMRC_ERR_SERVER" : status === 0 ? "HMRC_ERR_CONNECTION" : "HMRC_ERR_BAD_REQUEST";
+  const mapped =
+    status === 401
+      ? "HMRC_ERR_UNAUTHORISED"
+      : status === 403
+        ? "HMRC_ERR_FORBIDDEN"
+        : status === 404
+          ? "HMRC_ERR_NOT_FOUND"
+          : status === 409
+            ? "HMRC_ERR_CONFLICT"
+            : status === 429
+              ? "HMRC_ERR_RATE_LIMIT"
+              : status >= 500
+                ? "HMRC_ERR_SERVER"
+                : status === 0
+                  ? "HMRC_ERR_CONNECTION"
+                  : "HMRC_ERR_BAD_REQUEST";
   const code = payload.code ?? mapped;
   const message = payload.message ?? "HMRC request failed";
   return new HmrcApiError(code, message, status, payload, correlationId);
