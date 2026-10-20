@@ -781,3 +781,16 @@ readinessProbe:
 ```
 
 Map container port `8080` to the NestJS listen port (`PORT`, default 3000). A 200 means the process can take traffic. A 503 means the database is unreachable.
+
+### Pre-stop grace
+
+On SIGTERM, Kubernetes runs `preStop` before the container is killed. Sleep 5 seconds so the Service can drop the pod from endpoints and in-flight requests can finish.
+
+```yaml
+lifecycle:
+  preStop:
+    exec:
+      command: ["/bin/sh", "-c", "sleep 5"]
+```
+
+Pair this with `terminationGracePeriodSeconds` of at least 15 so NestJS can drain after the sleep.
