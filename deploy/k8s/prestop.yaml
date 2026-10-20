@@ -1,0 +1,6 @@
+# Attach to each API / service Deployment.
+# Gives kube-proxy time to remove the pod from endpoints before SIGKILL.
+lifecycle:
+  preStop:
+    exec:
+      command: ["/bin/sh", "-c", "sleep 5"]

@@ -1,0 +1,9 @@
+# Attach to each API / service Deployment.
+# GET /health/ready pings PostgreSQL and is unauthenticated.
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3

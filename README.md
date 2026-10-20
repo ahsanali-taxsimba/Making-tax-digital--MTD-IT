@@ -8,6 +8,8 @@ NestJS is the application framework because it gives modular boundaries, first-c
 
 ## Architecture
 
+Role routing, module boundaries, and tenant isolation are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ```
 controllers  →  VAT / ITSA / OAuth modules  →  repositories / Prisma
                             ↓
