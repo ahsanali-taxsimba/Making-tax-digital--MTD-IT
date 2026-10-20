@@ -29,6 +29,7 @@ controllers  →  VAT / ITSA / OAuth modules  →  repositories / Prisma
 - **ITSA engine:** quarterly updates, EOPS, and Final Declaration go through a coded validator (period, category, capital exclusion, zero-update, missing EOPS/FD). Public routes live at `/itsa/*`; client-scoped aliases remain at `/clients/:id/itsa/*`.
 - **VAT engine:** HMRC obligations, returns, payments, and OAuth sit behind a Notice 700/12 validator. Boxes 1–9 are rolled from the ledger, checked with coded errors (`VAT_ERR_ARITHMETIC`, `VAT_ERR_PERIOD_MISMATCH`, …), and submitted only when valid. Public routes live at `/vat/*`; client-scoped aliases remain at `/clients/:id/vat/*`.
 - **Bookkeeping engine:** double-entry journals, sales invoices, purchase bills, bank feeds, and period-locked reports. VAT boxes 1/4/6/7 and ITSA category totals are rolled from posted journals for the MTD engines. Public routes live at `/bookkeeping/*`.
+- **Yapily Open Banking:** `/yapily/consent/*` starts and stores an encrypted bank-feed consent. `/yapily/accounts` syncs accounts, transactions, and balances into `BankAccount` / `BankTransaction` for reconciliation. `YAPILY_MODE=mock` returns canned Starling-style feeds.
 
 ## Local development
 
@@ -69,6 +70,8 @@ VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callb
 | Client portal | tom.h@example.org | PracticeAdmin123! |
 
 `HMRC_MODE=mock` is the default. `HmrcClientService` then returns canned VAT/ITSA obligations and accepts submissions so the full accountant workflow can be exercised without HMRC credentials. In `HMRC_MODE=live` the same `get`/`post` methods refresh tokens and call the official HMRC APIs.
+
+`YAPILY_MODE=mock` is the default for Open Banking. `POST /yapily/consent/start` returns a mock authorisation URL; after the callback the consent token is encrypted at rest and never returned to the browser. `GET /yapily/accounts` upserts bank accounts, `GET /yapily/accounts/:id/transactions` enriches merchant/category fields and can `autoPost=true` to match invoices/bills or post bank-feed journals, and `GET /yapily/accounts/:id/balance` updates `BankAccount.balance`. Unmatched lines stay available to `POST /bookkeeping/bank/accounts/:id/reconcile`.
 
 ### Shared HMRC errors
 

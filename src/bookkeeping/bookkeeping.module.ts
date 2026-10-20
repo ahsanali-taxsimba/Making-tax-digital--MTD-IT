@@ -21,6 +21,6 @@ import { ReportsService } from "./reports.service";
     BookkeepingChartService,
     BookkeepingService,
   ],
-  exports: [BookkeepingService, ReportsService, JournalService],
+  exports: [BookkeepingService, ReportsService, JournalService, BankService, BookkeepingRepository],
 })
 export class BookkeepingModule {}

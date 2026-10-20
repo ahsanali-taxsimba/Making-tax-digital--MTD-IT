@@ -11,6 +11,7 @@ import { BookkeepingError } from "../../bookkeeping/bookkeeping.errors";
 import { HmrcClientError } from "../../hmrc/client/hmrc-client.errors";
 import { HmrcApiError } from "../../hmrc/hmrc.errors";
 import { HmrcOAuthError } from "../../hmrc/oauth/hmrc-oauth.errors";
+import { YapilyError } from "../../yapily/yapily.errors";
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -19,7 +20,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
 
-    if (exception instanceof HmrcOAuthError || exception instanceof HmrcClientError) {
+    if (exception instanceof HmrcOAuthError || exception instanceof HmrcClientError || exception instanceof YapilyError) {
       const body = exception.getResponse();
       const message =
         typeof body === "object" && body && "message" in body
