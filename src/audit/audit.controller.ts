@@ -103,4 +103,22 @@ export class AuditController {
   vatReturn(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.links.getVatReturn(user, id);
   }
+
+  @Get("itsa/updates/id/:id")
+  @ApiOperation({ summary: "Stored quarterly update incomes, expenses and HMRC id" })
+  quarterlyUpdate(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.links.getQuarterlyUpdate(user, id);
+  }
+
+  @Get("itsa/eops/id/:id")
+  @ApiOperation({ summary: "Stored EOPS period summary and HMRC id" })
+  eops(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.links.getEops(user, id);
+  }
+
+  @Get("itsa/final-declaration/id/:id")
+  @ApiOperation({ summary: "Stored final declaration calculation and HMRC id" })
+  finalDeclaration(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.links.getFinalDeclaration(user, id);
+  }
 }

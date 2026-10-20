@@ -70,9 +70,11 @@ describe("role routing", () => {
     expect(canAccessPath(accountant, "/practice/vat")).toBe(true);
     expect(canAccessPath(accountant, "/practice/audit")).toBe(true);
     expect(canAccessPath(accountant, "/practice/digital-links/doc-1")).toBe(true);
+    expect(canAccessPath(accountant, "/practice/digital-links/itsa/q1")).toBe(true);
     expect(canAccessPath(staff, "/practice/vat")).toBe(true);
     expect(canAccessPath(staff, "/practice/audit")).toBe(false);
     expect(canAccessPath(staff, "/practice/digital-links/doc-1")).toBe(false);
+    expect(canAccessPath(staff, "/practice/digital-links/itsa/q1")).toBe(false);
     expect(canAccessPath(client, "/practice/clients")).toBe(false);
     expect(canAccessPath(client, "/practice/audit")).toBe(false);
     expect(canAccessPath(client, "/client/documents")).toBe(true);

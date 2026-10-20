@@ -365,9 +365,9 @@ function nodesToEntities(links: DigitalLinks): LinkedEntity[] {
     ["bank_transaction", links.bankTransaction, links.bankTransaction.id ? `/practice/digital-links/${links.bankTransaction.id}` : "/practice/reconciliation"],
     ["invoice", links.invoice, links.invoice.id ? `/practice/digital-links/${links.invoice.id}` : "/practice/documents"],
     ["vat_return", links.vatReturn, links.vatReturn.id ? `/practice/digital-links/${links.vatReturn.id}` : "/practice/vat"],
-    ["itsa_submission", links.quarterlyUpdate, "/practice/itsa"],
-    ["itsa_submission", links.eops, "/practice/itsa"],
-    ["itsa_submission", links.finalDeclaration, "/practice/itsa"],
+    ["itsa_submission", links.quarterlyUpdate, links.quarterlyUpdate.id ? `/practice/digital-links/itsa/${links.quarterlyUpdate.id}` : "/practice/itsa"],
+    ["itsa_submission", links.eops, links.eops.id ? `/practice/digital-links/itsa/${links.eops.id}` : "/practice/itsa"],
+    ["itsa_submission", links.finalDeclaration, links.finalDeclaration.id ? `/practice/digital-links/itsa/${links.finalDeclaration.id}` : "/practice/itsa"],
   ];
   return nodes
     .filter(([, node]) => node.linked && node.id)
@@ -390,7 +390,7 @@ function metadataEntities(entry: AuditLogEntry): LinkedEntity[] {
     ["bill", stringOrNull(meta.billId), "/practice/documents"],
     ["journal", stringOrNull(meta.journalId) ?? stringOrNull(meta.journalEntryId), "/practice/reconciliation"],
     ["vat_return", stringOrNull(meta.vatReturnId), "/practice/vat"],
-    ["itsa_submission", stringOrNull(meta.itsaSubmissionId), "/practice/itsa"],
+    ["itsa_submission", stringOrNull(meta.itsaSubmissionId), meta.itsaSubmissionId ? `/practice/digital-links/itsa/${meta.itsaSubmissionId}` : "/practice/itsa"],
   ];
   return pairs
     .filter(([, id]) => Boolean(id))

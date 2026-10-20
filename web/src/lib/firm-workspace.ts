@@ -22,6 +22,9 @@ export interface FirmItsaSubmissionRow {
   clientId: string;
   taxYear: string;
   status: string;
+  kind?: "quarterly" | "eops" | "final";
+  label?: string;
+  periodId?: string;
   createdAt?: string;
 }
 
