@@ -11,6 +11,13 @@ export default () => ({
     refreshTtlDays: parseInt(process.env.JWT_REFRESH_TTL_DAYS ?? "7", 10),
   },
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? "",
+  tokenEncryptionKeyPrevious: process.env.TOKEN_ENCRYPTION_KEY_PREVIOUS ?? "",
+  mfa: {
+    enforce: process.env.MFA_ENFORCE === "true" || process.env.NODE_ENV === "production",
+  },
+  tls: {
+    minVersion: process.env.TLS_MIN_VERSION ?? "TLSv1.3",
+  },
   hmrc: {
     mode: (process.env.HMRC_MODE ?? "mock") as "mock" | "live",
     environment: (process.env.HMRC_ENVIRONMENT ?? "sandbox") as "sandbox" | "live" | "dev",

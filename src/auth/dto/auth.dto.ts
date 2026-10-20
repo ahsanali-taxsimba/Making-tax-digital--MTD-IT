@@ -23,3 +23,20 @@ export class LogoutDto {
   @IsString()
   refreshToken!: string;
 }
+
+export class MfaChallengeDto {
+  @ApiProperty()
+  @IsString()
+  mfaChallengeToken!: string;
+}
+
+export class MfaVerifyDto {
+  @ApiProperty()
+  @IsString()
+  mfaChallengeToken!: string;
+
+  @ApiProperty({ example: "123456" })
+  @IsString()
+  @MinLength(6)
+  code!: string;
+}

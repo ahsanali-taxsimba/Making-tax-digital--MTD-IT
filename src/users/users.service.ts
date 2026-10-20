@@ -1,9 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import * as bcrypt from "bcrypt";
 import { UserRole, UserStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { AuthUser } from "../common/types";
+import { PasswordHasher } from "../security/password-hasher";
 import { CreateUserDto, UpdateUserDto } from "./dto/user.dto";
 
 @Injectable()
@@ -11,6 +11,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly hasher: PasswordHasher,
   ) {}
 
   async list(user: AuthUser) {
@@ -29,7 +30,7 @@ export class UsersService {
     if (dto.role === UserRole.CLIENT && !dto.clientId) {
       throw new BadRequestException("Client portal users must be linked to a client");
     }
-    const passwordHash = dto.password ? await bcrypt.hash(dto.password, 10) : null;
+    const passwordHash = dto.password ? await this.hashPassword(dto.password) : null;
     const created = await this.prisma.user.create({
       data: {
         name: dto.name,
@@ -50,7 +51,7 @@ export class UsersService {
     if (id === actor.id && dto.status && dto.status !== UserStatus.ACTIVE) {
       throw new BadRequestException("You cannot deactivate your own account");
     }
-    const passwordHash = dto.password ? await bcrypt.hash(dto.password, 10) : undefined;
+    const passwordHash = dto.password ? await this.hashPassword(dto.password) : undefined;
     const updated = await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -90,8 +91,17 @@ export class UsersService {
     return user;
   }
 
+  private async hashPassword(password: string) {
+    try {
+      this.hasher.assertPolicy(password);
+    } catch {
+      throw new BadRequestException("Password must be at least 12 characters with upper, lower, and a digit");
+    }
+    return this.hasher.hash(password);
+  }
+
   private publicUser(user: { passwordHash?: string | null } & Record<string, unknown>) {
-    const { passwordHash: _hash, ...rest } = user;
+    const { passwordHash: _hash, mfaSecretEnc: _secret, ...rest } = user;
     return rest;
   }
 }

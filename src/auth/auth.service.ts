@@ -1,12 +1,15 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
 import { createHash, randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { publicFirmRole, publicPlatformRole } from "../authorization/domain/roles";
 import { AuthUser, JwtPayload } from "../common/types";
+import { AlertsService } from "../security/alerts.service";
+import { MetricsService } from "../security/metrics.service";
+import { MfaService } from "../security/mfa.service";
+import { PasswordHasher } from "../security/password-hasher";
 import { PlatformRole, UserRole } from "@prisma/client";
 
 @Injectable()
@@ -16,6 +19,10 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
+    private readonly hasher: PasswordHasher,
+    private readonly mfa: MfaService,
+    private readonly alerts: AlertsService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async login(email: string, password: string) {
@@ -23,37 +30,92 @@ export class AuthService {
     const platform = await this.prisma.platformUser.findUnique({ where: { email: normalised } });
     if (platform) {
       if (!platform.passwordHash || !platform.isActive) {
-        throw new UnauthorizedException("Invalid credentials");
+        await this.failLogin(normalised, "platform");
       }
-      const ok = await bcrypt.compare(password, platform.passwordHash);
+      const ok = await this.hasher.verify(password, platform.passwordHash!);
       if (!ok) {
-        throw new UnauthorizedException("Invalid credentials");
+        await this.failLogin(normalised, "platform");
       }
-      const tokens = await this.issuePlatformTokens(platform);
-      await this.audit.record({
-        actionType: "auth.login",
-        metadata: { email: platform.email, principal: "platform", role: platform.role },
-      });
-      return { ...tokens, user: this.toPlatformAuthUser(platform) };
+      await this.maybeRehash("platform", platform.id, password, platform.passwordHash!);
+      const user = this.toPlatformAuthUser(platform);
+      return this.afterPassword(user, { kind: "platform", row: platform });
     }
     const user = await this.prisma.user.findUnique({ where: { email: normalised } });
     if (!user?.passwordHash || user.status !== "ACTIVE") {
-      throw new UnauthorizedException("Invalid credentials");
+      await this.failLogin(normalised, "firm");
     }
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    const ok = await this.hasher.verify(password, user!.passwordHash!);
     if (!ok) {
-      throw new UnauthorizedException("Invalid credentials");
+      await this.failLogin(normalised, "firm");
     }
-    const tokens = await this.issueTokens(user);
+    await this.maybeRehash("firm", user!.id, password, user!.passwordHash!);
+    const authUser = this.toAuthUser(user!);
+    return this.afterPassword(authUser, { kind: "firm", row: user! });
+  }
+
+  async verifyMfa(mfaChallengeToken: string, code: string) {
+    const challenge = await this.mfa.readChallenge(mfaChallengeToken, "mfa");
+    const account = await this.loadAccount(challenge.sub, challenge.principal);
+    if (!account.mfaEnabled || !account.mfaSecretEnc) {
+      await this.failMfa(account.id, challenge.principal);
+    }
+    if (!this.mfa.verifyCode(account.mfaSecretEnc!, code)) {
+      await this.failMfa(account.id, challenge.principal);
+    }
+    await this.resetMfaFailures(challenge.principal, account.id);
+    const tokens = challenge.principal === "platform" ? await this.issuePlatformTokens(account.platform!) : await this.issueTokens(account.firm!);
+    const user = challenge.principal === "platform" ? this.toPlatformAuthUser(account.platform!) : this.toAuthUser(account.firm!);
     await this.audit.record({
-      actor: this.toAuthUser(user),
+      actor: user,
       actionType: "auth.login",
-      metadata: { email: user.email, principal: "firm" },
+      metadata: { email: user.email, principal: user.principal, mfa: true },
     });
-    return {
-      ...tokens,
-      user: this.toAuthUser(user),
-    };
+    this.metrics.inc("mtd_auth_login_total", { principal: String(user.principal), mfa: "true" });
+    return { ...tokens, user };
+  }
+
+  async setupMfa(mfaChallengeToken: string) {
+    const challenge = await this.mfa.readChallenge(mfaChallengeToken, "mfa-enroll");
+    const account = await this.loadAccount(challenge.sub, challenge.principal);
+    const enrollment = this.mfa.startEnrollment(account.email);
+    if (challenge.principal === "platform") {
+      await this.prisma.platformUser.update({ where: { id: account.id }, data: { mfaSecretEnc: enrollment.secretEnc } });
+    } else {
+      await this.prisma.user.update({ where: { id: account.id }, data: { mfaSecretEnc: enrollment.secretEnc } });
+    }
+    return { otpauthUrl: enrollment.otpauthUrl, secret: enrollment.secret };
+  }
+
+  async confirmMfa(mfaChallengeToken: string, code: string) {
+    const challenge = await this.mfa.readChallenge(mfaChallengeToken, "mfa-enroll");
+    const account = await this.loadAccount(challenge.sub, challenge.principal);
+    if (!account.mfaSecretEnc || !this.mfa.verifyCode(account.mfaSecretEnc, code)) {
+      await this.failMfa(account.id, challenge.principal);
+    }
+    const enrolledAt = new Date();
+    if (challenge.principal === "platform") {
+      await this.prisma.platformUser.update({
+        where: { id: account.id },
+        data: { mfaEnabled: true, mfaEnrolledAt: enrolledAt, mfaFailedCount: 0 },
+      });
+      account.platform!.mfaEnabled = true;
+    } else {
+      await this.prisma.user.update({
+        where: { id: account.id },
+        data: { mfaEnabled: true, mfaEnrolledAt: enrolledAt, mfaFailedCount: 0 },
+      });
+      account.firm!.mfaEnabled = true;
+    }
+    const tokens = challenge.principal === "platform" ? await this.issuePlatformTokens(account.platform!) : await this.issueTokens(account.firm!);
+    const user = challenge.principal === "platform" ? this.toPlatformAuthUser(account.platform!) : this.toAuthUser(account.firm!);
+    await this.audit.record({
+      actor: user,
+      actionType: "auth.mfa.enrolled",
+      resourceType: "user",
+      resourceId: user.id,
+      metadata: { principal: user.principal },
+    });
+    return { ...tokens, user };
   }
 
   async refresh(refreshToken: string) {
@@ -95,6 +157,7 @@ export class AuthService {
         data: { revokedAt: new Date() },
       }),
     ]);
+    await this.audit.record({ actionType: "auth.logout", metadata: {} });
     return { success: true };
   }
 
@@ -102,7 +165,94 @@ export class AuthService {
     return { providers: [] as string[], note: "OAuth2 / SSO placeholder for future IdP integration" };
   }
 
-  private async issueTokens(user: { id: string; email: string; role: AuthUser["role"]; firmId: string; clientId: string | null; name: string; status: string }) {
+  private async afterPassword(
+    user: AuthUser,
+    account: { kind: "platform"; row: PlatformRow } | { kind: "firm"; row: FirmRow },
+  ) {
+    if (this.mfa.enforce() && this.mfa.requiresMfa(user)) {
+      const enrolled = Boolean(account.row.mfaEnabled && account.row.mfaSecretEnc);
+      const purpose = enrolled ? "mfa" : "mfa-enroll";
+      const mfaChallengeToken = await this.mfa.challengeToken({ id: user.id, principal: user.principal ?? "firm" }, purpose);
+      return {
+        mfaRequired: true,
+        mfaEnrollmentRequired: !enrolled,
+        mfaChallengeToken,
+        user: { id: user.id, email: user.email, principal: user.principal, role: user.role },
+      };
+    }
+    await this.audit.record({
+      actor: user,
+      actionType: "auth.login",
+      metadata: { email: user.email, principal: user.principal ?? "firm" },
+    });
+    this.metrics.inc("mtd_auth_login_total", { principal: String(user.principal ?? "firm"), mfa: "false" });
+    const tokens = account.kind === "platform" ? await this.issuePlatformTokens(account.row) : await this.issueTokens(account.row);
+    return { ...tokens, user };
+  }
+
+  private async failLogin(email: string, principal: string): Promise<never> {
+    this.alerts.loginFailed(email, { principal });
+    this.metrics.inc("mtd_auth_login_failures_total", { principal });
+    await this.audit.record({
+      actionType: "auth.login_failed",
+      metadata: { email, principal },
+    });
+    throw new UnauthorizedException("Invalid credentials");
+  }
+
+  private async failMfa(userId: string, principal: "platform" | "firm"): Promise<never> {
+    this.alerts.mfaFailed(userId, { principal });
+    this.metrics.inc("mtd_mfa_failures_total", { principal });
+    if (principal === "platform") {
+      await this.prisma.platformUser.update({ where: { id: userId }, data: { mfaFailedCount: { increment: 1 } } });
+    } else {
+      await this.prisma.user.update({ where: { id: userId }, data: { mfaFailedCount: { increment: 1 } } });
+    }
+    await this.audit.record({
+      actionType: "auth.mfa_failed",
+      resourceType: "user",
+      resourceId: userId,
+      metadata: { principal },
+    });
+    throw new UnauthorizedException("Invalid MFA code");
+  }
+
+  private async resetMfaFailures(principal: "platform" | "firm", id: string) {
+    if (principal === "platform") {
+      await this.prisma.platformUser.update({ where: { id }, data: { mfaFailedCount: 0 } });
+    } else {
+      await this.prisma.user.update({ where: { id }, data: { mfaFailedCount: 0 } });
+    }
+  }
+
+  private async maybeRehash(kind: "platform" | "firm", id: string, password: string, stored: string) {
+    if (!this.hasher.needsRehash(stored)) {
+      return;
+    }
+    const passwordHash = await this.hasher.hash(password);
+    if (kind === "platform") {
+      await this.prisma.platformUser.update({ where: { id }, data: { passwordHash } });
+    } else {
+      await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+    }
+  }
+
+  private async loadAccount(id: string, principal: "platform" | "firm") {
+    if (principal === "platform") {
+      const platform = await this.prisma.platformUser.findUnique({ where: { id } });
+      if (!platform?.isActive) {
+        throw new UnauthorizedException("Account is not active");
+      }
+      return { id: platform.id, email: platform.email, mfaEnabled: platform.mfaEnabled, mfaSecretEnc: platform.mfaSecretEnc, platform, firm: null };
+    }
+    const firm = await this.prisma.user.findUnique({ where: { id } });
+    if (!firm || firm.status !== "ACTIVE") {
+      throw new UnauthorizedException("Account is not active");
+    }
+    return { id: firm.id, email: firm.email, mfaEnabled: firm.mfaEnabled, mfaSecretEnc: firm.mfaSecretEnc, platform: null, firm };
+  }
+
+  private async issueTokens(user: FirmRow) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -128,7 +278,7 @@ export class AuthService {
     return { accessToken, refreshToken, tokenType: "Bearer" as const };
   }
 
-  private async issuePlatformTokens(user: { id: string; email: string; role: PlatformRole; name: string; isActive: boolean }) {
+  private async issuePlatformTokens(user: PlatformRow) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -157,7 +307,7 @@ export class AuthService {
     return createHash("sha256").update(token).digest("hex");
   }
 
-  private toAuthUser(user: { id: string; email: string; role: AuthUser["role"]; firmId: string; clientId: string | null; name: string }): AuthUser {
+  private toAuthUser(user: FirmRow): AuthUser {
     return {
       id: user.id,
       email: user.email,
@@ -171,7 +321,7 @@ export class AuthService {
     };
   }
 
-  private toPlatformAuthUser(user: { id: string; email: string; role: PlatformRole; name: string; isActive: boolean }): AuthUser {
+  private toPlatformAuthUser(user: PlatformRow): AuthUser {
     return {
       id: user.id,
       email: user.email,
@@ -185,3 +335,25 @@ export class AuthService {
     };
   }
 }
+
+type FirmRow = {
+  id: string;
+  email: string;
+  role: AuthUser["role"];
+  firmId: string;
+  clientId: string | null;
+  name: string;
+  status: string;
+  mfaEnabled?: boolean | null;
+  mfaSecretEnc?: string | null;
+};
+
+type PlatformRow = {
+  id: string;
+  email: string;
+  role: PlatformRole;
+  name: string;
+  isActive: boolean;
+  mfaEnabled?: boolean | null;
+  mfaSecretEnc?: string | null;
+};

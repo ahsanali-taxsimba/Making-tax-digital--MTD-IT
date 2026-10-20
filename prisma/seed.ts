@@ -16,8 +16,8 @@ import {
   BankTxnDirection,
   BankTxnStatus,
 } from "@prisma/client";
-import * as bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
+import { PasswordHasher } from "../src/security/password-hasher";
 import { MCC_MAPPING } from "../src/categorisation/domain/mcc.mapping";
 import { MERCHANT_DICTIONARY } from "../src/categorisation/domain/merchant.dictionary";
 import { flattenItsaCatalog } from "../src/itsa/mtd-itsa.mapping";
@@ -26,7 +26,8 @@ import { CHART_OF_ACCOUNTS, getChart, toChartProfile, toLedgerAccountType } from
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("PracticeAdmin123!", 10);
+  const hasher = new PasswordHasher();
+  const passwordHash = await hasher.hash("PracticeAdmin123!");
 
   const firm = await prisma.firm.upsert({
     where: { id: "11111111-1111-4111-8111-111111111111" },
@@ -149,7 +150,7 @@ async function main() {
     },
   });
 
-  const platformPassword = await bcrypt.hash("PlatformAdmin123!", 10);
+  const platformPassword = await hasher.hash("PlatformAdmin123!");
   const platformRoles: Array<{ email: string; name: string; role: PlatformRole }> = [
     { email: "grace.l@example.com", name: "Samira Khan", role: PlatformRole.ADMIN_SUPER },
     { email: "ivan.p@example.net", name: "Owen Blake", role: PlatformRole.ADMIN_OWNER },

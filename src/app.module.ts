@@ -35,6 +35,7 @@ import { ManualStatementsModule } from "./manual-statements/manual-statements.mo
 import { ReceiptsModule } from "./receipts/receipts.module";
 import { TenantModule } from "./tenant/tenant.module";
 import { YapilyModule } from "./yapily/yapily.module";
+import { SecurityModule } from "./security/security.module";
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { YapilyModule } from "./yapily/yapily.module";
       ],
     }),
     PrismaModule,
+    SecurityModule,
     AuthorizationModule,
     AuditModule,
     TasksModule,

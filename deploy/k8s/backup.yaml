@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mtd-postgres-backup
+spec:
+  schedule: "15 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16
+              envFrom:
+                - secretRef:
+                    name: mtd-secrets
+              command:
+                - /bin/sh
+                - -c
+                - pg_dump "$DATABASE_URL" | gzip > /backup/mtd-$(date +%F).sql.gz
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: mtd-backup
+# DigitalOcean managed Postgres already encrypts at rest and replicates.
+# Restore test: pg_restore a nightly dump into a scratch cluster quarterly.
