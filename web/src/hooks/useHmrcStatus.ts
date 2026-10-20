@@ -19,6 +19,7 @@ export function useDisconnectHmrc(clientId?: string | null, environment: string 
     onSuccess: (data) => {
       queryClient.setQueryData(["hmrc-status", clientId, environment], data);
       void queryClient.invalidateQueries({ queryKey: ["vat-obligations", clientId] });
+      void queryClient.invalidateQueries({ queryKey: ["itsa-obligations", clientId] });
     },
   });
 }

@@ -79,3 +79,33 @@ export interface VatValidation {
   totals?: Record<string, number>;
   validation: { valid: boolean; errors: string[]; warnings: string[]; issues: string[] };
 }
+
+export interface ItsaBusiness {
+  id: string;
+  type: string;
+  tradingName?: string | null;
+  hmrcBusinessId?: string | null;
+}
+
+export interface ItsaObligation {
+  id: string;
+  clientId: string;
+  businessId?: string | null;
+  business?: ItsaBusiness | null;
+  type: string;
+  taxYear: string;
+  periodId?: string | null;
+  start: string;
+  end: string;
+  due: string;
+  status: "OPEN" | "FULFILLED" | "Open" | "Fulfilled";
+  received?: string | null;
+}
+
+export interface ItsaValidation {
+  kind?: string;
+  incomes?: Record<string, number>;
+  expenses?: Record<string, number>;
+  excluded?: Array<{ code?: number; category?: string; amount?: number; reason?: string }>;
+  validation: { valid: boolean; errors: string[]; warnings: string[]; issues: string[] };
+}

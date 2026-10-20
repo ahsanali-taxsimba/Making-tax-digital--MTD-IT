@@ -42,7 +42,7 @@ docker compose up --build
 API: http://localhost:3000  
 OpenAPI: http://localhost:3000/docs  
 Health: http://localhost:3000/health  
-VAT UI: http://localhost:2327
+VAT & ITSA UI: http://localhost:2327
 
 ### Without Docker (API process only)
 
@@ -57,7 +57,7 @@ npm run start:dev
 npm run web:dev
 ```
 
-VAT connection UI: http://localhost:2327 (`/vat`, `/vat/connect`, `/vat/callback`, `/vat/obligations`). The browser never sees HMRC tokens.
+VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callback`). The browser never sees HMRC tokens. One HMRC grant covers both regimes.
 
 ### Seed users
 
@@ -79,7 +79,7 @@ Every HMRC failure is returned as `{ data: null, error: { errorCode, message, de
 
 1. Create an application on the [HMRC Developer Hub](https://developer.service.hmrc.gov.uk/).
 2. Subscribe to **VAT (MTD)**, **Obligations (MTD)**, **Self Employment Business**, **Property Business**, **Individuals Business End of Period Statement**, and **Individual Calculations**.
-3. Add redirect URI `http://localhost:3000/hmrc/oauth/callback` (the legacy `/mtd/callback` alias still works).
+3. Add redirect URI `http://localhost:2327/hmrc/callback` (the API still accepts `/hmrc/oauth/callback` and the legacy `/mtd/callback` alias).
 4. Put the client id/secret in `.env` and set:
 
 ```env

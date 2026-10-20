@@ -13,8 +13,12 @@ export function ClientPicker() {
     if (!canManage || clientId || !clients.data?.length) {
       return;
     }
-    const vatClient = clients.data.find((item) => item.vatRegistrationNumber) ?? clients.data[0];
-    setSelectedClientId(vatClient.id);
+    const preferred =
+      clients.data.find((item) => item.nino && item.vatRegistrationNumber) ??
+      clients.data.find((item) => item.nino) ??
+      clients.data.find((item) => item.vatRegistrationNumber) ??
+      clients.data[0];
+    setSelectedClientId(preferred.id);
   }, [canManage, clientId, clients.data]);
 
   if (!user) {
@@ -22,7 +26,7 @@ export function ClientPicker() {
   }
 
   if (!canManage) {
-    const name = clients.data?.find((item) => item.id === user.clientId)?.name ?? "Your VAT client";
+    const name = clients.data?.find((item) => item.id === user.clientId)?.name ?? "Your client";
     return <p className="text-sm text-ink-muted">{name}</p>;
   }
 
@@ -42,6 +46,7 @@ export function ClientPicker() {
             <option key={item.id} value={item.id}>
               {item.name}
               {item.vatRegistrationNumber ? ` · ${item.vatRegistrationNumber}` : ""}
+              {item.nino ? ` · ${item.nino}` : ""}
             </option>
           ))}
         </select>

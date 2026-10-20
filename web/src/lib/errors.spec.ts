@@ -1,8 +1,9 @@
 import { errorCodeOf, hmrcUserMessage } from "./errors";
 
 describe("hmrcUserMessage", () => {
-  it("explains an expired VAT connection", () => {
+  it("explains an expired VAT or ITSA connection", () => {
     expect(hmrcUserMessage("HMRC_ERR_TOKEN_EXPIRED")).toBe("Your HMRC VAT connection has expired.");
+    expect(hmrcUserMessage("HMRC_ERR_TOKEN_EXPIRED", undefined, "itsa")).toBe("Your HMRC ITSA connection has expired.");
   });
 
   it("explains a failed token refresh", () => {

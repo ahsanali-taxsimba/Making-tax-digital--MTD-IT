@@ -99,7 +99,7 @@ curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/itsa/updates \
 
 VAT and ITSA both talk to HMRC only through `HmrcClientService`. Tokens are refreshed automatically before a call and retried once after a 401. Failures use the shared `HMRC_ERR_*` codes.
 
-The VAT connection UI at http://localhost:2327 walks accountants through Connect → HMRC callback → status → obligations. HMRC tokens never appear in the browser. In mock mode, Connect completes the grant locally with the stored OAuth `state`.
+The connection UI at http://localhost:2327 walks accountants and clients through Connect → HMRC callback → status → obligations for both VAT (`/vat`) and ITSA (`/itsa`). Live HMRC returns to `/hmrc/callback`; mock mode completes the grant locally on `/vat/callback` or `/itsa/callback` with the stored OAuth `state`. HMRC tokens never appear in the browser.
 
 ## 3. Connect HMRC
 

@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { regimeLabel, regimePath, type HmrcRegime } from "@/lib/regime";
 
 export function ConnectButton({
   clientId,
   environment,
   disabled,
+  regime = "vat",
 }: {
   clientId?: string | null;
   environment: string;
   disabled?: boolean;
+  regime?: HmrcRegime;
 }) {
-  const href = clientId ? `/vat/connect?clientId=${clientId}&environment=${environment}` : "/vat/connect";
+  const base = `${regimePath(regime)}/connect`;
+  const href = clientId ? `${base}?clientId=${clientId}&environment=${environment}` : base;
   return (
     <Link
       href={href}
@@ -20,7 +24,7 @@ export function ConnectButton({
         disabled || !clientId ? "pointer-events-none bg-slate-400" : "bg-teal hover:bg-teal-dark"
       }`}
     >
-      Connect to HMRC VAT
+      Connect to HMRC {regimeLabel(regime)}
     </Link>
   );
 }

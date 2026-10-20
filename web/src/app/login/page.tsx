@@ -25,7 +25,7 @@ export default function LoginPage() {
       } else {
         setSelectedClientId("22222222-2222-4222-8222-222222222222");
       }
-      router.replace("/vat");
+      router.replace("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to sign in.");
     } finally {
