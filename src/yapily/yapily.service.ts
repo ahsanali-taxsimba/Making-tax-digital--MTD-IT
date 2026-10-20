@@ -1,19 +1,13 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { BankTxnStatus, JournalSource, Prisma, YapilyConsentStatus } from "@prisma/client";
+import { Prisma, YapilyConsentStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
-import { BookkeepingRepository } from "../bookkeeping/bookkeeping.repository";
-import { defaultProfileForClientType } from "../ledger/chart-of-accounts.catalog";
 import { BankService } from "../bookkeeping/bank.service";
-import { JournalService } from "../bookkeeping/journal.service";
 import { ClientsService } from "../clients/clients.service";
 import { TokenCryptoService } from "../common/crypto/token-crypto.service";
 import { AuthUser } from "../common/types";
-import { controlCodes, requireAccount, bankPaymentLines, bankReceiptLines } from "../bookkeeping/domain/posting";
-import { LedgerSnapshot } from "../bookkeeping/domain/journal.rules";
 import { parseDate } from "../bookkeeping/domain/money";
 import { enrichBankLine } from "./domain/enrichment";
-import { MatchableDocument, suggestDocumentMatch } from "./domain/invoice-match";
 import { YAPILY_ERR, YapilyError } from "./yapily.errors";
 import { YapilyRepository } from "./yapily.repository";
 import { YAPILY_GATEWAY } from "./yapily.tokens";
@@ -27,8 +21,6 @@ export class YapilyService {
     private readonly crypto: TokenCryptoService,
     private readonly audit: AuditService,
     private readonly config: ConfigService,
-    private readonly books: BookkeepingRepository,
-    private readonly journals: JournalService,
     private readonly bank: BankService,
     @Inject(YAPILY_GATEWAY) private readonly gateway: YapilyGateway,
   ) {}
@@ -137,6 +129,11 @@ export class YapilyService {
         externalId: account.id,
         currency: account.currency,
         balance: account.balance,
+        providerMetadata: {
+          institutionAccountId: account.id,
+          type: account.type ?? null,
+          source: "yapily",
+        } as Prisma.InputJsonValue,
       };
       saved.push(
         existing
@@ -203,32 +200,17 @@ export class YapilyService {
       );
     }
 
-    let posted = 0;
-    let matched = 0;
-    if (query.autoPost) {
-      const result = await this.autoPost(user, account.id);
-      posted = result.posted;
-      matched = result.matched;
-      const refreshed = await this.repo.listTransactions(
-        account.id,
-        query.from ? parseDate(query.from) : undefined,
-        query.to ? parseDate(query.to) : undefined,
-      );
-      rows.splice(0, rows.length, ...refreshed);
-    }
-
     const reconciliation = await this.bank.transactions(user, account.id);
     await this.audit.record({
       actor: user,
       clientId: account.clientId,
       actionType: "yapily.transactions.synced",
-      metadata: { bankAccountId: account.id, count: rows.length, autoPost: Boolean(query.autoPost), posted, matched },
+      metadata: { bankAccountId: account.id, count: rows.length },
     });
     return {
       account: this.publicAccount(account),
       transactions: rows.map(this.publicTransaction),
       suggestions: reconciliation.suggestions,
-      autoPost: query.autoPost ? { posted, matched } : undefined,
     };
   }
 
@@ -259,86 +241,8 @@ export class YapilyService {
     };
   }
 
-  private async autoPost(user: AuthUser, bankAccountId: string) {
-    const account = await this.requireYapilyAccount(user, bankAccountId);
-    const client = await this.clients.get(user, account.clientId);
-    const [open, invoices, bills, ledgers] = await Promise.all([
-      this.repo.listTransactions(account.id),
-      this.books.listInvoices(client.id),
-      this.books.listBills(client.id),
-      this.books.listLedgers(client.id),
-    ]);
-    const documents: MatchableDocument[] = [
-      ...invoices.map((row) => ({
-        id: row.id,
-        kind: "invoice" as const,
-        date: row.date,
-        description: row.customer?.name ?? "Sales invoice",
-        reference: row.id,
-        grossTotal: Number(row.grossTotal),
-        journalId: row.journalId,
-      })),
-      ...bills.map((row) => ({
-        id: row.id,
-        kind: "bill" as const,
-        date: row.date,
-        description: row.supplier?.name ?? "Purchase bill",
-        reference: row.id,
-        grossTotal: Number(row.grossTotal),
-        journalId: row.journalId,
-      })),
-    ];
-    const profile = defaultProfileForClientType(client.type);
-    const bankLedger = account.ledgerId
-      ? (ledgers.find((item) => item.id === account.ledgerId) as LedgerSnapshot | undefined)
-      : requireAccount(ledgers as LedgerSnapshot[], controlCodes(profile).bank, profile);
-    if (!bankLedger) {
-      throw new YapilyError(YAPILY_ERR.ACCOUNT_NOT_FOUND, "Bank ledger account is missing");
-    }
-    const income = requireAccount(ledgers as LedgerSnapshot[], controlCodes(profile).defaultIncome, profile);
-    const expense = requireAccount(ledgers as LedgerSnapshot[], controlCodes(profile).defaultExpense, profile);
-    let posted = 0;
-    let matched = 0;
-    for (const txn of open.filter((row) => row.status === BankTxnStatus.UNMATCHED)) {
-      const document = suggestDocumentMatch(
-        {
-          date: txn.date,
-          amount: Number(txn.amount),
-          type: txn.type,
-          description: txn.description,
-          merchantName: txn.merchantName,
-        },
-        documents,
-      );
-      if (document?.journalId) {
-        await this.repo.updateTransaction(txn.id, {
-          matchedJournal: { connect: { id: document.journalId } },
-          status: BankTxnStatus.MATCHED,
-        });
-        matched += 1;
-        continue;
-      }
-      const counterpart = txn.type === "CREDIT" ? income : expense;
-      const lines =
-        txn.type === "CREDIT"
-          ? bankReceiptLines(bankLedger, counterpart, Number(txn.amount), txn.description)
-          : bankPaymentLines(bankLedger, counterpart, Number(txn.amount), txn.description);
-      const journal = await this.journals.post(user, {
-        clientId: client.id,
-        firmId: client.firmId,
-        date: txn.date.toISOString().slice(0, 10),
-        description: txn.description,
-        source: JournalSource.BANK_FEED,
-        lines,
-        profile,
-      });
-      await this.repo.updateTransaction(txn.id, {
-        matchedJournal: { connect: { id: journal.id } },
-        status: BankTxnStatus.MATCHED,
-      });
-      posted += 1;
-    }
-    return { posted, matched };
+  async getAccount(user: AuthUser, id: string) {
+    return this.requireYapilyAccount(user, id);
   }
 
   private async requireYapilyAccount(user: AuthUser, id: string) {
@@ -400,6 +304,7 @@ export class YapilyService {
     externalId?: string | null;
     currency?: string | null;
     balance?: unknown;
+    providerMetadata?: unknown;
     createdAt: Date;
     updatedAt?: Date;
   }) {
@@ -413,6 +318,7 @@ export class YapilyService {
       accountNumber: account.accountNumber,
       currency: account.currency ?? "GBP",
       balance: Number(account.balance ?? 0),
+      providerMetadata: account.providerMetadata ?? null,
       createdAt: account.createdAt,
       updatedAt: account.updatedAt,
     };
