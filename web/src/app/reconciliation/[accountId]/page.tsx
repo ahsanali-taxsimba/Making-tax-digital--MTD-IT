@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { BankTransactionRow } from "@/components/BankTransactionRow";
+import { BankWorkspaceNav } from "@/components/BankWorkspaceNav";
 import { CreateJournalModal } from "@/components/CreateJournalModal";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { IgnoreButton } from "@/components/IgnoreButton";
@@ -12,6 +13,7 @@ import { ReconciliationProgressBar } from "@/components/ReconciliationProgressBa
 import { RequireStaff } from "@/components/RequireStaff";
 import { SplitModal } from "@/components/SplitModal";
 import { SuggestedMatchCard } from "@/components/SuggestedMatchCard";
+import { useMatchingSuggestions } from "@/hooks/useMatching";
 import { useBankTransactions } from "@/hooks/useBankTransactions";
 import {
   useApplyCategorisation,
@@ -22,7 +24,9 @@ import {
   useSplitBank,
 } from "@/hooks/useReconciliation";
 import { useSession } from "@/hooks/useSession";
+import { MatchingSuggestionCard } from "@/components/MatchingSuggestionCard";
 import { formatMoney } from "@/lib/format";
+import type { MatchingSuggestion } from "@/lib/matching";
 import { createBankJournal, listClientLedgers, type BankTransactionRecord, type LedgerOption } from "@/lib/reconciliation";
 
 export default function ReconciliationWorkspacePage() {
@@ -31,6 +35,7 @@ export default function ReconciliationWorkspacePage() {
   const { clientId } = useSession();
   const feed = useBankTransactions(accountId);
   const suggestions = useReconciliationSuggestions(accountId);
+  const documentMatches = useMatchingSuggestions({ clientId, bankAccountId: accountId });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"unmatched" | "all">("unmatched");
   const [splitOpen, setSplitOpen] = useState(false);
@@ -59,6 +64,10 @@ export default function ReconciliationWorkspacePage() {
   const matches = useMemo(
     () => (suggestions.data?.suggestions ?? []).filter((item) => item.bankTransactionId === selected?.id),
     [suggestions.data, selected?.id],
+  );
+  const invoiceMatches = useMemo(
+    () => (documentMatches.data?.suggestions ?? []).filter((item) => item.bankTransactionId === selected?.id),
+    [documentMatches.data, selected?.id],
   );
   const categorisation = useCategorisationSuggestion(selected?.status === "UNMATCHED" ? selected.id : null);
   const match = useMatchBank(accountId);
@@ -111,12 +120,15 @@ export default function ReconciliationWorkspacePage() {
                 {account.sortCode} · Balance {formatMoney(account.balance)}
               </p>
             </div>
-            <Link
-              href={`/reconciliation/${accountId}/summary`}
-              className="rounded-xl border border-line bg-white px-4 py-2 text-sm font-semibold text-ink hover:border-teal/40"
-            >
-              View summary
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <BankWorkspaceNav />
+              <Link
+                href={`/reconciliation/${accountId}/summary`}
+                className="rounded-xl border border-line bg-white px-4 py-2 text-sm font-semibold text-ink hover:border-teal/40"
+              >
+                View summary
+              </Link>
+            </div>
           </div>
           <section className="rounded-2xl border border-line bg-white p-5 shadow-sm">
             <ReconciliationProgressBar transactionCount={account.transactionCount} unmatchedCount={account.unmatchedCount} />
@@ -160,6 +172,7 @@ export default function ReconciliationWorkspacePage() {
                 <SelectedActions
                   transaction={selected}
                   matches={matches}
+                  invoiceMatches={invoiceMatches}
                   categorisation={categorisation.data}
                   categorisationLoading={categorisation.isLoading}
                   actionError={actionError ?? match.error?.message ?? ignore.error?.message ?? split.error?.message}
@@ -215,6 +228,7 @@ export default function ReconciliationWorkspacePage() {
 function SelectedActions({
   transaction,
   matches,
+  invoiceMatches,
   categorisation,
   categorisationLoading,
   actionError,
@@ -229,6 +243,7 @@ function SelectedActions({
 }: {
   transaction: BankTransactionRecord;
   matches: Array<{ bankTransactionId: string; journalEntryId: string; score: number; reasons: string[]; journal?: { id: string; date: string; description: string; reference?: string | null; total: number } | null }>;
+  invoiceMatches: MatchingSuggestion[];
   categorisation?: {
     suggestedLedger: { code: number; name: string };
     suggestedTaxCode: { code: string | null };
@@ -264,6 +279,14 @@ function SelectedActions({
           onMatch={() => onMatch(suggestion.journalEntryId)}
         />
       ))}
+      {invoiceMatches.map((suggestion) => (
+        <div key={suggestion.id ?? suggestion.bankTransactionId} className="space-y-2">
+          <MatchingSuggestionCard suggestion={suggestion} />
+          <Link href="/matching" className="inline-block text-sm font-semibold text-teal hover:underline">
+            Review and apply on the matching workspace
+          </Link>
+        </div>
+      ))}
       {categorisationLoading ? <LoadingSpinner label="Scoring a new journal…" /> : null}
       {open && categorisation ? (
         <article className="rounded-xl border border-line bg-white p-4">
@@ -288,9 +311,9 @@ function SelectedActions({
           </div>
         </article>
       ) : null}
-      {open && matches.length === 0 && !categorisation && !categorisationLoading ? (
+      {open && matches.length === 0 && invoiceMatches.length === 0 && !categorisation && !categorisationLoading ? (
         <p className="rounded-xl border border-dashed border-line bg-white p-6 text-sm text-ink-muted">
-          No suggested journals for this line. Create one, split it, or ignore it.
+          No suggested journals or invoices for this line. Create one, split it, or ignore it.
         </p>
       ) : null}
       {actionError ? <ErrorBanner title="Reconciliation failed" message={actionError} /> : null}

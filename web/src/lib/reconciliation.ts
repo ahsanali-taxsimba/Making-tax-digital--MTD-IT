@@ -95,6 +95,7 @@ export interface LedgerOption {
 export interface CategorisationSuggestion {
   id?: string | null;
   bankTransactionId: string;
+  status?: string;
   suggestedLedger: { id: string | null; code: number; name: string };
   suggestedTaxCode: { id: string | null; code: string | null; kind: string; rate: number };
   suggestedItsa?: { category?: string | null };
@@ -131,6 +132,18 @@ function asTransaction(row: BankTransactionRecord): BankTransactionRecord {
     status: String(row.status).toUpperCase() as BankTxnStatus,
     date: typeof row.date === "string" ? row.date : new Date(row.date).toISOString(),
   };
+}
+
+export async function listClientBankLines(clientId: string) {
+  const accounts = await listBankAccounts(clientId);
+  const feeds = await Promise.all(accounts.map((account) => getBankTransactions(account.id)));
+  return feeds.flatMap((feed) =>
+    feed.transactions.map((transaction) => ({
+      ...transaction,
+      accountId: feed.account.id,
+      accountName: feed.account.name,
+    })),
+  );
 }
 
 export function listBankAccounts(clientId: string) {

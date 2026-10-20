@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { BankTransactionRow } from "@/components/BankTransactionRow";
+import { BankWorkspaceNav } from "@/components/BankWorkspaceNav";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { FirmStatsCard } from "@/components/FirmStatsCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -32,6 +33,9 @@ export default function ReconciliationSummaryPage() {
                 Back to workspace
               </Link>
               <h2 className="mt-1 text-2xl font-semibold text-ink">{data.account.name} summary</h2>
+              <div className="mt-3">
+                <BankWorkspaceNav />
+              </div>
               <p className="mt-1 text-sm text-ink-muted">
                 {formatDate(data.periodStart)} – {formatDate(data.periodEnd)}
               </p>
