@@ -22,12 +22,35 @@ import { MCC_MAPPING } from "../src/categorisation/domain/mcc.mapping";
 import { MERCHANT_DICTIONARY } from "../src/categorisation/domain/merchant.dictionary";
 import { flattenItsaCatalog } from "../src/itsa/mtd-itsa.mapping";
 import { CHART_OF_ACCOUNTS, getChart, toChartProfile, toLedgerAccountType } from "../src/ledger/chart-of-accounts.catalog";
+import { DEFAULT_BILLING_PLANS } from "../src/billing/billing.catalog";
 
 const prisma = new PrismaClient();
 
 async function main() {
   const hasher = new PasswordHasher();
   const passwordHash = await hasher.hash("PracticeAdmin123!");
+
+  for (const plan of DEFAULT_BILLING_PLANS) {
+    await prisma.billingPlan.upsert({
+      where: { slug: plan.slug },
+      update: { name: plan.name, description: plan.description, unitAmountPence: plan.unitAmountPence, enabled: true },
+      create: {
+        slug: plan.slug,
+        name: plan.name,
+        description: plan.description,
+        audience: plan.audience,
+        billingModel: plan.billingModel,
+        unitAmountPence: plan.unitAmountPence,
+        vatPercent: plan.vatPercent,
+        minQuantity: plan.minQuantity,
+        maxQuantity: plan.maxQuantity,
+        features: plan.features,
+        highlight: plan.highlight,
+        sortOrder: plan.sortOrder,
+        enabled: true,
+      },
+    });
+  }
 
   const firm = await prisma.firm.upsert({
     where: { id: "11111111-1111-4111-8111-111111111111" },

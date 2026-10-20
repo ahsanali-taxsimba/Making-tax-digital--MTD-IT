@@ -1,0 +1,1 @@
+export const STRIPE_GATEWAY = "STRIPE_GATEWAY";

@@ -27,6 +27,9 @@ describe("practice helpers", () => {
   it("titles the three role workspaces", () => {
     expect(pageTitle("/admin/overview")).toBe("Platform dashboard");
     expect(pageTitle("/practice/dashboard")).toBe("Dashboard");
+    expect(pageTitle("/practice/billing")).toBe("Billing");
+    expect(pageTitle("/practice/invoices")).toBe("Invoice history");
+    expect(pageTitle("/admin/billing/plans")).toBe("Billing");
     expect(pageTitle("/practice/audit")).toBe("Audit");
     expect(pageTitle("/practice/digital-links/doc-1")).toBe("Digital links");
     expect(pageTitle("/practice/digital-links/itsa/q1")).toBe("Digital links");

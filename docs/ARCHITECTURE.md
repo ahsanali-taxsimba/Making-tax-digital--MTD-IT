@@ -286,7 +286,7 @@ Every module below is tenant-scoped except Platform Admin, which sees aggregated
 |  - Firm users (admins, accountants, staff)                       |
 |  - Firm clients                                                  |
 |  - Firm isolation enforcement                                    |
-|  - Subscription plans                                            |
+|  - Subscription plans (Stripe catalog, VAT, usage)               |
 +-------------------------------+----------------------------------+
                                 |
                                 v
@@ -294,6 +294,7 @@ Every module below is tenant-scoped except Platform Admin, which sees aggregated
 | PLATFORM ADMIN MODULE                                            |
 |  - View firms (no client data)                                   |
 |  - Aggregated stats per firm                                     |
+|  - Billing (MRR, subscribers, plan catalog)                      |
 |  - Feature flags                                                 |
 |  - System health                                                 |
 |  - Logs                                                          |
@@ -332,7 +333,7 @@ These are logical services. Today they ship as NestJS modules in one API process
 |  - Firms (tenants)                                                   |
 |  - Firm users (admins, accountants, staff)                           |
 |  - Firm clients                                                      |
-|  - Subscription plans                                                |
+|  - Subscription plans (Stripe catalog, VAT, usage)                   |
 |  - Tenant isolation rules                                            |
 +----------------------------------+-----------------------------------+
                                    |
@@ -343,6 +344,7 @@ These are logical services. Today they ship as NestJS modules in one API process
 | PLATFORM ADMIN SERVICE         |     | PRACTICE / CLIENT SERVICES     |
 |  - View firms (no client data) |     |  scoped by firmId / clientId   |
 |  - Aggregated stats per firm   |     +----------------+---------------+
+|  - Billing MRR / plan catalog  |                      |
 |  - Feature flags               |                      |
 |  - Logs and system health      |                      |
 |  - Marketing console           |                      |

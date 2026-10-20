@@ -17,8 +17,11 @@ describe("platform authorization", () => {
   it("lets owners see firm stats but never client records", () => {
     expect(canPlatform(superAdmin, "view_firm_stats")).toBe(true);
     expect(canPlatform(superAdmin, "manage_firm_subscription")).toBe(true);
+    expect(canPlatform(superAdmin, "manage_billing")).toBe(true);
     expect(canPlatform(owner, "view_firm_stats")).toBe(true);
+    expect(canPlatform(owner, "view_billing")).toBe(true);
     expect(canPlatform(owner, "manage_firm_subscription")).toBe(false);
+    expect(canPlatform(owner, "manage_billing")).toBe(false);
     expect(canPlatform(superAdmin, "view_clients")).toBe(false);
     expect(canPlatform(superAdmin, "view_documents")).toBe(false);
     expect(canPlatform(superAdmin, "view_bank_transactions")).toBe(false);
@@ -36,6 +39,8 @@ describe("platform authorization", () => {
 
   it("blocks platform staff from client-data routes", () => {
     expect(platformMayAccessPath(superAdmin, "/admin/firms")).toBe(true);
+    expect(platformMayAccessPath(superAdmin, "/admin/billing/metrics")).toBe(true);
+    expect(platformMayAccessPath(owner, "/admin/billing")).toBe(true);
     expect(platformMayAccessPath(superAdmin, "/clients")).toBe(false);
     expect(platformMayAccessPath(owner, "/documents?clientId=x")).toBe(false);
     expect(platformMayAccessPath(owner, "/bookkeeping/invoices")).toBe(false);

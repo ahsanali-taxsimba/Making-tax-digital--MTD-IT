@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { BankTxnStatus, ChartProfile, JournalSource, TaxCodeKind } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { BookkeepingRepository } from "../bookkeeping/bookkeeping.repository";
@@ -34,9 +34,9 @@ export class CategorisationService {
     private readonly vat: VATInferenceService,
     private readonly itsa: ITSAInferenceService,
     private readonly drafts: JournalDraftService,
-    private readonly model = new CategorisationModelService(),
-    private readonly rulesEngine?: RulesEngineService,
-    private readonly confidence = new ConfidenceEngineService(),
+    private readonly model: CategorisationModelService,
+    private readonly confidence: ConfidenceEngineService,
+    @Optional() private readonly rulesEngine?: RulesEngineService,
   ) {}
 
   async suggest(user: AuthUser, dto: CategorisationSuggestDto) {

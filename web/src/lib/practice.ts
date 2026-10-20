@@ -154,6 +154,7 @@ export function matchesQuery(haystack: Array<string | null | undefined>, query: 
 export function pageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/firms")) return "Firms";
   if (pathname.startsWith("/admin/integrations")) return "Integrations";
+  if (pathname.startsWith("/admin/billing")) return "Billing";
   if (pathname.startsWith("/admin/feature-flags")) return "Feature flags";
   if (pathname.startsWith("/admin/logs")) return "Logs";
   if (pathname.startsWith("/admin/system-health")) return "System health";
@@ -169,6 +170,10 @@ export function pageTitle(pathname: string): string {
   if (pathname.startsWith("/practice/documents")) return "Documents";
   if (pathname.startsWith("/practice/audit")) return "Audit";
   if (pathname.startsWith("/practice/digital-links")) return "Digital links";
+  if (pathname.startsWith("/practice/pricing")) return "Pricing";
+  if (pathname.startsWith("/practice/subscription")) return "Subscription";
+  if (pathname.startsWith("/practice/invoices")) return "Invoice history";
+  if (pathname.startsWith("/practice/billing")) return "Billing";
   if (pathname.startsWith("/practice/dashboard")) return "Dashboard";
   if (pathname.startsWith("/practice")) return "Practice";
   if (pathname.startsWith("/client/vat")) return "VAT";

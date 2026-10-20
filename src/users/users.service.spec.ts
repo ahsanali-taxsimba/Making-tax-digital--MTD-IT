@@ -8,7 +8,8 @@ describe("UsersService", () => {
   };
   const audit = { record: jest.fn() };
   const hasher = { hash: jest.fn(), assertPolicy: jest.fn() };
-  const service = new UsersService(prisma as never, audit as never, hasher as never);
+  const billing = { assertStaffSeat: jest.fn().mockResolvedValue(undefined) };
+  const service = new UsersService(prisma as never, audit as never, hasher as never, billing as never);
   const actor = { id: "admin", role: UserRole.ADMIN, firmId: "f1", clientId: null, name: "Priya", email: "p" };
 
   beforeEach(() => {
@@ -29,6 +30,7 @@ describe("UsersService", () => {
       email: "noah@northbridge.test",
       role: UserRole.ASSISTANT,
     });
+    expect(billing.assertStaffSeat).toHaveBeenCalledWith("f1");
     expect(created.status).toBe(UserStatus.INVITED);
     expect(prisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: UserStatus.INVITED, passwordHash: null }) }),

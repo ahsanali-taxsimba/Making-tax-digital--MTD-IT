@@ -43,6 +43,7 @@ const PREFIXES: Array<{ prefix: string; service: LogicalService }> = [
   { prefix: "/audit", service: "platform-admin" },
   { prefix: "/digital-links", service: "platform-admin" },
   { prefix: "/hmrc", service: "api-gateway" },
+  { prefix: "/billing", service: "tenant-management" },
 ];
 
 export const IDENTITY_HEADERS = {

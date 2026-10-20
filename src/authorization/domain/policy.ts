@@ -22,11 +22,13 @@ const PLATFORM_GRANTS: Record<PlatformRoleName, PlatformAction[]> = {
     "view_firm_stats",
     "view_firm_counts_only",
     "manage_firm_subscription",
+    "view_billing",
+    "manage_billing",
     "view_system_health",
     "view_logs",
     "manage_feature_flags",
   ],
-  admin_owner: ["view_firms", "view_firm_stats", "view_firm_counts_only"],
+  admin_owner: ["view_firms", "view_firm_stats", "view_firm_counts_only", "view_billing"],
   admin_marketing: ["view_firms", "view_firm_counts_only"],
   admin_developer: ["view_system_health", "view_logs", "manage_feature_flags"],
   admin_support: ["view_firms", "view_firm_stats", "view_firm_and_client_metadata"],
@@ -117,6 +119,9 @@ export function platformMayAccessPath(user: PlatformUserView, path: string): boo
   }
   if (path.startsWith("/admin/firms")) {
     return canPlatform(user, "view_firms") || canPlatform(user, "view_firm_counts_only");
+  }
+  if (path.startsWith("/admin/billing")) {
+    return canPlatform(user, "view_billing") || canPlatform(user, "manage_billing") || canPlatform(user, "manage_firm_subscription");
   }
   return path.startsWith("/admin") || path.startsWith("/health") || path.startsWith("/auth");
 }

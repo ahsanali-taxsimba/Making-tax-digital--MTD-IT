@@ -37,6 +37,7 @@ import { ReceiptsModule } from "./receipts/receipts.module";
 import { TenantModule } from "./tenant/tenant.module";
 import { YapilyModule } from "./yapily/yapily.module";
 import { SecurityModule } from "./security/security.module";
+import { BillingModule } from "./billing/billing.module";
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { SecurityModule } from "./security/security.module";
     ReceiptsModule,
     PortalModule,
     AdminModule,
+    BillingModule,
     TenantModule,
   ],
   controllers: [HealthController],

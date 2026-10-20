@@ -11,7 +11,7 @@ const UK_RATES = [20, 5, 0] as const;
 
 @Injectable()
 export class VATDetectionService {
-  constructor(private readonly parser = new OCRParserService()) {}
+  constructor(private readonly parser: OCRParserService) {}
 
   detect(text: string): ParsedAmounts {
     const total = this.parser.extractTotal(text);

@@ -7,7 +7,7 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
   app.set("trust proxy", 1);
   app.use(helmet());
@@ -30,7 +30,7 @@ async function bootstrap() {
       .setTitle("Making Tax Digital IT API")
       .setDescription(
         [
-          "Multi-tenant MTD backend for VAT, Income Tax (ITSA), double-entry bookkeeping, HMRC OAuth2, and a Yapily bank-feed pipeline (consent, sync, enrichment, categorisation, invoice/bill matching, reconciliation, journals, VAT/ITSA).",
+          "Multi-tenant MTD backend for VAT, Income Tax (ITSA), double-entry bookkeeping, HMRC OAuth2, Stripe subscription billing (Checkout, Customer Portal, UK VAT invoices, usage-based accountant plans), and a Yapily bank-feed pipeline (consent, sync, enrichment, categorisation, invoice/bill matching, reconciliation, journals, VAT/ITSA).",
           "",
           "VAT and ITSA never call HMRC directly. All HMRC HTTP goes through HmrcClientService (`get`, `post`, `getValidAccessToken`, `handleTokenRefresh`, `handleHMRCError`), which refreshes user-restricted tokens before they expire and retries once after a 401.",
           "",

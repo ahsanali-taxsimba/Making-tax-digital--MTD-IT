@@ -6,6 +6,8 @@ import { MERCHANT_DICTIONARY } from "./domain/merchant.dictionary";
 import { ITSAInferenceService } from "./itsa-inference.service";
 import { JournalDraftService } from "./journal-draft.service";
 import { VATInferenceService } from "./vat-inference.service";
+import { CategorisationModelService } from "./categorisation-model.service";
+import { ConfidenceEngineService } from "./confidence-engine.service";
 
 const ledger = (code: number, type: string, name: string) => ({
   id: `L-${code}`,
@@ -73,6 +75,8 @@ describe("CategorisationService", () => {
     new VATInferenceService(),
     new ITSAInferenceService(),
     new JournalDraftService(),
+    new CategorisationModelService(),
+    new ConfidenceEngineService(),
   );
   const actor = { id: "u1", role: "ADMIN", firmId: "f1", clientId: null, name: "Priya", email: "p" } as never;
 

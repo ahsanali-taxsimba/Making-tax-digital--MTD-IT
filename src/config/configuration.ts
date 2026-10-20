@@ -77,6 +77,14 @@ export default () => ({
       authBaseUrl: process.env.HMRC_LIVE_AUTH_BASE ?? "https://www.tax.service.gov.uk",
     },
   },
+  stripe: {
+    mode: (process.env.STRIPE_MODE ?? "mock") as "mock" | "live",
+    secretKey: process.env.STRIPE_SECRET_KEY ?? "",
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? "",
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+    vatTaxRateId: process.env.STRIPE_VAT_TAX_RATE_ID ?? "",
+    usageSyncMs: parseInt(process.env.STRIPE_USAGE_SYNC_MS ?? "3600000", 10),
+  },
   yapily: {
     mode: (process.env.YAPILY_MODE ?? "mock") as "mock" | "live",
     baseUrl: process.env.YAPILY_BASE_URL ?? "https://api.yapily.com",
