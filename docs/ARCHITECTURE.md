@@ -397,6 +397,36 @@ These are logical services. Today they ship as NestJS modules in one API process
 
 After tenant context is set, platform staff stop at Platform Admin Service. Firm staff enter Accountant Practice Service, which calls HMRC, bank feeds, OCR, extraction, documents, and bookkeeping. Firm clients enter Client Portal Service only.
 
+### Service call graph
+
+```
+API Gateway
+    |
+    v
+Auth Service
+    |
+    v
+Tenant Management Service
+    |
+    +-- Depending on role:
+    |       - Platform Admin Service
+    |       - Accountant Practice Service
+    |       - Client Portal Service
+    |
+    v
+Practice Service --> HMRC Service (VAT / ITSA)
+Practice Service --> Bank Feeds Service
+Practice Service --> Document Service
+Practice Service --> AI Extraction Service
+Practice Service --> Bookkeeping Service
+
+Document Service --> OCR Service --> AI Extraction Service
+Bank Feeds Service --> Bookkeeping Service
+AI Extraction Service --> Bookkeeping Service
+```
+
+Platform Admin Service does not call HMRC, bank feeds, documents, extraction, or bookkeeping. Those edges stay inside the firm tenant.
+
 ---
 
 ## 3. Tenant isolation
