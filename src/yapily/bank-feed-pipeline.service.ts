@@ -55,10 +55,70 @@ export class BankFeedPipelineService {
       });
     }
 
+    const processed = await this.processIngestedFeed(user, {
+      clientId,
+      accounts: targets,
+      bankAccountId: dto.bankAccountId,
+      from,
+      to,
+      autoMatch,
+      autoCategorise,
+      autoPost,
+      source: "yapily",
+      transactionCount: synced.reduce((total, row) => total + row.transactions.length, 0),
+    });
+
+    const primary = synced[0];
+    return {
+      clientId,
+      steps: [
+        "consent",
+        "accounts",
+        "transactions",
+        "enrichment",
+        "matching",
+        "categorisation",
+        "reconciliation",
+        "journals",
+        "vat_itsa",
+      ],
+      consent,
+      accounts,
+      sync: synced,
+      enrichment: { enriched },
+      ...processed,
+      account: primary?.account,
+      transactions: primary?.transactions ?? [],
+      suggestions: processed.matching.suggestions,
+    };
+  }
+
+  async processIngestedFeed(
+    user: AuthUser,
+    input: {
+      clientId: string;
+      accounts: Array<{ id: string }>;
+      bankAccountId?: string;
+      from?: string;
+      to?: string;
+      autoMatch?: boolean;
+      autoCategorise?: boolean;
+      autoPost?: boolean;
+      source?: string;
+      transactionCount?: number;
+    },
+  ) {
+    const autoMatch = input.autoMatch !== false;
+    const autoCategorise = input.autoCategorise !== false;
+    const autoPost = Boolean(input.autoPost);
+    const from = input.from;
+    const to = input.to;
+    const clientId = input.clientId;
+
     const matching = autoMatch
       ? await this.matching.suggestions(user, {
           clientId,
-          bankAccountId: dto.bankAccountId,
+          bankAccountId: input.bankAccountId,
           persist: true,
         })
       : { suggestions: [], count: 0 };
@@ -76,7 +136,7 @@ export class BankFeedPipelineService {
     const categorisation = autoCategorise
       ? await this.categorisation.suggest(user, {
           clientId,
-          bankAccountId: dto.bankAccountId,
+          bankAccountId: input.bankAccountId,
           persist: true,
         })
       : { suggestions: [], count: 0 };
@@ -94,7 +154,7 @@ export class BankFeedPipelineService {
     const periodStart = from ?? "2026-01-01";
     const periodEnd = to ?? "2026-12-31";
     const reconciliation = [];
-    for (const account of targets) {
+    for (const account of input.accounts) {
       const session = await this.books.createReconciliation({
         bankAccount: { connect: { id: account.id } },
         periodStart: new Date(periodStart),
@@ -116,36 +176,20 @@ export class BankFeedPipelineService {
     await this.audit.record({
       actor: user,
       clientId,
-      actionType: "yapily.pipeline.ran",
+      actionType: input.source === "manual_csv" ? "bank.manual.pipeline.ran" : "yapily.pipeline.ran",
       metadata: {
-        accounts: targets.length,
-        transactions: synced.reduce((total, row) => total + row.transactions.length, 0),
+        accounts: input.accounts.length,
+        transactions: input.transactionCount ?? 0,
         matching: matching.count,
         categorisation: categorisation.count,
         appliedMatches: appliedMatches.length,
         appliedCategories: appliedCategories.length,
         autoPost,
+        source: input.source ?? "yapily",
       },
     });
 
-    const primary = synced[0];
     return {
-      clientId,
-      steps: [
-        "consent",
-        "accounts",
-        "transactions",
-        "enrichment",
-        "matching",
-        "categorisation",
-        "reconciliation",
-        "journals",
-        "vat_itsa",
-      ],
-      consent,
-      accounts,
-      sync: synced,
-      enrichment: { enriched },
       matching: {
         suggestions: matching.suggestions,
         count: matching.count,
@@ -174,9 +218,6 @@ export class BankFeedPipelineService {
         expenses: itsa.expenses,
         quarterly: itsa.quarterly,
       },
-      account: primary?.account,
-      transactions: primary?.transactions ?? [],
-      suggestions: matching.suggestions,
       autoPost: autoPost ? { posted: appliedCategories.length, matched: appliedMatches.length } : undefined,
     };
   }
