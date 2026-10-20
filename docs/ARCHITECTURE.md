@@ -811,3 +811,9 @@ kubectl rollout status deployment practice
 ```
 
 `preStop` still runs on the outgoing pods. Confirm `/health/ready` is 200 on the restored revision before sending traffic.
+
+---
+
+## 6. Security architecture
+
+Defence-in-depth (edge → auth → authz → services → data → audit → monitoring → backup) is in [docs/SECURITY.md](./SECURITY.md). Every VAT, ITSA, bookkeeping, bank, OCR, AI, and document call passes JWT, RBAC, and `firmId` / `clientId` isolation before it touches Postgres or Spaces.
