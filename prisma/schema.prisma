@@ -142,6 +142,7 @@ model Firm {
   matchingSuggestions MatchingSuggestion[]
   manualStatementUploads ManualStatementUpload[]
   receiptFiles ReceiptFile[]
+  documentFiles DocumentFile[]
 }
 
 model User {
@@ -167,6 +168,7 @@ model User {
   assignedTasks   Task[]   @relation("TaskAssignee")
   manualStatementUploads ManualStatementUpload[]
   receiptFiles ReceiptFile[]
+  documentFiles DocumentFile[]
 }
 
 model RefreshToken {
@@ -225,6 +227,7 @@ model Client {
   matchingSuggestions MatchingSuggestion[]
   manualStatementUploads ManualStatementUpload[]
   receiptFiles ReceiptFile[]
+  documentFiles DocumentFile[]
 
   @@index([firmId])
   @@index([assignedUserId])
@@ -334,6 +337,7 @@ model VatReturn {
   rawPayload                   Json?
   createdAt                    DateTime         @default(now())
   updatedAt                    DateTime         @updatedAt
+  documents                    DocumentFile[]
 }
 
 model VatTransactionSummary {
@@ -411,6 +415,7 @@ model ItsaUpdate {
   rawPayload    Json?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+  documents     DocumentFile[]
 }
 
 model ItsaEndOfPeriodStatement {
@@ -706,6 +711,7 @@ model JournalEntry {
   invoice         SalesInvoice?
   bill            PurchaseBill?
   receipts        ReceiptFile[]
+  documents       DocumentFile[]
 
   @@index([clientId, date])
 }
@@ -750,6 +756,7 @@ model SalesInvoice {
   journal     JournalEntry?  @relation(fields: [journalId], references: [id])
   lines       SalesInvoiceLine[]
   receipts    ReceiptFile[]
+  documents   DocumentFile[]
   createdAt   DateTime       @default(now())
 }
 
@@ -781,6 +788,7 @@ model PurchaseBill {
   journal     JournalEntry?  @relation(fields: [journalId], references: [id])
   lines       PurchaseBillLine[]
   receipts    ReceiptFile[]
+  documents   DocumentFile[]
   createdAt   DateTime       @default(now())
 }
 
@@ -844,6 +852,7 @@ model BankTransaction {
   categorisation        CategorisationSuggestion?
   matching              MatchingSuggestion?
   receipts              ReceiptFile[]
+  documents             DocumentFile[]
 
   @@index([bankAccountId, externalRef])
 }
@@ -1100,4 +1109,79 @@ model ReceiptFile {
   @@index([invoiceId])
   @@index([billId])
   @@index([journalEntryId])
+}
+
+enum DocumentKind {
+  RECEIPT
+  INVOICE
+  BILL
+  CONTRACT
+  STATEMENT
+  HMRC_LETTER
+}
+
+model DocumentTag {
+  id          String              @id @default(uuid())
+  name        String              @unique
+  description String?
+  createdAt   DateTime            @default(now())
+  files       DocumentFileOnTag[]
+}
+
+model DocumentFileOnTag {
+  documentId String
+  document   DocumentFile @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tagId      String
+  tag        DocumentTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+}
+
+/// Central document library for receipts, invoices, bills, contracts, statements, and HMRC letters.
+model DocumentFile {
+  id                 String       @id @default(uuid())
+  firmId             String
+  firm               Firm         @relation(fields: [firmId], references: [id])
+  clientId           String
+  client             Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type               DocumentKind
+  fileName           String
+  fileType           String
+  fileSize           Int
+  storageKey         String
+  storageUrl         String
+  ocrText            String?      @db.Text
+  ocrMerchant        String?
+  ocrAmount          Decimal?     @db.Decimal(14, 2)
+  ocrDate            DateTime?
+  ocrInvoiceNumber   String?
+  tags               Json         @default("[]")
+  attachedTo         Json         @default("{}")
+  uploadedByUserId   String
+  uploadedBy         User         @relation(fields: [uploadedByUserId], references: [id])
+  uploadedAt         DateTime     @default(now())
+  bankTransactionId  String?
+  bankTransaction    BankTransaction? @relation(fields: [bankTransactionId], references: [id])
+  invoiceId          String?
+  invoice            SalesInvoice? @relation(fields: [invoiceId], references: [id])
+  billId             String?
+  bill               PurchaseBill? @relation(fields: [billId], references: [id])
+  journalEntryId     String?
+  journal            JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  vatReturnId        String?
+  vatReturn          VatReturn?   @relation(fields: [vatReturnId], references: [id])
+  itsaSubmissionId   String?
+  itsaSubmission     ItsaUpdate?  @relation(fields: [itsaSubmissionId], references: [id])
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  tagLinks           DocumentFileOnTag[]
+
+  @@index([clientId, uploadedAt])
+  @@index([clientId, type])
+  @@index([bankTransactionId])
+  @@index([invoiceId])
+  @@index([billId])
+  @@index([journalEntryId])
+  @@index([vatReturnId])
+  @@index([itsaSubmissionId])
 }

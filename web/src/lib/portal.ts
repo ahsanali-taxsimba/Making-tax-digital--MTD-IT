@@ -5,8 +5,8 @@ export function scopedQuery(clientId?: string | null): string {
   return clientId ? `?clientId=${clientId}` : "";
 }
 
-export function listDocuments(clientId?: string | null) {
-  return apiFetch<PortalDocument[]>(`/documents${scopedQuery(clientId)}`);
+export function listDocuments(_clientId?: string | null) {
+  return apiFetch<PortalDocument[]>(`/portal/documents`);
 }
 
 export function uploadDocument(body: {
@@ -16,9 +16,14 @@ export function uploadDocument(body: {
   sizeBytes: number;
   category?: string;
 }) {
-  return apiFetch<PortalDocument>("/documents", {
+  return apiFetch<PortalDocument>("/portal/documents", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      fileName: body.fileName,
+      mimeType: body.mimeType,
+      sizeBytes: body.sizeBytes,
+      category: body.category,
+    }),
   });
 }
 
