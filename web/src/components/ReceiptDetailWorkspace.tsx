@@ -72,7 +72,7 @@ export function ReceiptDetailWorkspace({
           <h2 className="mt-2 text-2xl font-semibold text-ink">{row?.ocrMerchant || row?.fileName || "Receipt"}</h2>
         </div>
         <div className="flex flex-col items-end gap-3">
-          {staffNav && isPracticeStaff(user?.role) ? <BankWorkspaceNav /> : null}
+          {staffNav && isPracticeStaff(user?.role, user) ? <BankWorkspaceNav /> : null}
           <ReceiptsSubNav basePath={basePath} />
         </div>
       </div>

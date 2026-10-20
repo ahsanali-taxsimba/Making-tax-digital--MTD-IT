@@ -38,6 +38,6 @@ export function useSession() {
     environment,
     ready,
     isAuthenticated: Boolean(user),
-    canManage: canManageConnection(user?.role),
+    canManage: canManageConnection(user?.role, user),
   };
 }

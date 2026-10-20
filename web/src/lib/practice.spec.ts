@@ -1,4 +1,4 @@
-import { clientHmrcStatus, matchesQuery, taskColumn, taskTypeLabel } from "./practice";
+import { clientHmrcStatus, matchesQuery, pageTitle, roleLabel, taskColumn, taskTypeLabel } from "./practice";
 
 describe("practice helpers", () => {
   it("maps board columns", () => {
@@ -22,5 +22,14 @@ describe("practice helpers", () => {
   it("filters search terms", () => {
     expect(matchesQuery(["Amelia Hartley", "AA123456A"], "hart")).toBe(true);
     expect(matchesQuery(["James Cole"], "noah")).toBe(false);
+  });
+
+  it("titles the three role workspaces", () => {
+    expect(pageTitle("/admin/overview")).toBe("Platform dashboard");
+    expect(pageTitle("/practice/dashboard")).toBe("Dashboard");
+    expect(pageTitle("/client/home")).toBe("Home");
+    expect(roleLabel("admin_owner")).toBe("Platform owner");
+    expect(roleLabel("firm_accountant")).toBe("Accountant");
+    expect(roleLabel("CLIENT")).toBe("Client");
   });
 });

@@ -4,8 +4,9 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { ClientTable } from "@/components/ClientTable";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { RequireStaff } from "@/components/RequireStaff";
+import { WorkspaceGate } from "@/components/WorkspaceGate";
 import { useClients } from "@/hooks/useClients";
+import { useSession } from "@/hooks/useSession";
 import { useStaff } from "@/hooks/useStaff";
 import { clientHmrcStatus, matchesQuery } from "@/lib/practice";
 
@@ -39,11 +40,12 @@ function ClientsBody() {
 }
 
 export default function ClientsPage() {
+  const { user } = useSession();
   return (
-    <RequireStaff>
+    <WorkspaceGate allow="practice" firmId={user?.firmId}>
       <Suspense fallback={<LoadingSpinner label="Loading clients…" />}>
         <ClientsBody />
       </Suspense>
-    </RequireStaff>
+    </WorkspaceGate>
   );
 }

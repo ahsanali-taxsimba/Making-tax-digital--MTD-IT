@@ -108,7 +108,7 @@ export function ReceiptUploadWorkspace({ basePath, staffNav = false }: { basePat
           </p>
         </div>
         <div className="flex flex-col items-end gap-3">
-          {staffNav && isPracticeStaff(user?.role) ? <BankWorkspaceNav /> : null}
+          {staffNav && isPracticeStaff(user?.role, user) ? <BankWorkspaceNav /> : null}
           <ReceiptsSubNav basePath={basePath} />
         </div>
       </div>

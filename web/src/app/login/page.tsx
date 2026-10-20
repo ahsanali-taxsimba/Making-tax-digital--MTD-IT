@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { login } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
+import { homePath } from "@/lib/roles";
 import { setSelectedClientId } from "@/lib/session";
 import { ErrorBanner } from "@/components/ErrorBanner";
 
@@ -22,10 +23,8 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (result.user.clientId) {
         setSelectedClientId(result.user.clientId);
-      } else {
-        setSelectedClientId("22222222-2222-4222-8222-222222222222");
       }
-      router.replace(result.user.role === "CLIENT" ? "/portal" : "/practice");
+      router.replace(homePath(result.user));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to sign in.");
     } finally {
@@ -37,7 +36,8 @@ export default function LoginPage() {
     <div className="mx-auto max-w-md">
       <h1 className="text-2xl font-semibold text-ink">Sign in</h1>
       <p className="mt-2 text-sm text-ink-muted">
-        Accountants and clients use the same practice login. HMRC tokens are never shown in this browser.
+        Your role opens one workspace only: the platform console, your firm&apos;s practice, or your own client
+        portal.
       </p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-2xl border border-line bg-white p-6 shadow-sm">
         {error ? <ErrorBanner title="Sign-in failed" message={error} /> : null}
@@ -71,6 +71,17 @@ export default function LoginPage() {
           {pending ? "Signing in…" : "Continue"}
         </button>
       </form>
+      <div className="mt-6 space-y-2 text-xs text-ink-muted">
+        <p>
+          Platform: <span className="font-medium text-ink">grace.l@example.com</span> / PlatformAdmin123!
+        </p>
+        <p>
+          Firm: <span className="font-medium text-ink">marco.r@example.org</span> / PracticeAdmin123!
+        </p>
+        <p>
+          Client: <span className="font-medium text-ink">tom.h@example.org</span> / PracticeAdmin123!
+        </p>
+      </div>
     </div>
   );
 }

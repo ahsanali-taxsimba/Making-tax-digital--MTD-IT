@@ -1,4 +1,5 @@
 import { clearSession, getAccessToken, getRefreshToken, setSession, getUser } from "./session";
+import { withTenantQuery } from "./roles";
 import type { ApiEnvelope } from "./types";
 import { errorCodeOf } from "./errors";
 
@@ -52,6 +53,13 @@ async function refreshAccessToken(): Promise<string | null> {
   return data.accessToken;
 }
 
+function tenantScopedPath(path: string, auth?: boolean): string {
+  if (auth === false || path.startsWith("/auth/")) {
+    return path;
+  }
+  return withTenantQuery(path, getUser());
+}
+
 async function authorizedFetch(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   if (init.body && !headers.has("Content-Type") && !(init.body instanceof FormData)) {
@@ -64,12 +72,13 @@ async function authorizedFetch(path: string, init: RequestInit & { auth?: boolea
     }
   }
 
-  let response = await fetch(`${apiBase()}${path}`, { ...init, headers });
+  const scoped = tenantScopedPath(path, init.auth);
+  let response = await fetch(`${apiBase()}${scoped}`, { ...init, headers });
   if (response.status === 401 && init.auth !== false) {
     const next = await refreshAccessToken();
     if (next) {
       headers.set("Authorization", `Bearer ${next}`);
-      response = await fetch(`${apiBase()}${path}`, { ...init, headers });
+      response = await fetch(`${apiBase()}${scoped}`, { ...init, headers });
     } else {
       clearSession();
     }

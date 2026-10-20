@@ -1,3 +1,4 @@
+import { canonicalRoleLabel } from "./roles";
 import type { HmrcLinkStatus, PracticeTaskStatus, PracticeTaskType } from "./types";
 
 export const TASK_BOARD_COLUMNS = [
@@ -76,18 +77,7 @@ export function taskStatusLabel(status?: string | null): string {
 }
 
 export function roleLabel(role?: string | null): string {
-  switch (String(role ?? "").toUpperCase()) {
-    case "ADMIN":
-      return "Admin";
-    case "ACCOUNTANT":
-      return "Accountant";
-    case "ASSISTANT":
-      return "Assistant";
-    case "CLIENT":
-      return "Client";
-    default:
-      return role ?? "—";
-  }
+  return canonicalRoleLabel(role);
 }
 
 export function statusLabel(status?: string | null): string {
@@ -162,11 +152,28 @@ export function matchesQuery(haystack: Array<string | null | undefined>, query: 
 }
 
 export function pageTitle(pathname: string): string {
+  if (pathname.startsWith("/admin/firms")) return "Firms";
+  if (pathname.startsWith("/admin/integrations")) return "Integrations";
+  if (pathname.startsWith("/admin/feature-flags")) return "Feature flags";
+  if (pathname.startsWith("/admin/logs")) return "Logs";
+  if (pathname.startsWith("/admin/system-health")) return "System health";
+  if (pathname.startsWith("/admin")) return "Platform dashboard";
   if (pathname.startsWith("/practice/staff")) return "Staff";
   if (pathname.startsWith("/practice/clients")) return "Clients";
-  if (pathname.startsWith("/practice/tasks")) return "Workflow & tasks";
+  if (pathname.startsWith("/practice/tasks")) return "Tasks";
   if (pathname.startsWith("/practice/hmrc")) return "HMRC connections";
+  if (pathname.startsWith("/practice/vat")) return "VAT";
+  if (pathname.startsWith("/practice/itsa")) return "ITSA";
+  if (pathname.startsWith("/practice/bank-feeds")) return "Bank feeds";
+  if (pathname.startsWith("/practice/reconciliation")) return "Reconciliation";
+  if (pathname.startsWith("/practice/documents")) return "Documents";
+  if (pathname.startsWith("/practice/dashboard")) return "Dashboard";
   if (pathname.startsWith("/practice")) return "Practice";
+  if (pathname.startsWith("/client/vat")) return "VAT";
+  if (pathname.startsWith("/client/itsa")) return "ITSA";
+  if (pathname.startsWith("/client/documents")) return "Documents";
+  if (pathname.startsWith("/client/messages")) return "Messages";
+  if (pathname.startsWith("/client")) return "Home";
   if (pathname.startsWith("/reconciliation")) return "Bank reconciliation";
   if (pathname.startsWith("/categorisation")) return "Auto-categorisation";
   if (pathname.startsWith("/matching")) return "Invoice & bill matching";

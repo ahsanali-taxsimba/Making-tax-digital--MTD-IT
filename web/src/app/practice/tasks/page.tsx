@@ -3,9 +3,10 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { RequireStaff } from "@/components/RequireStaff";
 import { TaskBoard } from "@/components/TaskBoard";
+import { WorkspaceGate } from "@/components/WorkspaceGate";
 import { useClients } from "@/hooks/useClients";
+import { useSession } from "@/hooks/useSession";
 import { useStaff } from "@/hooks/useStaff";
 import { useTasks } from "@/hooks/useTasks";
 import { matchesQuery, taskTypeLabel } from "@/lib/practice";
@@ -33,11 +34,12 @@ function TasksBody() {
 }
 
 export default function TasksPage() {
+  const { user } = useSession();
   return (
-    <RequireStaff>
+    <WorkspaceGate allow="practice" firmId={user?.firmId}>
       <Suspense fallback={<LoadingSpinner label="Loading the task board…" />}>
         <TasksBody />
       </Suspense>
-    </RequireStaff>
+    </WorkspaceGate>
   );
 }
