@@ -55,6 +55,7 @@ export const IDENTITY_HEADERS = {
   hmrcMode: "x-mtd-hmrc-mode",
   hmrcEnvironment: "x-mtd-hmrc-environment",
   hmrcSandbox: "x-mtd-hmrc-sandbox",
+  fraudPrevention: "x-mtd-fraud-prevention",
 } as const;
 
 export function serviceForPath(path: string): LogicalService {

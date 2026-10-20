@@ -1,12 +1,17 @@
 import { AsyncLocalStorage } from "async_hooks";
+import { FraudPreventionContext } from "../hmrc.types";
 import { HmrcRequestScope } from "./hmrc-sandbox.mode";
 
-const store = new AsyncLocalStorage<HmrcRequestScope>();
+export interface HmrcAlsStore extends HmrcRequestScope {
+  fraud?: FraudPreventionContext;
+}
 
-export function runHmrcScope<T>(scope: HmrcRequestScope, fn: () => T): T {
+const store = new AsyncLocalStorage<HmrcAlsStore>();
+
+export function runHmrcScope<T>(scope: HmrcAlsStore, fn: () => T): T {
   return store.run(scope, fn);
 }
 
-export function currentHmrcScope(): HmrcRequestScope | undefined {
+export function currentHmrcScope(): HmrcAlsStore | undefined {
   return store.getStore();
 }

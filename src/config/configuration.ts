@@ -46,6 +46,9 @@ export default () => ({
       .filter(Boolean),
     refreshSkewMs: parseInt(process.env.HMRC_TOKEN_REFRESH_SKEW_MS ?? "60000", 10),
     refreshIntervalMs: parseInt(process.env.HMRC_TOKEN_REFRESH_INTERVAL_MS ?? "300000", 10),
+    obligationSyncMs: parseInt(process.env.HMRC_OBLIGATION_SYNC_MS ?? "900000", 10),
+    obligationDueDays: parseInt(process.env.HMRC_OBLIGATION_DUE_DAYS ?? "14", 10),
+    vendorPublicIp: process.env.HMRC_VENDOR_PUBLIC_IP ?? "",
     sandbox: {
       clientId: process.env.HMRC_SANDBOX_CLIENT_ID || process.env.HMRC_CLIENT_ID || "",
       clientSecret: process.env.HMRC_SANDBOX_CLIENT_SECRET || process.env.HMRC_CLIENT_SECRET || "",
@@ -91,6 +94,9 @@ export default () => ({
     endpoint: process.env.OCR_ENDPOINT ?? "",
     apiKey: process.env.OCR_API_KEY ?? "",
     timeoutMs: parseInt(process.env.OCR_TIMEOUT_MS ?? "8000", 10),
+  },
+  digitalLinks: {
+    enforce: process.env.DIGITAL_LINKS_ENFORCE !== "false",
   },
   receipts: {
     driver: (process.env.RECEIPTS_STORAGE_DRIVER ?? "local") as "local" | "s3",

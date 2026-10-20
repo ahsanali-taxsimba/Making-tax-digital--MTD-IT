@@ -27,6 +27,7 @@ describe("VatService", () => {
   const tasks = { ensure: jest.fn(), complete: jest.fn() };
   const notifications = { notify: jest.fn() };
   const webhooks = { emit: jest.fn() };
+  const digitalLinks = { assertReady: jest.fn().mockResolvedValue(undefined) };
 
   const service = new VatService(
     hmrc as never,
@@ -38,11 +39,13 @@ describe("VatService", () => {
     webhooks as never,
     repo,
     { evidenceForClient: jest.fn().mockResolvedValue({ vat: { box4: { items: 0, withProof: 0, proofAttached: false } } }) } as never,
+    digitalLinks as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
     clients.get.mockResolvedValue(client);
+    digitalLinks.assertReady.mockResolvedValue(undefined);
   });
 
   it("returns the nine-box catalog", () => {
@@ -70,6 +73,18 @@ describe("VatService", () => {
     expect(hmrc.get).toHaveBeenCalledWith("/organisations/vat/888888888/obligations", "client-1");
     expect(tasks.ensure).toHaveBeenCalledWith("firm-1", "client-1", "MTD_VAT_RETURN", expect.any(Date), "VAT return 26A1");
     expect(result).toEqual([{ periodKey: "26A1" }]);
+    expect(notifications.notify).toHaveBeenCalledWith(expect.objectContaining({ type: "OBLIGATION_FETCHED" }));
+  });
+
+  it("skips the fetch notice when the obligation worker refreshes", async () => {
+    hmrc.get.mockResolvedValue({
+      correlationId: "c1",
+      status: 200,
+      data: { obligations: [] },
+    });
+    prisma.vatObligation.findMany.mockResolvedValue([]);
+    await service.obligations(user, client.id, { notifyFetched: false });
+    expect(notifications.notify).not.toHaveBeenCalled();
   });
 
   it("previews boxes 1-9 from ledger lines", async () => {
@@ -178,6 +193,30 @@ describe("VatService", () => {
     expect(saved.formBundleNumber).toBe("FB1");
     expect(webhooks.emit).toHaveBeenCalledWith("firm-1", "VAT_RETURN_SUBMITTED", expect.any(Object));
     expect(tasks.complete).toHaveBeenCalled();
+    expect(digitalLinks.assertReady).toHaveBeenCalledWith(
+      user,
+      expect.objectContaining({ clientId: "client-1", kind: "vat" }),
+    );
+  });
+
+  it("blocks VAT submit when digital links are incomplete", async () => {
+    digitalLinks.assertReady.mockRejectedValueOnce(new Error("Digital links incomplete"));
+    await expect(
+      service.submit(user, client.id, {
+        periodKey: "26A1",
+        vatDueSales: 1200,
+        vatDueAcquisitions: 0,
+        totalVatDue: 1200,
+        vatReclaimedCurrPeriod: 200,
+        netVatDue: 1000,
+        totalValueSalesExVAT: 6000,
+        totalValuePurchasesExVAT: 1000,
+        totalValueGoodsSuppliedExVAT: 0,
+        totalAcquisitionsExVAT: 0,
+        finalised: true,
+      }),
+    ).rejects.toThrow("Digital links incomplete");
+    expect(hmrc.post).not.toHaveBeenCalled();
   });
 
   it("submits from ledger using the obligation dates when period bounds are omitted", async () => {

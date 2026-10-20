@@ -2,6 +2,7 @@ import { clearSession, getAccessToken, getEnvironment, getRefreshToken, setSessi
 import { withTenantQuery } from "./roles";
 import type { ApiEnvelope } from "./types";
 import { errorCodeOf } from "./errors";
+import { fraudPreventionHeader } from "./fraud-prevention";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -74,6 +75,9 @@ async function authorizedFetch(path: string, init: RequestInit & { auth?: boolea
   const environment = getEnvironment();
   headers.set("x-mtd-hmrc-environment", environment);
   headers.set("x-mtd-hmrc-sandbox", environment === "sandbox" ? "true" : "false");
+  if (typeof window !== "undefined") {
+    headers.set("x-mtd-fraud-prevention", fraudPreventionHeader(getUser()?.id));
+  }
 
   const scoped = tenantScopedPath(path, init.auth);
   let response = await fetch(`${apiBase()}${scoped}`, { ...init, headers });

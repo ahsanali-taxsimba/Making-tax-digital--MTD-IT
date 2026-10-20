@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { ObligationStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
+import { DigitalLinksService } from "../audit/digital-links.service";
 import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
 import { HmrcClientService } from "../hmrc/client/hmrc-client.service";
@@ -45,6 +46,7 @@ export class VatService {
     private readonly webhooks: WebhooksService,
     private readonly repo: VatRepository,
     private readonly receipts: ReceiptsService,
+    private readonly digitalLinks: DigitalLinksService,
   ) {}
 
   mapping() {
@@ -107,7 +109,7 @@ export class VatService {
     };
   }
 
-  async obligations(user: AuthUser, clientId: string) {
+  async obligations(user: AuthUser, clientId: string, options?: { notifyFetched?: boolean }) {
     const client = await this.requireVatClient(user, clientId);
     const result = await this.hmrc.get<{ obligations: VatObligationDto[] }>(
       `/organisations/vat/${client.vatRegistrationNumber}/obligations`,
@@ -147,13 +149,15 @@ export class VatService {
       actionType: "vat.obligations.fetched",
       metadata: { correlationId: result.correlationId, count: result.data.obligations.length },
     });
-    await this.notifications.notify({
-      firmId: client.firmId,
-      type: "OBLIGATION_FETCHED",
-      title: "VAT obligations refreshed",
-      body: `${result.data.obligations.length} VAT obligation(s) synced for ${client.name}.`,
-      metadata: { clientId: client.id },
-    });
+    if (options?.notifyFetched !== false) {
+      await this.notifications.notify({
+        firmId: client.firmId,
+        type: "OBLIGATION_FETCHED",
+        title: "VAT obligations refreshed",
+        body: `${result.data.obligations.length} VAT obligation(s) synced for ${client.name}.`,
+        metadata: { clientId: client.id },
+      });
+    }
     return this.prisma.vatObligation.findMany({ where: { clientId: client.id }, orderBy: { start: "desc" } });
   }
 
@@ -236,6 +240,12 @@ export class VatService {
       client.id,
     );
     this.assertValid(validation);
+    await this.digitalLinks.assertReady(user, {
+      clientId: client.id,
+      kind: "vat",
+      periodStart: resolved.periodStart ?? dto.periodStart,
+      periodEnd: resolved.periodEnd ?? dto.periodEnd,
+    });
     const totals = finaliseVatBoxes(resolved.input);
     const boxes: VatReturnBoxes = {
       periodKey: dto.periodKey,

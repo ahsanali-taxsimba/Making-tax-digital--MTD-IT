@@ -30,8 +30,8 @@ Runtime remains **one API process** (`AppModule`) with thirteen **logical** serv
 | --- | --- | --- |
 | HMRC VAT sandbox testing | **Yes, with credentials** | VAT paths, OAuth, fraud-prevention headers, `Gov-Test-Scenario`, sandbox hosts, and test-user create/login are in place. Needs a Developer Hub app, `HMRC_MODE=sandbox`, and a created organisation test user. |
 | HMRC ITSA sandbox testing | **Yes, with credentials** | Obligations expand to the three official feeds. Quarterly PUT, EOPS POST, and final declaration now use current HMRC path shapes (calculationId in the URL). Needs an individual test user, NINO, and `businessId`. |
-| Production deployment | **No** | Sandbox-ready, not production-ready. Missing HMRC production approval, live fraud-header collection from the browser, SSO, managed secrets, WAF in front of a real cluster, restore tests, and a split of the monolith if independent scaling is required. |
-| Security audit | **Almost** | Critical JWT/MFA, IDOR, RBAC default-deny, metrics, and secrets checks are fixed. Residual: MFA lockout is counter-based (no timed unlock), fraud headers still have sandbox placeholders, audit unique constraint can fail on historical duplicates. |
+| Production deployment | **No** | Sandbox-ready, not production-ready. Missing HMRC production approval, SSO, managed secrets, WAF in front of a real cluster, restore tests, and a split of the monolith if independent scaling is required. |
+| Security audit | **Almost** | Critical JWT/MFA, IDOR, RBAC default-deny, metrics, and secrets checks are fixed. Residual: MFA lockout is counter-based (no timed unlock), audit unique constraint can fail on historical duplicates. |
 | Developer onboarding | **Yes** | README + PLAYBOOK + ARCHITECTURE + SECURITY + this report, `.env.example`, `HMRC_MODE=mock`, Prisma seed, CI workflow. |
 
 ## What this audit fixed
@@ -61,13 +61,18 @@ Runtime remains **one API process** (`AppModule`) with thirteen **logical** serv
 
 ## Remaining gaps (do not treat as done)
 
-- Browser has not yet posted real `Gov-Client-*` values; server fills placeholders that HMRC will reject in live fraud checks.
 - ITSA GET `/income-tax/{nino}/income-expenses` is a **facade**. Live HMRC has no nino-only income GET; period bounds come from income-and-expenditure obligations and figures from the ledger.
 - No SSO / IdP (`ssoProviders()` is empty).
 - Accountant assignment restriction is opt-in (`restrictAccountantsToAssigned`).
 - Hash chain uniqueness may fail to apply on a database that already has duplicate `(firmId, prevHash)` from the old race.
-- Background workers (OCR, bank sync, HMRC submit) still run in-process.
+- Background workers (OCR, bank sync, HMRC submit, obligation sync) still run in-process.
 - DigitalOcean cluster, WAF, managed Postgres PITR restore drill, and HMRC production application are operator work, not code.
+
+## Live-readiness increment (this branch)
+
+- The web app sends `x-mtd-fraud-prevention` (device, timezone, screens, window, UA, DNT, plugins). The API fills `Gov-Client-Public-IP` from `X-Forwarded-For` and does not trust a browser-supplied IP.
+- `ObligationSyncService` refreshes VAT/ITSA obligations for connected clients on an interval (`HMRC_OBLIGATION_SYNC_MS`) and emits a one-shot `OBLIGATION_DUE` notice (`HMRC_OBLIGATION_DUE_DAYS`).
+- VAT/ITSA submit is blocked unless a document, bank transaction, and journal exist in the period (`DIGITAL_LINKS_ENFORCE`). EOPS also needs a quarterly update; final also needs EOPS. VAT return / quarterly / EOPS / final nodes are submit outputs, not prerequisites.
 
 ## How to run VAT / ITSA sandbox
 

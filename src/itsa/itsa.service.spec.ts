@@ -46,6 +46,7 @@ describe("ItsaService", () => {
   const tasks = { complete: jest.fn(), ensure: jest.fn() };
   const notifications = { notify: jest.fn() };
   const webhooks = { emit: jest.fn() };
+  const digitalLinks = { assertReady: jest.fn().mockResolvedValue(undefined) };
 
   const service = new ItsaService(
     hmrc as never,
@@ -56,10 +57,12 @@ describe("ItsaService", () => {
     notifications as never,
     webhooks as never,
     { evidenceForClient: jest.fn().mockResolvedValue({ receiptsAttached: 2, itsa: { attached: 2, allowableExpenses: 3, allowableExpensesWithReceipt: 2 } }) } as never,
+    digitalLinks as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    digitalLinks.assertReady.mockResolvedValue(undefined);
     clients.get.mockResolvedValue(client);
     repo.findBusiness.mockResolvedValue(business);
     repo.findObligation.mockResolvedValue({
@@ -113,6 +116,25 @@ describe("ItsaService", () => {
       expect.objectContaining({ incomes: { turnover: 5000 }, businessId: "XAIS1" }),
       "client-1",
     );
+    expect(digitalLinks.assertReady).toHaveBeenCalledWith(
+      user,
+      expect.objectContaining({ clientId: "client-1", kind: "quarterly" }),
+    );
+  });
+
+  it("blocks a quarterly update when digital links are incomplete", async () => {
+    digitalLinks.assertReady.mockRejectedValueOnce(new Error("Digital links incomplete"));
+    await expect(
+      service.submitUpdate(user, client.id, {
+        businessId: business.id,
+        taxYear: "2025-26",
+        periodId: "2026-04-06_2026-07-05",
+        periodStart: "2026-04-06",
+        periodEnd: "2026-07-05",
+        fromLedger: true,
+      }),
+    ).rejects.toThrow("Digital links incomplete");
+    expect(hmrc.put).not.toHaveBeenCalled();
   });
 
   it("blocks a quarterly update that includes a capital category", async () => {
