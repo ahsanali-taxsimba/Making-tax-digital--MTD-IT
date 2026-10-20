@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { Response } from "express";
 import { BookkeepingError } from "../../bookkeeping/bookkeeping.errors";
+import { HmrcClientError } from "../../hmrc/client/hmrc-client.errors";
 import { HmrcApiError } from "../../hmrc/hmrc.errors";
 import { HmrcOAuthError } from "../../hmrc/oauth/hmrc-oauth.errors";
 
@@ -18,7 +19,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
 
-    if (exception instanceof HmrcOAuthError) {
+    if (exception instanceof HmrcOAuthError || exception instanceof HmrcClientError) {
       const body = exception.getResponse();
       const message =
         typeof body === "object" && body && "message" in body

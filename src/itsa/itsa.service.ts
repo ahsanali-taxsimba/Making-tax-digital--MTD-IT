@@ -1,11 +1,10 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { ObligationStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
-import { HMRC_ITSA } from "../hmrc/hmrc.tokens";
-import { HmrcItsaGateway } from "../hmrc/hmrc.types";
-import { HmrcOAuthService } from "../hmrc/oauth/hmrc-oauth.service";
+import { HmrcClientService } from "../hmrc/client/hmrc-client.service";
+import { ItsaObligationDto } from "../hmrc/hmrc.types";
 import { NotificationsService } from "../notifications/notifications.service";
 import { TasksService } from "../tasks/tasks.service";
 import { WebhooksService } from "../webhooks/webhooks.service";
@@ -30,8 +29,7 @@ import { chartProfileForBusinessType, lookupItsaMapping, MTD_ITSA_MAPPING } from
 @Injectable()
 export class ItsaService {
   constructor(
-    @Inject(HMRC_ITSA) private readonly itsa: HmrcItsaGateway,
-    private readonly connections: HmrcOAuthService,
+    private readonly hmrc: HmrcClientService,
     private readonly clients: ClientsService,
     private readonly repo: ItsaRepository,
     private readonly audit: AuditService,
@@ -71,8 +69,10 @@ export class ItsaService {
 
   async obligations(user: AuthUser, clientId: string) {
     const client = await this.requireItsaClient(user, clientId);
-    const ctx = await this.connections.getCallContext(client.id);
-    const result = await this.itsa.getObligations(ctx, client.nino!);
+    const result = await this.hmrc.get<{ obligations: ItsaObligationDto[] }>(
+      `/income-tax/${client.nino}/obligations`,
+      client.id,
+    );
     for (const item of result.data.obligations) {
       const business = item.businessId ? await this.repo.findBusinessByHmrcId(client.id, item.businessId) : null;
       const existing = await this.repo.findObligation(client.id, item.type, item.taxYear, item.periodId, business?.id);
@@ -195,16 +195,19 @@ export class ItsaService {
       rolled?.transactionCount ?? 0,
     );
     this.assertValid(validation);
-    const ctx = await this.connections.getCallContext(client.id);
-    const result = await this.itsa.submitQuarterlyUpdate(ctx, client.nino!, {
-      businessId: business.hmrcBusinessId ?? business.id,
-      taxYear: dto.taxYear,
-      periodId: dto.periodId,
-      periodStart: dto.periodStart,
-      periodEnd: dto.periodEnd,
-      incomes,
-      expenses,
-    });
+    const result = await this.hmrc.post<{ periodId: string }>(
+      `/income-tax/${client.nino}/updates`,
+      {
+        businessId: business.hmrcBusinessId ?? business.id,
+        taxYear: dto.taxYear,
+        periodId: dto.periodId,
+        periodStart: dto.periodStart,
+        periodEnd: dto.periodEnd,
+        incomes,
+        expenses,
+      },
+      client.id,
+    );
     const saved = await this.repo.createUpdate({
       clientId: client.id,
       businessId: business.id,
@@ -247,15 +250,18 @@ export class ItsaService {
       quarterlyUpdateCount: updates.length,
     });
     this.assertValid(validation);
-    const ctx = await this.connections.getCallContext(client.id);
-    const result = await this.itsa.submitEops(ctx, client.nino!, {
-      businessId: business.hmrcBusinessId ?? business.id,
-      taxYear: dto.taxYear,
-      typeOfBusiness: dto.typeOfBusiness,
-      accountingPeriodStart: dto.accountingPeriodStart,
-      accountingPeriodEnd: dto.accountingPeriodEnd,
-      finalised: dto.finalised,
-    });
+    const result = await this.hmrc.post<{ processingDate: string }>(
+      `/income-tax/${client.nino}/eops`,
+      {
+        businessId: business.hmrcBusinessId ?? business.id,
+        taxYear: dto.taxYear,
+        typeOfBusiness: dto.typeOfBusiness,
+        accountingPeriodStart: dto.accountingPeriodStart,
+        accountingPeriodEnd: dto.accountingPeriodEnd,
+        finalised: dto.finalised,
+      },
+      client.id,
+    );
     const saved = await this.repo.createEops({
       clientId: client.id,
       businessId: business.id,
@@ -285,8 +291,11 @@ export class ItsaService {
     const client = await this.requireItsaClient(user, clientId);
     const validation = await this.finalValidation(client.id, dto.taxYear);
     this.assertValid(validation);
-    const ctx = await this.connections.getCallContext(client.id);
-    const result = await this.itsa.submitFinalDeclaration(ctx, client.nino!, dto);
+    const result = await this.hmrc.post<{ calculationId: string }>(
+      `/income-tax/${client.nino}/final-declaration`,
+      dto,
+      client.id,
+    );
     const saved = await this.repo.createFinal({
       clientId: client.id,
       taxYear: dto.taxYear,

@@ -74,8 +74,25 @@ describe("MTD API (e2e)", () => {
     ledger: { createMany: jest.fn().mockResolvedValue({ count: 26 }), findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
     transaction: { count: jest.fn().mockResolvedValue(0) },
     vatTransactionSummary: { upsert: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
-    vatObligation: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
-    vatReturn: { findMany: jest.fn().mockResolvedValue([]) },
+    vatObligation: {
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      upsert: jest.fn(async ({ create }: { create: Record<string, unknown> }) => ({ id: "vat-ob-1", ...create })),
+      update: jest.fn(),
+    },
+    vatReturn: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+    vatPayment: {
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    hmrcInteraction: { create: jest.fn() },
+    task: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "task-1", ...data })),
+      findMany: jest.fn().mockResolvedValue([]),
+      updateMany: jest.fn(),
+    },
     business: {
       findFirst: jest.fn(async () => ({
         id: "44444444-4444-4444-8444-444444444444",
@@ -85,7 +102,12 @@ describe("MTD API (e2e)", () => {
       })),
       findMany: jest.fn().mockResolvedValue([]),
     },
-    itsaObligation: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+    itsaObligation: {
+      findFirst: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "itsa-ob-1", ...data })),
+      update: jest.fn(),
+    },
     itsaUpdate: { findMany: jest.fn().mockResolvedValue([]) },
     itsaEndOfPeriodStatement: { findMany: jest.fn().mockResolvedValue([]) },
     itsaFinalDeclaration: { findMany: jest.fn().mockResolvedValue([]) },
@@ -186,6 +208,27 @@ describe("MTD API (e2e)", () => {
 
     const vatMapping = await request(app.getHttpServer()).get("/vat/mapping").set("Authorization", `Bearer ${token}`).expect(200);
     expect(vatMapping.body.data.boxes.box_5.name).toContain("Net VAT");
+
+    const vatObligations = await request(app.getHttpServer())
+      .get("/vat/obligations")
+      .query({ clientId: "22222222-2222-4222-8222-222222222222" })
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(Array.isArray(vatObligations.body.data)).toBe(true);
+
+    const vatPayments = await request(app.getHttpServer())
+      .get("/vat/payments")
+      .query({ clientId: "22222222-2222-4222-8222-222222222222" })
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(Array.isArray(vatPayments.body.data)).toBe(true);
+
+    const itsaObligations = await request(app.getHttpServer())
+      .get("/itsa/obligations")
+      .query({ clientId: "22222222-2222-4222-8222-222222222222" })
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(Array.isArray(itsaObligations.body.data)).toBe(true);
 
     const validated = await request(app.getHttpServer())
       .get("/vat/validate")

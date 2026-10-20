@@ -31,7 +31,7 @@ export class VatEngineController {
   }
 
   @Get("obligations")
-  @ApiOperation({ summary: "Fetch HMRC VAT obligations for a client" })
+  @ApiOperation({ summary: "Fetch HMRC VAT obligations for a client via HmrcClientService GET /organisations/vat/{vrn}/obligations" })
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   obligations(@CurrentUser() user: AuthUser, @Query() query: VatClientQueryDto) {
     return this.vat.obligations(user, query.clientId);
@@ -54,7 +54,7 @@ export class VatEngineController {
   }
 
   @Post("returns/submit")
-  @ApiOperation({ summary: "Validate and submit a VAT return to HMRC" })
+  @ApiOperation({ summary: "Validate VAT boxes 1–9 and submit via HmrcClientService POST /organisations/vat/{vrn}/returns" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   submit(@CurrentUser() user: AuthUser, @Body() dto: VatEngineSubmitDto) {
@@ -62,7 +62,7 @@ export class VatEngineController {
   }
 
   @Get("payments")
-  @ApiOperation({ summary: "Fetch HMRC VAT payments for a client" })
+  @ApiOperation({ summary: "Fetch HMRC VAT payments via HmrcClientService GET /organisations/vat/{vrn}/payments" })
   payments(@CurrentUser() user: AuthUser, @Query() query: VatClientQueryDto) {
     return this.vat.payments(user, query.clientId);
   }

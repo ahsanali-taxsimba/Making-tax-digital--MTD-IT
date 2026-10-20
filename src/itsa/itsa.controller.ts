@@ -35,14 +35,14 @@ export class ItsaEngineController {
   }
 
   @Get("obligations")
-  @ApiOperation({ summary: "Fetch HMRC ITSA obligations for a client" })
+  @ApiOperation({ summary: "Fetch HMRC ITSA obligations via HmrcClientService GET /income-tax/{nino}/obligations" })
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   obligations(@CurrentUser() user: AuthUser, @Query() query: ItsaClientQueryDto) {
     return this.itsa.obligations(user, query.clientId);
   }
 
   @Post("quarterly-update")
-  @ApiOperation({ summary: "Validate and submit an ITSA quarterly update" })
+  @ApiOperation({ summary: "Validate quarterly categories and submit via HmrcClientService POST /income-tax/{nino}/updates" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   submitUpdate(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineQuarterlyDto) {
@@ -50,14 +50,14 @@ export class ItsaEngineController {
   }
 
   @Post("eops")
-  @ApiOperation({ summary: "Validate and submit an End of Period Statement" })
+  @ApiOperation({ summary: "Validate EOPS completeness and submit via HmrcClientService POST /income-tax/{nino}/eops" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   submitEops(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineEopsDto) {
     return this.itsa.submitEops(user, dto.clientId, dto);
   }
 
   @Post("final-declaration")
-  @ApiOperation({ summary: "Validate and submit the tax-year Final Declaration" })
+  @ApiOperation({ summary: "Validate Final Declaration completeness and submit via HmrcClientService POST /income-tax/{nino}/final-declaration" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   submitFinal(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineFinalDto) {
     return this.itsa.submitFinal(user, dto.clientId, dto);

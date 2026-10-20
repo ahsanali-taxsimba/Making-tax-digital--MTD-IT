@@ -9,16 +9,21 @@ NestJS is the application framework because it gives modular boundaries, first-c
 ## Architecture
 
 ```
-controllers  →  application services  →  repositories / Prisma
-                     ↓
-              HMRC gateway (mock | live)
-                     ↓
-         tasks · notifications · webhooks · audit
+controllers  →  VAT / ITSA / OAuth modules  →  repositories / Prisma
+                            ↓
+                   HmrcClientService
+                     get · post · getValidAccessToken
+                     handleTokenRefresh · handleHMRCError
+                            ↓
+              OAuth tokens (AES-256-GCM)  +  HMRC HTTP (mock | live)
+                            ↓
+         tasks · notifications · webhooks · AuditLog
 ```
 
 - **Tenancy:** every user belongs to a firm. Accountants see firm clients; client-portal users only see their linked client.
 - **RBAC:** `ADMIN`, `ACCOUNTANT`, `CLIENT`.
-- **HMRC OAuth:** dedicated `/hmrc/oauth/*` module for start, callback, status, disconnect, encrypted tokens, per-environment app config, and `getValidAccessToken()` for VAT/ITSA. Automatic refresh runs on demand and in the background.
+- **HMRC client:** VAT and ITSA never call HMRC directly. `HmrcClientService` is the single HTTP client: it loads a valid access token, refreshes on expiry, retries once after 401, and maps failures onto `HMRC_ERR_*`.
+- **HMRC OAuth:** dedicated `/hmrc/oauth/*` module for start, callback, status, disconnect, encrypted tokens, per-environment app config, and `getValidAccessToken()`. Automatic refresh runs on demand and in the background.
 - **Envelope:** `{ data, error }` on every response.
 - **Charts of accounts:** landlord, sole trader, and company templates are provisioned when a client is created. Extra profiles can be applied later (for example a sole trader who also lets property).
 - **ITSA engine:** quarterly updates, EOPS, and Final Declaration go through a coded validator (period, category, capital exclusion, zero-update, missing EOPS/FD). Public routes live at `/itsa/*`; client-scoped aliases remain at `/clients/:id/itsa/*`.
@@ -58,7 +63,13 @@ npm run start:dev
 | Accountant | carol.w@example.org | PracticeAdmin123! |
 | Client portal | tom.h@example.org | PracticeAdmin123! |
 
-`HMRC_MODE=mock` is the default. The mock gateway returns canned VAT/ITSA obligations and accepts submissions so the full accountant workflow can be exercised without HMRC credentials.
+`HMRC_MODE=mock` is the default. `HmrcClientService` then returns canned VAT/ITSA obligations and accepts submissions so the full accountant workflow can be exercised without HMRC credentials. In `HMRC_MODE=live` the same `get`/`post` methods refresh tokens and call the official HMRC APIs.
+
+### Shared HMRC errors
+
+Every HMRC failure is returned as `{ data: null, error: { errorCode, message, details? } }` with one of:
+
+`HMRC_ERR_TOKEN_EXPIRED` · `HMRC_ERR_TOKEN_REFRESH_FAILED` · `HMRC_ERR_UNAUTHORISED` · `HMRC_ERR_INVALID_SCOPE` · `HMRC_ERR_RATE_LIMIT` · `HMRC_ERR_SERVER` · `HMRC_ERR_BAD_REQUEST` · `HMRC_ERR_CONNECTION`
 
 ## Connect to the HMRC sandbox
 

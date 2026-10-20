@@ -11,6 +11,13 @@ describe("mapHmrcError", () => {
 
   it("falls back when HMRC omits a code", () => {
     const error = mapHmrcError(502, { message: "upstream" });
-    expect(error.code).toBe("HMRC_ERROR");
+    expect(error.code).toBe("HMRC_ERR_SERVER");
+  });
+
+  it("maps 401 / 429 / network failures onto the shared HMRC_ERR_* codes", () => {
+    expect(mapHmrcError(401, {}).code).toBe("HMRC_ERR_UNAUTHORISED");
+    expect(mapHmrcError(429, {}).code).toBe("HMRC_ERR_RATE_LIMIT");
+    expect(mapHmrcError(0, {}).code).toBe("HMRC_ERR_CONNECTION");
+    expect(mapHmrcError(400, {}).code).toBe("HMRC_ERR_BAD_REQUEST");
   });
 });

@@ -28,12 +28,12 @@ export class HmrcHttpClient {
     return environment === "LIVE" ? (live as string) : (sandbox as string);
   }
 
-  async request<T>(
+  async send(
     ctx: HmrcCallContext,
     method: string,
     path: string,
     options?: { query?: Record<string, string | undefined>; body?: unknown; accept?: string },
-  ): Promise<HmrcHttpResult<T>> {
+  ): Promise<{ ok: boolean; status: number; body: unknown; correlationId: string; path: string }> {
     const correlationId = randomUUID();
     const url = new URL(path, this.apiBase(ctx.environment));
     Object.entries(options?.query ?? {}).forEach(([key, value]) => {
@@ -50,32 +50,46 @@ export class HmrcHttpClient {
       headers["Content-Type"] = "application/json";
     }
 
-    let status = 0;
-    let body: unknown;
     try {
       const response = await fetch(url, {
         method,
         headers,
         body: options?.body ? JSON.stringify(options.body) : undefined,
       });
-      status = response.status;
       const text = await response.text();
-      body = text ? JSON.parse(text) : {};
-      await this.persist(ctx.clientId, correlationId, method, `${url.pathname}${url.search}`, status, options?.body, body, undefined);
-      if (!response.ok) {
-        throw mapHmrcError(status, body, correlationId);
-      }
-      return { data: body as T, correlationId, status };
+      const body = text ? JSON.parse(text) : {};
+      await this.persist(
+        ctx.clientId,
+        correlationId,
+        method,
+        `${url.pathname}${url.search}`,
+        response.status,
+        options?.body,
+        body,
+        response.ok ? undefined : "HMRC_ERROR",
+      );
+      return { ok: response.ok, status: response.status, body, correlationId, path: `${url.pathname}${url.search}` };
     } catch (error) {
-      if (status === 0) {
-        await this.persist(ctx.clientId, correlationId, method, path, status, options?.body, undefined, "NETWORK_ERROR");
-      }
+      await this.persist(ctx.clientId, correlationId, method, path, 0, options?.body, undefined, "NETWORK_ERROR");
       this.logger.warn(`HMRC ${method} ${path} failed (${correlationId})`);
       throw error;
     }
   }
 
-  private async persist(
+  async request<T>(
+    ctx: HmrcCallContext,
+    method: string,
+    path: string,
+    options?: { query?: Record<string, string | undefined>; body?: unknown; accept?: string },
+  ): Promise<HmrcHttpResult<T>> {
+    const sent = await this.send(ctx, method, path, options);
+    if (!sent.ok) {
+      throw mapHmrcError(sent.status, sent.body, sent.correlationId);
+    }
+    return { data: sent.body as T, correlationId: sent.correlationId, status: sent.status };
+  }
+
+  async persist(
     clientId: string | undefined,
     correlationId: string,
     method: string,

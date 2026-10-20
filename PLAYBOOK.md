@@ -97,6 +97,8 @@ curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/itsa/updates \
   -d '{"businessId":"...","taxYear":"2025-26","periodId":"2026-04-06_2026-07-05","periodStart":"2026-04-06","periodEnd":"2026-07-05","fromLedger":true}'
 ```
 
+VAT and ITSA both talk to HMRC only through `HmrcClientService`. Tokens are refreshed automatically before a call and retried once after a 401. Failures use the shared `HMRC_ERR_*` codes.
+
 ## 3. Connect HMRC
 
 ```bash

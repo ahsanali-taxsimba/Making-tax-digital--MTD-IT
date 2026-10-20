@@ -12,11 +12,11 @@ describe("ItsaService", () => {
   const business = { id: "biz-1", clientId: client.id, type: "self-employment", hmrcBusinessId: "XAIS1", tradingName: "Studio" };
   const user = { id: "u1", firmId: "firm-1" } as never;
 
-  const gateway = { getObligations: jest.fn(), submitQuarterlyUpdate: jest.fn(), submitEops: jest.fn(), submitFinalDeclaration: jest.fn() };
-  const connections = { getCallContext: jest.fn().mockResolvedValue({ accessToken: "t" }) };
+  const hmrc = { get: jest.fn(), post: jest.fn() };
   const clients = { get: jest.fn().mockResolvedValue(client) };
   const repo = {
     findBusiness: jest.fn().mockResolvedValue(business),
+    findBusinessByHmrcId: jest.fn().mockResolvedValue(business),
     listBusinesses: jest.fn().mockResolvedValue([business]),
     listUpdates: jest.fn().mockResolvedValue([{ id: "u1" }]),
     listEops: jest.fn().mockResolvedValue([{ businessId: business.id }]),
@@ -26,6 +26,9 @@ describe("ItsaService", () => {
       start: new Date("2026-04-06T00:00:00.000Z"),
       end: new Date("2026-07-05T00:00:00.000Z"),
     }),
+    listObligations: jest.fn().mockResolvedValue([{ type: "QUARTERLY_UPDATE" }]),
+    upsertObligation: jest.fn(),
+    updateObligation: jest.fn(),
     loadLedgersForPeriod: jest.fn().mockResolvedValue([
       {
         code: 1000,
@@ -40,13 +43,12 @@ describe("ItsaService", () => {
     createFinal: jest.fn().mockResolvedValue({ id: "fd-1" }),
   };
   const audit = { record: jest.fn() };
-  const tasks = { complete: jest.fn() };
+  const tasks = { complete: jest.fn(), ensure: jest.fn() };
   const notifications = { notify: jest.fn() };
   const webhooks = { emit: jest.fn() };
 
   const service = new ItsaService(
-    gateway as never,
-    connections as never,
+    hmrc as never,
     clients as never,
     repo as never,
     audit as never,
@@ -59,8 +61,39 @@ describe("ItsaService", () => {
     jest.clearAllMocks();
     clients.get.mockResolvedValue(client);
     repo.findBusiness.mockResolvedValue(business);
-    gateway.submitQuarterlyUpdate.mockResolvedValue({ correlationId: "c1", data: { periodId: "p1" } });
+    repo.findObligation.mockResolvedValue({
+      periodId: "2026-04-06_2026-07-05",
+      start: new Date("2026-04-06T00:00:00.000Z"),
+      end: new Date("2026-07-05T00:00:00.000Z"),
+    });
+    hmrc.post.mockResolvedValue({ correlationId: "c1", data: { periodId: "p1" } });
     repo.createUpdate.mockResolvedValue({ id: "upd-1" });
+  });
+
+  it("fetches ITSA obligations through HmrcClientService.get", async () => {
+    hmrc.get.mockResolvedValue({
+      correlationId: "ob-1",
+      data: {
+        obligations: [
+          {
+            type: "QUARTERLY_UPDATE",
+            taxYear: "2025-26",
+            periodId: "2026-04-06_2026-07-05",
+            start: "2026-04-06",
+            end: "2026-07-05",
+            due: "2026-08-07",
+            status: "Open",
+            businessId: "XAIS1",
+          },
+        ],
+      },
+    });
+    repo.findObligation.mockResolvedValueOnce(null);
+    const rows = await service.obligations(user, client.id);
+    expect(hmrc.get).toHaveBeenCalledWith("/income-tax/AA123456A/obligations", "client-1");
+    expect(repo.upsertObligation).toHaveBeenCalled();
+    expect(tasks.ensure).toHaveBeenCalledWith("firm-1", "client-1", "MTD_ITSA_UPDATE", expect.any(Date), expect.any(String));
+    expect(rows).toEqual([{ type: "QUARTERLY_UPDATE" }]);
   });
 
   it("submits a fromLedger quarterly update after validation", async () => {
@@ -73,10 +106,10 @@ describe("ItsaService", () => {
       fromLedger: true,
     });
     expect(saved.id).toBe("upd-1");
-    expect(gateway.submitQuarterlyUpdate).toHaveBeenCalledWith(
-      expect.any(Object),
-      "AA123456A",
-      expect.objectContaining({ incomes: { turnover: 5000 } }),
+    expect(hmrc.post).toHaveBeenCalledWith(
+      "/income-tax/AA123456A/updates",
+      expect.objectContaining({ incomes: { turnover: 5000 }, businessId: "XAIS1" }),
+      "client-1",
     );
   });
 
@@ -92,6 +125,35 @@ describe("ItsaService", () => {
         expenses: { capitalExpenditureNotInQuarterlyUpdate: 50 },
       }),
     ).rejects.toThrow("ITSA submission failed validation");
-    expect(gateway.submitQuarterlyUpdate).not.toHaveBeenCalled();
+    expect(hmrc.post).not.toHaveBeenCalled();
+  });
+
+  it("submits EOPS through HmrcClientService.post after completeness checks", async () => {
+    hmrc.post.mockResolvedValue({ correlationId: "e1", data: { processingDate: "2026-04-01T00:00:00Z" } });
+    const saved = await service.submitEops(user, client.id, {
+      businessId: business.id,
+      taxYear: "2025-26",
+      typeOfBusiness: "self-employment",
+      accountingPeriodStart: "2026-04-06",
+      accountingPeriodEnd: "2027-04-05",
+      finalised: true,
+    });
+    expect(saved.id).toBe("eops-1");
+    expect(hmrc.post).toHaveBeenCalledWith(
+      "/income-tax/AA123456A/eops",
+      expect.objectContaining({ businessId: "XAIS1", finalised: true }),
+      "client-1",
+    );
+  });
+
+  it("submits a final declaration through HmrcClientService.post", async () => {
+    hmrc.post.mockResolvedValue({ correlationId: "f1", data: { calculationId: "calc-9" } });
+    const saved = await service.submitFinal(user, client.id, { taxYear: "2025-26", finalised: true });
+    expect(saved.id).toBe("fd-1");
+    expect(hmrc.post).toHaveBeenCalledWith(
+      "/income-tax/AA123456A/final-declaration",
+      expect.objectContaining({ taxYear: "2025-26", finalised: true }),
+      "client-1",
+    );
   });
 });

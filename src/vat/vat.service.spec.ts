@@ -12,17 +12,12 @@ describe("VatService", () => {
   };
   const user = { id: "u1", firmId: "firm-1" } as never;
 
-  const vatGateway = {
-    getObligations: jest.fn(),
-    submitReturn: jest.fn(),
-    getPayments: jest.fn(),
-    getReturn: jest.fn(),
-  };
-  const connections = { getCallContext: jest.fn().mockResolvedValue({ accessToken: "t", environment: "SANDBOX" }) };
+  const hmrc = { get: jest.fn(), post: jest.fn() };
   const clients = { get: jest.fn().mockResolvedValue(client) };
   const prisma = {
     vatObligation: { upsert: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     vatReturn: { create: jest.fn() },
+    vatPayment: { deleteMany: jest.fn(), createMany: jest.fn(), findMany: jest.fn() },
     ledger: { findMany: jest.fn() },
     transaction: { count: jest.fn().mockResolvedValue(4) },
     vatTransactionSummary: { upsert: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
@@ -34,8 +29,7 @@ describe("VatService", () => {
   const webhooks = { emit: jest.fn() };
 
   const service = new VatService(
-    vatGateway as never,
-    connections as never,
+    hmrc as never,
     clients as never,
     prisma as never,
     audit as never,
@@ -48,7 +42,6 @@ describe("VatService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clients.get.mockResolvedValue(client);
-    connections.getCallContext.mockResolvedValue({ accessToken: "t", environment: "SANDBOX" });
   });
 
   it("returns the nine-box catalog", () => {
@@ -57,8 +50,8 @@ describe("VatService", () => {
     expect(catalog.fields.box_5).toBe("netVatDue");
   });
 
-  it("persists fetched obligations and opens a task", async () => {
-    vatGateway.getObligations.mockResolvedValue({
+  it("persists fetched obligations through HmrcClientService.get", async () => {
+    hmrc.get.mockResolvedValue({
       correlationId: "c1",
       status: 200,
       data: {
@@ -73,6 +66,7 @@ describe("VatService", () => {
     prisma.vatObligation.findMany.mockResolvedValue([{ periodKey: "26A1" }]);
 
     const result = await service.obligations(user, client.id);
+    expect(hmrc.get).toHaveBeenCalledWith("/organisations/vat/888888888/obligations", "client-1");
     expect(tasks.ensure).toHaveBeenCalledWith("firm-1", "client-1", "MTD_VAT_RETURN", expect.any(Date), "VAT return 26A1");
     expect(result).toEqual([{ periodKey: "26A1" }]);
   });
@@ -136,7 +130,7 @@ describe("VatService", () => {
     expect(preview.vatReturn.box5).toBe(1000);
   });
 
-  it("submits a finalised VAT return", async () => {
+  it("submits a finalised VAT return through HmrcClientService.post", async () => {
     const dto: SubmitVatReturnDto = {
       periodKey: "26A1",
       vatDueSales: 1200,
@@ -150,7 +144,7 @@ describe("VatService", () => {
       totalAcquisitionsExVAT: 0,
       finalised: true,
     };
-    vatGateway.submitReturn.mockResolvedValue({
+    hmrc.post.mockResolvedValue({
       correlationId: "c2",
       status: 200,
       data: { processingDate: "2026-04-01T00:00:00Z", formBundleNumber: "FB1" },
@@ -165,6 +159,21 @@ describe("VatService", () => {
     prisma.vatObligation.update.mockResolvedValue({});
 
     const saved = await service.submit(user, client.id, dto);
+    expect(hmrc.post).toHaveBeenCalledWith(
+      "/organisations/vat/888888888/returns",
+      expect.objectContaining({
+        periodKey: "26A1",
+        vatDueSales: 1200,
+        netVatDue: 1000,
+        finalised: true,
+      }),
+      "client-1",
+    );
+    expect(prisma.vatReturn.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ obligationId: "ob1" }),
+      }),
+    );
     expect(saved.formBundleNumber).toBe("FB1");
     expect(webhooks.emit).toHaveBeenCalledWith("firm-1", "VAT_RETURN_SUBMITTED", expect.any(Object));
     expect(tasks.complete).toHaveBeenCalled();
@@ -183,7 +192,7 @@ describe("VatService", () => {
       { code: 2220, name: "VAT on Purchases", profile: "SOLE_TRADER", transactions: [{ amount: 200 }] },
       { code: 3000, name: "Advertising", profile: "SOLE_TRADER", transactions: [{ amount: 1000 }] },
     ]);
-    vatGateway.submitReturn.mockResolvedValue({
+    hmrc.post.mockResolvedValue({
       correlationId: "c3",
       status: 200,
       data: { processingDate: "2026-04-01T00:00:00Z", formBundleNumber: "FB2" },
@@ -193,9 +202,8 @@ describe("VatService", () => {
 
     await service.submit(user, client.id, { periodKey: "26A1", fromLedger: true, finalised: true });
 
-    expect(vatGateway.submitReturn).toHaveBeenCalledWith(
-      expect.any(Object),
-      "888888888",
+    expect(hmrc.post).toHaveBeenCalledWith(
+      "/organisations/vat/888888888/returns",
       expect.objectContaining({
         periodKey: "26A1",
         vatDueSales: 1200,
@@ -205,6 +213,7 @@ describe("VatService", () => {
         totalValueSalesExVAT: 6000,
         finalised: true,
       }),
+      "client-1",
     );
   });
 
@@ -232,7 +241,7 @@ describe("VatService", () => {
         finalised: true,
       }),
     ).rejects.toThrow("VAT return failed validation");
-    expect(vatGateway.submitReturn).not.toHaveBeenCalled();
+    expect(hmrc.post).not.toHaveBeenCalled();
   });
 
   it("validates a fromLedger return without submitting", async () => {
@@ -246,5 +255,18 @@ describe("VatService", () => {
     });
     expect(result.validation.valid).toBe(false);
     expect(result.validation.errors).toContain("Return is zero but ledger shows transactions – check mapping.");
+  });
+
+  it("syncs VAT payments through HmrcClientService.get", async () => {
+    hmrc.get.mockResolvedValue({
+      correlationId: "pay-1",
+      status: 200,
+      data: { payments: [{ amount: 1000, received: "2026-02-10" }] },
+    });
+    prisma.vatPayment.findMany.mockResolvedValue([{ amount: 1000 }]);
+    const rows = await service.payments(user, client.id);
+    expect(hmrc.get).toHaveBeenCalledWith("/organisations/vat/888888888/payments", "client-1");
+    expect(prisma.vatPayment.createMany).toHaveBeenCalled();
+    expect(rows).toEqual([{ amount: 1000 }]);
   });
 });

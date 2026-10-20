@@ -1,11 +1,10 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { ObligationStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
-import { HmrcOAuthService } from "../hmrc/oauth/hmrc-oauth.service";
-import { HMRC_VAT } from "../hmrc/hmrc.tokens";
-import { HmrcVatGateway, VatReturnBoxes } from "../hmrc/hmrc.types";
+import { HmrcClientService } from "../hmrc/client/hmrc-client.service";
+import { VatObligationDto, VatPaymentDto, VatReturnBoxes, VatSubmitResult } from "../hmrc/hmrc.types";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { TasksService } from "../tasks/tasks.service";
@@ -36,8 +35,7 @@ import {
 @Injectable()
 export class VatService {
   constructor(
-    @Inject(HMRC_VAT) private readonly vat: HmrcVatGateway,
-    private readonly connections: HmrcOAuthService,
+    private readonly hmrc: HmrcClientService,
     private readonly clients: ClientsService,
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -107,8 +105,10 @@ export class VatService {
 
   async obligations(user: AuthUser, clientId: string) {
     const client = await this.requireVatClient(user, clientId);
-    const ctx = await this.connections.getCallContext(client.id);
-    const result = await this.vat.getObligations(ctx, client.vatRegistrationNumber!);
+    const result = await this.hmrc.get<{ obligations: VatObligationDto[] }>(
+      `/organisations/vat/${client.vatRegistrationNumber}/obligations`,
+      client.id,
+    );
     for (const item of result.data.obligations) {
       const saved = await this.prisma.vatObligation.upsert({
         where: { clientId_periodKey: { clientId: client.id, periodKey: item.periodKey } },
@@ -166,8 +166,10 @@ export class VatService {
 
   async fetchHmrcReturn(user: AuthUser, clientId: string, periodKey: string) {
     const client = await this.requireVatClient(user, clientId);
-    const ctx = await this.connections.getCallContext(client.id);
-    const result = await this.vat.getReturn(ctx, client.vatRegistrationNumber!, periodKey);
+    const result = await this.hmrc.get<VatReturnBoxes>(
+      `/organisations/vat/${client.vatRegistrationNumber}/returns/${encodeURIComponent(periodKey)}`,
+      client.id,
+    );
     await this.audit.record({
       actor: user,
       clientId: client.id,
@@ -206,8 +208,11 @@ export class VatService {
       finalised: dto.finalised,
     };
     try {
-      const ctx = await this.connections.getCallContext(client.id);
-      const result = await this.vat.submitReturn(ctx, client.vatRegistrationNumber!, boxes);
+      const result = await this.hmrc.post<VatSubmitResult>(
+        `/organisations/vat/${client.vatRegistrationNumber}/returns`,
+        boxes,
+        client.id,
+      );
       const obligation = await this.prisma.vatObligation.findUnique({
         where: { clientId_periodKey: { clientId: client.id, periodKey: dto.periodKey } },
       });
@@ -278,8 +283,10 @@ export class VatService {
 
   async payments(user: AuthUser, clientId: string) {
     const client = await this.requireVatClient(user, clientId);
-    const ctx = await this.connections.getCallContext(client.id);
-    const result = await this.vat.getPayments(ctx, client.vatRegistrationNumber!);
+    const result = await this.hmrc.get<{ payments: VatPaymentDto[] }>(
+      `/organisations/vat/${client.vatRegistrationNumber}/payments`,
+      client.id,
+    );
     await this.prisma.vatPayment.deleteMany({ where: { clientId: client.id } });
     await this.prisma.vatPayment.createMany({
       data: result.data.payments.map((payment) => ({

@@ -2,9 +2,12 @@ import { Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ClientsModule } from "../clients/clients.module";
 import { TokenCryptoService } from "../common/crypto/token-crypto.service";
+import { HmrcClientService } from "./client/hmrc-client.service";
 import { HmrcHttpClient } from "./hmrc.http";
 import { LiveHmrcItsaGateway, LiveHmrcOAuthGateway, LiveHmrcVatGateway } from "./hmrc.live";
 import { MockHmrcItsaGateway, MockHmrcOAuthGateway, MockHmrcVatGateway } from "./hmrc.mock";
+import { HmrcItsaGateway, HmrcOAuthGateway, HmrcVatGateway } from "./hmrc.types";
+import { HMRC_ITSA, HMRC_OAUTH, HMRC_VAT } from "./hmrc.tokens";
 import { MtdConnectionService } from "./mtd-connection.service";
 import { MtdController } from "./mtd.controller";
 import { HmrcAppConfigService } from "./oauth/hmrc-app-config.service";
@@ -12,8 +15,6 @@ import { HmrcOAuthController } from "./oauth/hmrc-oauth.controller";
 import { HmrcOAuthRepository } from "./oauth/hmrc-oauth.repository";
 import { HmrcOAuthService } from "./oauth/hmrc-oauth.service";
 import { HmrcTokenRefreshService } from "./oauth/hmrc-token-refresh.service";
-import { HmrcItsaGateway, HmrcOAuthGateway, HmrcVatGateway } from "./hmrc.types";
-import { HMRC_ITSA, HMRC_OAUTH, HMRC_VAT } from "./hmrc.tokens";
 
 @Module({
   imports: [ClientsModule],
@@ -31,6 +32,7 @@ import { HMRC_ITSA, HMRC_OAUTH, HMRC_VAT } from "./hmrc.tokens";
     LiveHmrcOAuthGateway,
     HmrcOAuthService,
     HmrcTokenRefreshService,
+    HmrcClientService,
     MtdConnectionService,
     {
       provide: HMRC_VAT,
@@ -51,6 +53,6 @@ import { HMRC_ITSA, HMRC_OAUTH, HMRC_VAT } from "./hmrc.tokens";
         config.get("hmrc.mode") === "live" ? live : mock,
     },
   ],
-  exports: [HmrcOAuthService, MtdConnectionService, TokenCryptoService, HMRC_VAT, HMRC_ITSA, HMRC_OAUTH],
+  exports: [HmrcOAuthService, HmrcClientService, MtdConnectionService, TokenCryptoService, HMRC_VAT, HMRC_ITSA, HMRC_OAUTH],
 })
 export class HmrcModule {}
