@@ -54,6 +54,14 @@ export class HmrcOAuthController {
     return this.oauth.status(user, query.clientId, query.environment);
   }
 
+  @Post("refresh")
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: "Force-refresh the HMRC access token and return the updated connection status" })
+  refresh(@CurrentUser() user: AuthUser, @Body() dto: HmrcOAuthDisconnectDto) {
+    return this.oauth.refreshNow(user, dto.clientId, dto.environment);
+  }
+
   @Post("disconnect")
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

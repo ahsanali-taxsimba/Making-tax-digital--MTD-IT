@@ -16,7 +16,9 @@
     "db:setup": "prisma migrate deploy && prisma db seed",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

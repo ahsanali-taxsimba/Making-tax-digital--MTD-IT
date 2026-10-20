@@ -84,6 +84,7 @@ describe("HmrcOAuthService", () => {
     expect(started.authorizationUrl).toContain("response_type=code");
     expect(started.authorizationUrl).toContain("client_id=sandbox-app");
     expect(started.authorizationUrl).toContain("state=");
+    expect(started.mode).toBe("mock");
     expect(repo.createState).toHaveBeenCalled();
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "hmrc.oauth.started" }));
   });
@@ -134,6 +135,25 @@ describe("HmrcOAuthService", () => {
     });
     expect(token).toBe("access-2");
     expect(crypto.encrypt).toHaveBeenCalledWith("access-2");
+  });
+
+  it("refreshNow returns the updated connection status", async () => {
+    repo.findConnection.mockResolvedValue({
+      id: "conn-1",
+      clientId: client.id,
+      environment: HmrcEnvironment.SANDBOX,
+      accessTokenEnc: "enc:current",
+      refreshTokenEnc: "enc:refresh",
+      tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      disconnectedAt: null,
+    });
+    repo.listConnections.mockResolvedValue([
+      { environment: HmrcEnvironment.SANDBOX, tokenExpiresAt: new Date(), disconnectedAt: null },
+    ]);
+
+    const status = await service.refreshNow(user, client.id, "sandbox");
+    expect(status.connected).toBe(true);
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "hmrc.oauth.refresh_requested" }));
   });
 
   it("returns the current token when it is still valid", async () => {
