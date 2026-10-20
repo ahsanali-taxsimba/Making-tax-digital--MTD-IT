@@ -67,6 +67,7 @@ export class HmrcOAuthService {
       state,
       environment: env,
       redirectUri: app.redirectUri,
+      mode: this.apps.isLiveMode() ? "live" : "mock",
     };
   }
 
@@ -178,6 +179,19 @@ export class HmrcOAuthService {
       }
     }
     return { environment: env, accessToken, clientId };
+  }
+
+  async refreshNow(user: AuthUser, clientId: string, environment?: string) {
+    const client = await this.clients.get(user, clientId);
+    const env = environment ? parseHmrcEnvironment(environment) : this.apps.defaultEnvironment();
+    await this.getValidAccessToken(client.id, env);
+    await this.audit.record({
+      actor: user,
+      clientId: client.id,
+      actionType: "hmrc.oauth.refresh_requested",
+      metadata: { environment: env },
+    });
+    return this.getConnectionStatus(client.id, env);
   }
 
   async disconnect(user: AuthUser, clientId: string, environment?: string) {

@@ -33,5 +33,18 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+      NEXT_PUBLIC_HMRC_MOCK: "true"
+    ports:
+      - "2327:2327"
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   pgdata:

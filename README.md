@@ -41,7 +41,8 @@ docker compose up --build
 
 API: http://localhost:3000  
 OpenAPI: http://localhost:3000/docs  
-Health: http://localhost:3000/health
+Health: http://localhost:3000/health  
+VAT UI: http://localhost:2327
 
 ### Without Docker (API process only)
 
@@ -53,7 +54,10 @@ npx prisma generate
 npx prisma migrate deploy
 npx prisma db seed
 npm run start:dev
+npm run web:dev
 ```
+
+VAT connection UI: http://localhost:2327 (`/vat`, `/vat/connect`, `/vat/callback`, `/vat/obligations`). The browser never sees HMRC tokens.
 
 ### Seed users
 
