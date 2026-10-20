@@ -69,4 +69,13 @@ describe("firm isolation", () => {
     expect(firmMayAccessPath(client, "/firm/clients")).toBe(false);
     expect(firmMayAccessPath(client, "/client/me")).toBe(true);
   });
+
+  it("limits HMRC audit export and digital-link routes to firm admins and accountants", () => {
+    expect(firmMayAccessPath(adminA, "/audit/export")).toBe(true);
+    expect(firmMayAccessPath(accountant, "/digital-links/vat-1")).toBe(true);
+    expect(firmMayAccessPath(staff, "/audit/logs")).toBe(false);
+    expect(firmMayAccessPath(client, "/audit/export")).toBe(false);
+    expect(platformMayAccessPath(owner, "/audit/export")).toBe(false);
+    expect(platformMayAccessPath(superAdmin, "/digital-links/vat-1")).toBe(false);
+  });
 });

@@ -60,7 +60,15 @@ export class UsersService {
         passwordHash,
       },
     });
-    await this.audit.record({ actor, actionType: "user.updated", metadata: { userId: id, status: dto.status, role: dto.role } });
+    await this.audit.record({
+      actor,
+      actionType: "user.updated",
+      resourceType: "user",
+      resourceId: id,
+      beforeData: { name: user.name, status: user.status, role: user.role },
+      afterData: { name: updated.name, status: updated.status, role: updated.role },
+      metadata: { userId: id, status: dto.status, role: dto.role },
+    });
     return this.publicUser(updated);
   }
 

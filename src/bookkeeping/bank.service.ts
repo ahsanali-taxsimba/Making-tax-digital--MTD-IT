@@ -130,6 +130,10 @@ export class BankService {
       actor: user,
       clientId: txn.bankAccount.clientId,
       actionType: "bookkeeping.reconciliation.matched",
+      resourceType: "bank_transaction",
+      resourceId: txn.id,
+      beforeData: { status: txn.status, matchedJournalEntryId: txn.matchedJournalEntryId ?? null },
+      afterData: { status: BankTxnStatus.MATCHED, matchedJournalEntryId: journal.id },
       metadata: { bankTransactionId: txn.id, journalEntryId: journal.id },
     });
     return { transaction: this.publicTransaction(updated), journal };

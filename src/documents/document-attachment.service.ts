@@ -76,6 +76,10 @@ export class DocumentAttachmentService {
       actor: user,
       clientId: document.clientId,
       actionType: "document.attached",
+      resourceType: "document",
+      resourceId: document.id,
+      beforeData: { attachedTo: document.attachedTo as Record<string, unknown> },
+      afterData: { attachedTo },
       metadata: { documentId: document.id, ...targets },
     });
     return next;
@@ -108,6 +112,10 @@ export class DocumentAttachmentService {
       actor: user,
       clientId: document.clientId,
       actionType: "document.detached",
+      resourceType: "document",
+      resourceId: document.id,
+      beforeData: { attachedTo: document.attachedTo as Record<string, unknown> },
+      afterData: { attachedTo: this.syncAttachedTo(next) },
       metadata: { documentId: document.id, target },
     });
     return next;

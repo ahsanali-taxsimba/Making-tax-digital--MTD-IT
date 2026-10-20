@@ -64,6 +64,10 @@ export class InvoiceService {
       actor: user,
       clientId: client.id,
       actionType: "bookkeeping.invoice.posted",
+      resourceType: "invoice",
+      resourceId: invoice.id,
+      beforeData: { status: invoice.status, invoiceNumber: invoice.invoiceNumber ?? null, journalId: invoice.journalId ?? null },
+      afterData: { status: DocumentStatus.POSTED, invoiceNumber: invoice.invoiceNumber ?? null, journalId: journal.id },
       metadata: { invoiceId: invoice.id, journalId: journal.id },
     });
     return { ...this.publicSales({ ...invoice, ...posted, journal, status: DocumentStatus.POSTED }), journal };
@@ -86,6 +90,10 @@ export class InvoiceService {
       actor: user,
       clientId: client.id,
       actionType: "bookkeeping.bill.posted",
+      resourceType: "bill",
+      resourceId: bill.id,
+      beforeData: { status: bill.status, invoiceNumber: bill.invoiceNumber ?? null, journalId: bill.journalId ?? null },
+      afterData: { status: DocumentStatus.POSTED, invoiceNumber: bill.invoiceNumber ?? null, journalId: journal.id },
       metadata: { billId: bill.id, journalId: journal.id },
     });
     return { ...this.publicPurchase({ ...bill, ...posted, journal, status: DocumentStatus.POSTED }), journal };
