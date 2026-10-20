@@ -5,7 +5,8 @@ import { AuditInterceptor } from "./audit.interceptor";
 
 describe("AuditInterceptor", () => {
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
-  const interceptor = new AuditInterceptor(audit as never);
+  const alerts = { documentDeleted: jest.fn(), abnormalVat: jest.fn() };
+  const interceptor = new AuditInterceptor(audit as never, alerts as never);
   const actor = {
     id: "u1",
     email: "james@northbridge.test",
@@ -49,9 +50,9 @@ describe("AuditInterceptor", () => {
         actor,
         firmId: "firm-a",
         clientId: "client-1",
-        action: "vat.post",
+        action: "vat.return.submitted",
         resourceId: "vat-1",
-        metadata: { method: "POST", path: "/vat/returns" },
+        metadata: { method: "POST", path: "/vat/returns", service: "mtd-vat" },
       }),
     );
   });

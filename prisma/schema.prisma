@@ -138,15 +138,19 @@ enum ChartProfile {
 }
 
 model PlatformUser {
-  id           String       @id @default(uuid())
-  role         PlatformRole
-  name         String
-  email        String       @unique
-  isActive     Boolean      @default(true)
-  passwordHash String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  refreshTokens PlatformRefreshToken[]
+  id             String       @id @default(uuid())
+  role           PlatformRole
+  name           String
+  email          String       @unique
+  isActive       Boolean      @default(true)
+  passwordHash   String?
+  mfaEnabled     Boolean      @default(false)
+  mfaSecretEnc   String?
+  mfaFailedCount Int          @default(0)
+  mfaEnrolledAt  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  refreshTokens  PlatformRefreshToken[]
 }
 
 model PlatformRefreshToken {
@@ -210,6 +214,10 @@ model User {
   client         Client?    @relation(fields: [clientId], references: [id])
   status         UserStatus @default(ACTIVE)
   passwordHash   String?
+  mfaEnabled     Boolean    @default(false)
+  mfaSecretEnc   String?
+  mfaFailedCount Int        @default(0)
+  mfaEnrolledAt  DateTime?
   externalAuthId String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt

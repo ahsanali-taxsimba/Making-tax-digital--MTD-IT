@@ -144,6 +144,14 @@ Privileged roles that must take MFA on the upgrade path: `admin_super`, `admin_o
 
 Expired or tampered JWTs are rejected by `JwtAuthGuard` before any controller runs.
 
+Privileged logins (`admin_super` / `admin_owner` / `firm_admin` / `firm_accountant`) take TOTP when `MFA_ENFORCE=true` (always on in production):
+
+1. `POST /auth/login` returns `{ mfaRequired, mfaEnrollmentRequired, mfaChallengeToken }` instead of tokens.
+2. First-time setup: `POST /auth/mfa/setup` then `POST /auth/mfa/confirm`.
+3. Later logins: `POST /auth/mfa/verify`.
+
+Passwords are hashed with Argon2id. Legacy bcrypt hashes still verify and are rehashed on the next successful login. Refresh tokens rotate: the previous row is revoked before a new one is issued.
+
 ### Authz & tenant isolation
 
 Every practice and portal route is behind JWT + a principal guard + `AuthorizationService` + `TenantIsolationInterceptor`.
@@ -273,13 +281,13 @@ Platform Admin stops before client-level stores. Practice and portal services ne
 
 | Layer | Live now | Target |
 | --- | --- | --- |
-| Edge | Helmet, CORS, throttling, K8s TLS | WAF policy, optional IP allow-list, TLS 1.3 only |
-| Auth | JWT + refresh rotation + bcrypt | MFA for admin/accountant, Argon2id, device checks |
-| Authz | RBAC + ABAC + tenant interceptor | Same rules if services split into separate pods |
-| Services | NestJS modules, shared guards | One Deployment per logical service |
-| Data | AES-256-GCM for HMRC/Yapily tokens | Secrets manager + documented key rotation |
-| Audit | Hash-chained immutable logs + digital links | Per-service `AuditService.log` when pods split |
-| Monitoring | `/health/live`, `/health/ready` | `/metrics`, login/MFA/abuse alerts |
-| Backup | DO Postgres backups + Spaces | Restore-test cadence + DR runbook |
+| Edge | Helmet, CORS, throttling, Ingress TLS 1.3 | Optional IP allow-list per firm |
+| Auth | JWT + refresh rotation + Argon2id (+ bcrypt verify) + TOTP MFA | Device fingerprinting, SMS/email fallback |
+| Authz | RBAC + ABAC + tenant interceptor + identity headers | Same rules if services split into separate pods |
+| Services | NestJS modules, shared `SecurityModule` | One Deployment per logical service |
+| Data | AES-256-GCM for HMRC/Yapily/MFA secrets, previous-key rotation | Managed secrets store in production |
+| Audit | Hash-chained immutable logs + VAT/ITSA digital links | Unchanged |
+| Monitoring | `/health/live`, `/health/ready`, `/metrics`, security alerts | Grafana dashboards on Prometheus scrape |
+| Backup | Nightly dump CronJob + DO Postgres PITR | Quarterly restore test |
 
 Related: role routing and tenant isolation in [ARCHITECTURE.md](./ARCHITECTURE.md).
