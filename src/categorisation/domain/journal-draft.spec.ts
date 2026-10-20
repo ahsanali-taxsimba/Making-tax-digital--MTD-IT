@@ -36,6 +36,31 @@ describe("JournalDraft", () => {
     expect(debits).toBe(credits);
   });
 
+  it("uses OCR net and VAT amounts when present", () => {
+    const draft = buildDraftJournal({
+      txn: {
+        date: "2026-03-08",
+        amount: 48,
+        type: "DEBIT",
+        description: "Lane Restaurant",
+        ocrNetAmount: 40,
+        ocrVatAmount: 8,
+      },
+      counterpart: ledger(3090, "EXPENSE", "Travel"),
+      bank: ledger(1200, "ASSET", "Bank"),
+      tax: { id: "S", code: "S", name: "Standard", rate: 20, type: "VAT_STANDARD" },
+      taxCodeKind: TaxCodeKind.VAT_STANDARD,
+      inputVat: ledger(2220, "LIABILITY", "VAT on Purchases"),
+    });
+    expect(draft.lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ledgerCode: 3090, debit: 40 }),
+        expect.objectContaining({ ledgerCode: 2220, debit: 8 }),
+        expect.objectContaining({ ledgerCode: 1200, credit: 48 }),
+      ]),
+    );
+  });
+
   it("posts a no-VAT receipt as bank vs income only", () => {
     const draft = buildDraftJournal({
       txn: { date: "2026-04-08", amount: 2000, type: "CREDIT", description: "Rent received" },

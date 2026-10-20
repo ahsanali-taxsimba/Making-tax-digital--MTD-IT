@@ -4,9 +4,11 @@ import { lookupItsaMapping } from "../../itsa/mtd-itsa.mapping";
 import { lookupVatMapping } from "../../vat/vat-box.mapping";
 import { suggestDocumentMatch } from "../../yapily/domain/invoice-match";
 import { defaultExpenseCode, defaultIncomeCode, ledgerCodeFor } from "./category-ledger";
+import { scoreConfidence } from "./confidence";
 import { buildDraftJournal, resolveBankAndVat } from "./journal-draft";
 import { matchMcc } from "./mcc.mapping";
 import { matchMerchant } from "./merchant.dictionary";
+import { defaultCategorisationModel } from "./naive-bayes";
 import { isRecurringAmount, looksLikeBill, looksLikeInvoice, looksLikeSubscription, resolveSignals } from "./scoring";
 import { inferTaxCodeKind, taxKindToCode } from "./vat.inference";
 import { Classification, ClassifyContext, ClassifyInput, ClassifySignal, MerchantRule, MccRule } from "./types";
@@ -24,19 +26,29 @@ const CATEGORY_HINTS: Array<{ match: RegExp; categoryKey: Parameters<typeof ledg
 ];
 
 export function classifyTransaction(txn: ClassifyInput, context: ClassifyContext): Classification {
-  const merchant = matchMerchant(txn.merchantName, txn.description, context.merchantRules);
+  const merchant = matchMerchant(txn.merchantName ?? txn.ocrMerchantName, `${txn.description} ${txn.ocrText ?? ""}`, context.merchantRules);
   const mcc = matchMcc(txn.merchantCategoryCode, context.mccRules);
-  const signals = collectSignals(txn, context, merchant, mcc);
-  const { winner, confidence, reasons } = resolveSignals(signals);
-  const ledgerCode = winner.ledgerCode;
-  const counterpart = findLedger(context.ledgers, ledgerCode, context.profile) ?? fallbackLedger(context, txn.type);
+  const model = (context.model ?? defaultCategorisationModel()).predict(txn, context.profile);
+  const signals = collectSignals(txn, context, merchant, mcc, model);
+  const resolved = resolveSignals(signals);
+  const counterpart = findLedger(context.ledgers, resolved.winner.ledgerCode, context.profile) ?? fallbackLedger(context, txn.type);
+  const recurring = looksLikeSubscription(txn.description, txn.merchantName) || isRecurringAmount(txn.amount, txn.merchantName, txn.description, context.siblings);
+  const scored = scoreConfidence(txn, {
+    merchantRule: merchant,
+    model,
+    ruleScore: resolved.confidence,
+    winnerLedgerCode: counterpart.code,
+    siblings: context.siblings,
+  }, recurring);
   const taxCodeKind = inferTaxCodeKind({
     type: txn.type,
     merchantCategoryCode: txn.merchantCategoryCode,
     merchantRule: merchant,
     mccRule: mcc,
     transactionCategory: txn.transactionCategory ?? txn.category,
-    description: txn.description,
+    description: `${txn.description} ${txn.ocrText ?? ""}`,
+    ocrVatRate: txn.ocrVatRate,
+    ocrVatAmount: txn.ocrVatAmount,
   });
   const tax = findTax(context.taxCodes, taxCodeKind);
   const itsa = lookupItsaMapping(context.profile, counterpart.code);
@@ -65,9 +77,11 @@ export function classifyTransaction(txn: ClassifyInput, context: ClassifyContext
     itsaHmrcKey: itsa?.hmrcKey ?? null,
     includedInQuarterlyUpdate: itsa?.includedInQuarterlyUpdate ?? null,
     vatBoxes: vat?.boxes ?? [],
-    confidence,
-    reasons,
+    confidence: scored.confidence,
+    reasons: [...resolved.reasons, ...scored.reasons],
     draftJournal,
+    model,
+    confidenceBreakdown: scored.breakdown,
   };
 }
 
@@ -76,6 +90,7 @@ function collectSignals(
   context: ClassifyContext,
   merchant: MerchantRule | null,
   mcc: MccRule | null,
+  model: { categoryKey: ClassifySignal["categoryKey"]; ledgerCode: number; confidence: number },
 ): ClassifySignal[] {
   const signals: ClassifySignal[] = [];
   if (merchant) {
@@ -98,9 +113,39 @@ function collectSignals(
       detail: `${mcc.mcc}:${mcc.industry}`,
     });
   }
+  signals.push({
+    name: "naive_bayes",
+    ledgerCode: model.ledgerCode,
+    categoryKey: model.categoryKey,
+    confidence: model.confidence >= 0.55 ? Math.min(0.82, model.confidence) : Math.min(0.38, model.confidence),
+    detail: model.categoryKey,
+  });
+  if (txn.ocrMerchantName || txn.ocrText) {
+    const ocrMerchant = matchMerchant(txn.ocrMerchantName, txn.ocrText ?? "", context.merchantRules);
+    if (ocrMerchant) {
+      signals.push({
+        name: "ocr_merchant",
+        ledgerCode: ledgerCodeFor(context.profile, ocrMerchant.categoryKey, ocrMerchant.ledgerCode),
+        categoryKey: ocrMerchant.categoryKey,
+        taxCodeKind: ocrMerchant.taxCodeKind,
+        confidence: Math.min(0.9, ocrMerchant.confidence - 0.04),
+        detail: ocrMerchant.merchantName,
+      });
+    }
+  }
+  if (txn.ocrInvoiceNumber && txn.type === "CREDIT") {
+    signals.push({
+      name: "ocr_invoice",
+      ledgerCode: defaultIncomeCode(context.profile),
+      categoryKey: "sales",
+      taxCodeKind: TaxCodeKind.VAT_STANDARD,
+      confidence: 0.74,
+      detail: txn.ocrInvoiceNumber,
+    });
+  }
 
-  const categoryText = `${txn.transactionCategory ?? ""} ${txn.category ?? ""} ${txn.labels?.join(" ") ?? ""}`;
-  const hint = CATEGORY_HINTS.find((rule) => rule.match.test(categoryText) || rule.match.test(txn.description));
+  const categoryText = `${txn.transactionCategory ?? ""} ${txn.category ?? ""} ${txn.labels?.join(" ") ?? ""} ${txn.ocrText ?? ""}`;
+  const hint = CATEGORY_HINTS.find((rule) => rule.match.test(categoryText) || rule.match.test(txn.description) || rule.match.test(txn.ocrText ?? ""));
   if (hint) {
     signals.push({
       name: "merchant_category",
@@ -163,7 +208,8 @@ function collectSignals(
     }
   }
 
-  if (signals.length === 0) {
+  const hasRuleSignal = signals.some((signal) => signal.name !== "naive_bayes");
+  if (!hasRuleSignal) {
     signals.push({
       name: "fallback",
       ledgerCode: txn.type === "CREDIT" ? defaultIncomeCode(context.profile) : defaultExpenseCode(context.profile),

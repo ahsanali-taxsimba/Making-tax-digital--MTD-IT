@@ -8,7 +8,9 @@ import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
 import { defaultProfileForClientType } from "../ledger/chart-of-accounts.catalog";
 import { CAT_ERR, CategorisationError } from "./categorisation.errors";
+import { CategorisationModelService } from "./categorisation-model.service";
 import { CategorisationRepository } from "./categorisation.repository";
+import { ConfidenceEngineService } from "./confidence-engine.service";
 import { classifyTransaction } from "./domain/classify";
 import { Classification, ClassifyInput, MerchantRule, MccRule } from "./domain/types";
 import { CategorisationApplyDto, CategorisationSuggestDto } from "./dto/categorisation.dto";
@@ -16,6 +18,7 @@ import { ITSAInferenceService } from "./itsa-inference.service";
 import { JournalDraftService } from "./journal-draft.service";
 import { MCCMappingService } from "./mcc-mapping.service";
 import { MerchantDictionaryService } from "./merchant-dictionary.service";
+import { RulesEngineService } from "./rules-engine.service";
 import { VATInferenceService } from "./vat-inference.service";
 
 @Injectable()
@@ -31,12 +34,29 @@ export class CategorisationService {
     private readonly vat: VATInferenceService,
     private readonly itsa: ITSAInferenceService,
     private readonly drafts: JournalDraftService,
+    private readonly model = new CategorisationModelService(),
+    private readonly rulesEngine?: RulesEngineService,
+    private readonly confidence = new ConfidenceEngineService(),
   ) {}
 
   async suggest(user: AuthUser, dto: CategorisationSuggestDto) {
     const persist = dto.persist !== false;
     const merchantRules = await this.merchants.list();
     const mccRules = await this.mcc.list();
+    if (dto.receiptId && !dto.bankTransactionId && !dto.bankAccountId) {
+      const receipt = await this.repo.findReceipt(dto.receiptId);
+      if (!receipt) {
+        throw new NotFoundException("Receipt not found");
+      }
+      if (receipt.bankTransactionId) {
+        dto = { ...dto, bankTransactionId: receipt.bankTransactionId };
+      } else {
+        return this.suggestReceipt(user, dto, merchantRules, mccRules, persist, receipt);
+      }
+    }
+    if (this.isAdHoc(dto) && !dto.bankTransactionId && !dto.bankAccountId) {
+      return this.suggestAdHoc(user, dto, merchantRules, mccRules);
+    }
     const targets = await this.resolveTargets(user, dto);
     const suggestions = [];
     for (const target of targets) {
@@ -74,6 +94,17 @@ export class CategorisationService {
   }
 
   async apply(user: AuthUser, dto: CategorisationApplyDto) {
+    if (dto.receiptId && !dto.suggestionId && !dto.bankTransactionId) {
+      const receipt = await this.repo.findReceipt(dto.receiptId);
+      if (!receipt) {
+        throw new NotFoundException("Receipt not found");
+      }
+      if (receipt.bankTransactionId) {
+        dto = { ...dto, bankTransactionId: receipt.bankTransactionId };
+      } else {
+        return this.applyReceipt(user, dto, receipt);
+      }
+    }
     if (!dto.suggestionId && !dto.bankTransactionId) {
       throw new BadRequestException("suggestionId or bankTransactionId is required");
     }
@@ -193,6 +224,10 @@ export class CategorisationService {
   }
 
   async rules() {
+    if (this.rulesEngine) {
+      const catalog = await this.rulesEngine.catalog();
+      return { ...catalog, model: this.model.stats() };
+    }
     const [merchant, mcc] = await Promise.all([this.merchants.list(), this.mcc.list()]);
     return {
       merchants: merchant,
@@ -205,6 +240,7 @@ export class CategorisationService {
         vatableMccs: mcc.filter((rule) => rule.vatable).map((rule) => rule.mcc),
         exemptMccs: mcc.filter((rule) => !rule.vatable).map((rule) => rule.mcc),
       },
+      model: this.model.stats(),
     };
   }
 
@@ -225,6 +261,8 @@ export class CategorisationService {
       transactionCategory?: string | null;
       location?: string | null;
       labels?: string[];
+      enrichment?: unknown;
+      receipts?: ReceiptOcrRow[];
       bankAccount: { id: string; clientId: string };
     },
     client: { id: string; type: Parameters<typeof defaultProfileForClientType>[0]; firmId: string },
@@ -269,37 +307,54 @@ export class CategorisationService {
         transactionCategory?: string | null;
         location?: string | null;
         labels?: string[];
+        enrichment?: unknown;
+        receipts?: ReceiptOcrRow[];
       };
       client: { id: string; type: Parameters<typeof defaultProfileForClientType>[0]; firmId: string };
       profile: ChartProfile;
       ledgers: LedgerSnapshot[];
       taxCodes: TaxCodeSnapshot[];
-      siblings: Array<{ id?: string; merchantName?: string | null; amount: unknown; description: string }>;
+      siblings: Array<{
+        id?: string;
+        merchantName?: string | null;
+        amount: unknown;
+        description: string;
+        ledgerCode?: number | null;
+        categorisation?: { ledgerCode?: number | null } | null;
+      }>;
       invoices: Array<{ id: string; date: Date; customer?: { name?: string } | null; journalId?: string | null; grossTotal: unknown }>;
       bills: Array<{ id: string; date: Date; supplier?: { name?: string } | null; journalId?: string | null; grossTotal: unknown }>;
     },
     merchantRules: MerchantRule[],
     mccRules: MccRule[],
   ): Classification {
+    const ocr = readOcrFields(target.txn);
     const input: ClassifyInput = {
       date: target.txn.date,
       amount: Number(target.txn.amount),
       type: target.txn.type === "CREDIT" ? "CREDIT" : "DEBIT",
       description: target.txn.description,
-      merchantName: target.txn.merchantName,
+      merchantName: target.txn.merchantName ?? ocr.ocrMerchantName,
       merchantCategoryCode: target.txn.merchantCategoryCode,
       transactionCategory: target.txn.transactionCategory ?? target.txn.category,
       category: target.txn.category,
       location: target.txn.location,
       labels: target.txn.labels,
+      ...ocr,
     };
     return classifyTransaction(input, {
       profile: target.profile,
       ledgers: target.ledgers,
       taxCodes: target.taxCodes,
+      model: this.model,
       siblings: target.siblings
         .filter((row) => row.id !== target.txn.id)
-        .map((row) => ({ merchantName: row.merchantName, amount: Number(row.amount), description: row.description })),
+        .map((row) => ({
+          merchantName: row.merchantName,
+          amount: Number(row.amount),
+          description: row.description,
+          ledgerCode: row.ledgerCode ?? row.categorisation?.ledgerCode ?? null,
+        })),
       documents: [
         ...target.invoices.map((row) => ({
           id: row.id,
@@ -364,9 +419,11 @@ export class CategorisationService {
       transactionCategory?: string | null;
       location?: string | null;
       labels?: string[];
+      enrichment?: unknown;
+      receipts?: ReceiptOcrRow[];
       status?: string;
       bankAccount: { id: string; clientId: string };
-      categorisation?: { id: string; status: string; appliedJournalEntryId?: string | null } | null;
+      categorisation?: { id: string; status: string; appliedJournalEntryId?: string | null; ledgerCode?: number | null } | null;
     },
     client: { id: string; type: Parameters<typeof defaultProfileForClientType>[0]; firmId: string },
   ) {
@@ -422,7 +479,207 @@ export class CategorisationService {
       draftJournal: classified.draftJournal,
       confidence: classified.confidence,
       reasons: classified.reasons,
+      model: classified.model,
+      confidenceBreakdown: classified.confidenceBreakdown,
       status,
     };
   }
+
+  private isAdHoc(dto: CategorisationSuggestDto) {
+    return Boolean(dto.ocrText || dto.merchantName || dto.description || dto.amount != null || dto.merchantCategoryCode);
+  }
+
+  private async suggestReceipt(
+    user: AuthUser,
+    dto: CategorisationSuggestDto,
+    merchantRules: MerchantRule[],
+    mccRules: MccRule[],
+    persist: boolean,
+    receipt: ReceiptOcrRow & { id: string; clientId: string; bankTransactionId?: string | null; fileName?: string },
+  ) {
+    const client = await this.clients.get(user, receipt.clientId);
+    const classified = await this.classifyStandalone(
+      client,
+      receiptToClassifyInput(receipt, dto),
+      merchantRules,
+      mccRules,
+    );
+    if (persist) {
+      await this.audit.record({
+        actor: user,
+        clientId: client.id,
+        actionType: "categorisation.suggested",
+        metadata: { receiptId: receipt.id, ephemeral: true },
+      });
+    }
+    return {
+      suggestions: [this.publicSuggestion(null, receipt.bankTransactionId ?? `receipt:${receipt.id}`, client.id, classified, "SUGGESTED")],
+      count: 1,
+    };
+  }
+
+  private async suggestAdHoc(user: AuthUser, dto: CategorisationSuggestDto, merchantRules: MerchantRule[], mccRules: MccRule[]) {
+    if (!dto.clientId) {
+      throw new BadRequestException("clientId is required when classifying OCR or ad-hoc text");
+    }
+    const client = await this.clients.get(user, dto.clientId);
+    const classified = await this.classifyStandalone(client, adHocToClassifyInput(dto), merchantRules, mccRules);
+    return {
+      suggestions: [this.publicSuggestion(null, "ad-hoc", client.id, classified, "SUGGESTED")],
+      count: 1,
+    };
+  }
+
+  private async applyReceipt(
+    user: AuthUser,
+    dto: CategorisationApplyDto,
+    receipt: ReceiptOcrRow & { id: string; clientId: string; bankTransactionId?: string | null; fileName?: string },
+  ) {
+    const client = await this.clients.get(user, receipt.clientId);
+    const classified = await this.reclassifyStandalone(client, receiptToClassifyInput(receipt));
+    if (dto.override?.ledgerAccountId || dto.override?.taxCodeId) {
+      const profile = defaultProfileForClientType(client.type);
+      const [ledgers, taxes] = await Promise.all([this.books.listLedgers(client.id, profile), this.books.listTaxCodes()]);
+      const ledger = dto.override.ledgerAccountId
+        ? ledgers.find((item) => item.id === dto.override?.ledgerAccountId)
+        : ledgers.find((item) => item.id === classified.ledgerAccountId);
+      if (!ledger) {
+        throw new CategorisationError(CAT_ERR.MISSING_LEDGER, "Override ledger account was not found");
+      }
+      const tax = dto.override.taxCodeId
+        ? taxes.find((item) => item.id === dto.override?.taxCodeId)
+        : taxes.find((item) => item.id === classified.taxCodeId);
+      classified.ledgerAccountId = ledger.id;
+      classified.ledgerCode = ledger.code;
+      classified.ledgerName = ledger.name;
+      classified.draftJournal = this.drafts.build({
+        txn: receiptToClassifyInput(receipt),
+        counterpart: ledger as LedgerSnapshot,
+        ledgers: ledgers as LedgerSnapshot[],
+        profile,
+        tax: tax ? toTaxSnapshot(tax) : null,
+        taxCodeKind: classified.taxCodeKind,
+      });
+    }
+    const journal = await this.journals.post(user, {
+      clientId: client.id,
+      firmId: client.firmId,
+      date: classified.draftJournal.date,
+      description: classified.draftJournal.description,
+      reference: classified.draftJournal.reference,
+      source: JournalSource.MANUAL,
+      lines: classified.draftJournal.lines.map((line) => ({
+        ledgerAccountId: line.ledgerAccountId,
+        debit: line.debit,
+        credit: line.credit,
+        taxCodeId: line.taxCodeId,
+        description: line.description,
+      })),
+      profile: defaultProfileForClientType(client.type),
+    });
+    await this.repo.attachReceiptJournal(receipt.id, journal.id);
+    await this.audit.record({
+      actor: user,
+      clientId: client.id,
+      actionType: "categorisation.applied",
+      metadata: { receiptId: receipt.id, journalId: journal.id },
+    });
+    return {
+      suggestion: this.publicSuggestion(null, `receipt:${receipt.id}`, client.id, classified, "APPLIED"),
+      journal,
+      alreadyApplied: false,
+    };
+  }
+
+  private async classifyStandalone(
+    client: { id: string; type: Parameters<typeof defaultProfileForClientType>[0]; firmId: string },
+    input: ClassifyInput,
+    merchantRules: MerchantRule[],
+    mccRules: MccRule[],
+  ) {
+    const profile = defaultProfileForClientType(client.type);
+    const [ledgers, taxCodes] = await Promise.all([this.books.listLedgers(client.id, profile), this.books.listTaxCodes()]);
+    return classifyTransaction(input, {
+      profile,
+      ledgers: ledgers as LedgerSnapshot[],
+      taxCodes: taxCodes.map(toTaxSnapshot),
+      merchantRules,
+      mccRules,
+      model: this.model,
+    });
+  }
+
+  private async reclassifyStandalone(
+    client: { id: string; type: Parameters<typeof defaultProfileForClientType>[0]; firmId: string },
+    input: ClassifyInput,
+  ) {
+    const [merchantRules, mccRules] = await Promise.all([this.merchants.list(), this.mcc.list()]);
+    return this.classifyStandalone(client, input, merchantRules, mccRules);
+  }
+}
+
+type ReceiptOcrRow = {
+  ocrText?: string | null;
+  ocrMerchant?: string | null;
+  ocrAmount?: unknown;
+  ocrNetAmount?: unknown;
+  ocrVatAmount?: unknown;
+  ocrVatRate?: unknown;
+  ocrInvoiceNumber?: string | null;
+  ocrDate?: Date | string | null;
+};
+
+function asNumber(value: unknown): number | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readOcrFields(source: { enrichment?: unknown; receipts?: ReceiptOcrRow[] }): Partial<ClassifyInput> {
+  const enrichment = (source.enrichment ?? {}) as Record<string, unknown>;
+  const ocr = (enrichment.receiptOcr ?? {}) as Record<string, unknown>;
+  const receipt = source.receipts?.[0];
+  return {
+    ocrText: (typeof ocr.text === "string" ? ocr.text : null) ?? receipt?.ocrText ?? null,
+    ocrMerchantName: (typeof ocr.merchantName === "string" ? ocr.merchantName : null) ?? receipt?.ocrMerchant ?? null,
+    ocrAmount: asNumber(ocr.amount) ?? asNumber(receipt?.ocrAmount),
+    ocrNetAmount: asNumber(ocr.netAmount) ?? asNumber(receipt?.ocrNetAmount),
+    ocrVatAmount: asNumber(ocr.vatAmount) ?? asNumber(receipt?.ocrVatAmount),
+    ocrVatRate: asNumber(ocr.vatRate) ?? asNumber(receipt?.ocrVatRate),
+    ocrInvoiceNumber: (typeof ocr.invoiceNumber === "string" ? ocr.invoiceNumber : null) ?? receipt?.ocrInvoiceNumber ?? null,
+  };
+}
+
+function receiptToClassifyInput(receipt: ReceiptOcrRow & { fileName?: string; ocrDate?: Date | string | null }, dto?: CategorisationSuggestDto): ClassifyInput {
+  return {
+    date: dto?.date ?? receipt.ocrDate ?? new Date(),
+    amount: dto?.amount ?? asNumber(receipt.ocrAmount) ?? 0,
+    type: dto?.type ?? "DEBIT",
+    description: dto?.description ?? receipt.ocrText ?? receipt.fileName ?? "Receipt",
+    merchantName: dto?.merchantName ?? receipt.ocrMerchant,
+    merchantCategoryCode: dto?.merchantCategoryCode,
+    ocrText: receipt.ocrText,
+    ocrMerchantName: receipt.ocrMerchant,
+    ocrAmount: asNumber(receipt.ocrAmount),
+    ocrNetAmount: asNumber(receipt.ocrNetAmount),
+    ocrVatAmount: asNumber(receipt.ocrVatAmount),
+    ocrVatRate: asNumber(receipt.ocrVatRate),
+    ocrInvoiceNumber: receipt.ocrInvoiceNumber,
+  };
+}
+
+function adHocToClassifyInput(dto: CategorisationSuggestDto): ClassifyInput {
+  return {
+    date: dto.date ?? new Date(),
+    amount: dto.amount ?? 0,
+    type: dto.type ?? "DEBIT",
+    description: dto.description ?? dto.ocrText ?? dto.merchantName ?? "Ad-hoc categorisation",
+    merchantName: dto.merchantName,
+    merchantCategoryCode: dto.merchantCategoryCode,
+    ocrText: dto.ocrText,
+    ocrMerchantName: dto.merchantName,
+    ocrAmount: dto.amount ?? null,
+  };
 }

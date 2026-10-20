@@ -2,8 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { CategorisationStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
+const txnInclude = {
+  bankAccount: true,
+  categorisation: true,
+  receipts: true,
+} as const;
+
 const suggestionInclude = {
-  bankTransaction: { include: { bankAccount: true } },
+  bankTransaction: { include: { bankAccount: true, receipts: true } },
 } satisfies Prisma.CategorisationSuggestionInclude;
 
 @Injectable()
@@ -53,14 +59,14 @@ export class CategorisationRepository {
   findTransaction(id: string) {
     return this.prisma.bankTransaction.findUnique({
       where: { id },
-      include: { bankAccount: true, categorisation: true },
+      include: txnInclude,
     });
   }
 
   listTransactionsForAccount(bankAccountId: string) {
     return this.prisma.bankTransaction.findMany({
       where: { bankAccountId },
-      include: { bankAccount: true, categorisation: true },
+      include: txnInclude,
       orderBy: { date: "desc" },
     });
   }
@@ -68,8 +74,19 @@ export class CategorisationRepository {
   listTransactionsForClient(clientId: string) {
     return this.prisma.bankTransaction.findMany({
       where: { bankAccount: { clientId } },
-      include: { bankAccount: true, categorisation: true },
+      include: txnInclude,
       orderBy: { date: "desc" },
+    });
+  }
+
+  findReceipt(id: string) {
+    return this.prisma.receiptFile.findUnique({ where: { id } });
+  }
+
+  attachReceiptJournal(receiptId: string, journalId: string) {
+    return this.prisma.receiptFile.update({
+      where: { id: receiptId },
+      data: { journal: { connect: { id: journalId } }, status: "PROCESSED" },
     });
   }
 

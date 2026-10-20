@@ -18,19 +18,19 @@ export class CategorisationController {
   constructor(private readonly categorisation: CategorisationService) {}
 
   @Post("suggest")
-  @ApiOperation({ summary: "Suggest chart-of-accounts, VAT and ITSA categories from Yapily enrichment" })
+  @ApiOperation({ summary: "Suggest chart-of-accounts, VAT and ITSA categories from bank lines, receipts, OCR and MCC" })
   suggest(@CurrentUser() user: AuthUser, @Body() dto: CategorisationSuggestDto) {
     return this.categorisation.suggest(user, dto);
   }
 
   @Post("apply")
-  @ApiOperation({ summary: "Apply a categorisation suggestion and post a draft bank-feed journal" })
+  @ApiOperation({ summary: "Apply a categorisation suggestion and post a draft journal" })
   apply(@CurrentUser() user: AuthUser, @Body() dto: CategorisationApplyDto) {
     return this.categorisation.apply(user, dto);
   }
 
   @Get("rules")
-  @ApiOperation({ summary: "Merchant dictionary, MCC mappings and VAT inference rules" })
+  @ApiOperation({ summary: "Merchant dictionary, MCC mappings, VAT/ITSA rules and Naive Bayes model stats" })
   rules() {
     return this.categorisation.rules();
   }

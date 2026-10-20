@@ -48,6 +48,8 @@ describe("CategorisationService", () => {
     markTransactionMatched: jest.fn(),
     listMerchantRules: jest.fn(),
     listMccRules: jest.fn(),
+    findReceipt: jest.fn(),
+    attachReceiptJournal: jest.fn(),
   };
   const clients = { get: jest.fn() };
   const books = {
@@ -154,5 +156,44 @@ describe("CategorisationService", () => {
     expect(rules.mcc.some((rule) => rule.mcc === "5812")).toBe(true);
     expect(rules.vat.vatableMccs).toContain("5812");
     expect(rules.vat.exemptMccs).toContain("6300");
+    expect(rules.model.algorithm).toBe("naive_bayes");
+  });
+
+  it("classifies ad-hoc OCR text without a stored bank line", async () => {
+    const result = await service.suggest(actor, {
+      clientId: "c1",
+      persist: false,
+      ocrText: "BP CONNECT BRIGHTON\nPetrol £55.00\nVAT 20%",
+      merchantName: "BP",
+      amount: 55,
+      merchantCategoryCode: "5541",
+    });
+    expect(result.count).toBe(1);
+    expect(result.suggestions[0].suggestedLedger.code).toBe(3080);
+    expect(result.suggestions[0].model?.categoryKey).toBe("fuel");
+    expect(result.suggestions[0].confidenceBreakdown.ocrMatch).toBeGreaterThan(0);
+    expect(repo.upsertSuggestion).not.toHaveBeenCalled();
+  });
+
+  it("suggests from a receipt and applies a draft journal when it is not attached to a bank line", async () => {
+    repo.findReceipt.mockResolvedValue({
+      id: "r1",
+      clientId: "c1",
+      bankTransactionId: null,
+      ocrText: "BP CONNECT petrol",
+      ocrMerchant: "BP",
+      ocrAmount: 55,
+      ocrNetAmount: 45.83,
+      ocrVatAmount: 9.17,
+      ocrVatRate: 20,
+      fileName: "bp.jpg",
+    });
+    const suggested = await service.suggest(actor, { receiptId: "r1", persist: false });
+    expect(suggested.suggestions[0].suggestedLedger.code).toBe(3080);
+    journals.post.mockResolvedValue({ id: "j-r1", source: "MANUAL" });
+    const applied = await service.apply(actor, { receiptId: "r1" });
+    expect(journals.post).toHaveBeenCalledWith(actor, expect.objectContaining({ source: "MANUAL", clientId: "c1" }));
+    expect(repo.attachReceiptJournal).toHaveBeenCalledWith("r1", "j-r1");
+    expect(applied.journal.id).toBe("j-r1");
   });
 });

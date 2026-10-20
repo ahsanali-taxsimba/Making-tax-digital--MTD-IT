@@ -41,6 +41,7 @@ export class OcrFeedService {
       enrichment: {
         ...previous,
         receiptOcr: {
+          text: extraction.text,
           merchantName: extraction.merchantName,
           supplierName: extraction.supplierName,
           amount: extraction.amount,

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
-import { IsBoolean, IsObject, IsOptional, IsUUID, ValidateNested } from "class-validator";
+import { IsBoolean, IsIn, IsNumber, IsObject, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
 
 export class CategorisationSuggestDto {
   @ApiPropertyOptional()
@@ -17,6 +17,47 @@ export class CategorisationSuggestDto {
   @IsOptional()
   @IsUUID()
   bankAccountId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  receiptId?: string;
+
+  @ApiPropertyOptional({ description: "Raw OCR text to classify without a stored receipt" })
+  @IsOptional()
+  @IsString()
+  ocrText?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  merchantName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  amount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  merchantCategoryCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  date?: string;
+
+  @ApiPropertyOptional({ enum: ["CREDIT", "DEBIT"] })
+  @IsOptional()
+  @IsIn(["CREDIT", "DEBIT"])
+  type?: "CREDIT" | "DEBIT";
 
   @ApiPropertyOptional({ description: "Persist suggestions (default true)" })
   @IsOptional()
@@ -47,6 +88,11 @@ export class CategorisationApplyDto {
   @IsOptional()
   @IsUUID()
   bankTransactionId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  receiptId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

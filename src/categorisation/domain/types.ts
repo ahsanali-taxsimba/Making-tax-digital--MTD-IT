@@ -56,16 +56,51 @@ export interface ClassifyInput {
   category?: string | null;
   location?: string | null;
   labels?: string[];
+  ocrText?: string | null;
+  ocrMerchantName?: string | null;
+  ocrAmount?: number | null;
+  ocrNetAmount?: number | null;
+  ocrVatAmount?: number | null;
+  ocrVatRate?: number | null;
+  ocrInvoiceNumber?: string | null;
+}
+
+export interface HistoricalSibling {
+  merchantName?: string | null;
+  amount: number;
+  description: string;
+  ledgerCode?: number | null;
+}
+
+export interface ModelPrediction {
+  categoryKey: CategoryKey;
+  ledgerCode: number;
+  confidence: number;
+}
+
+export interface CategorisationModel {
+  predict(input: ClassifyInput, profile: ChartProfile): ModelPrediction;
+  stats(): { algorithm: string; classes: string[]; vocabularySize: number; trainedExamples: number };
+}
+
+export interface ConfidenceBreakdown {
+  ocrMatch: number;
+  merchantMatch: number;
+  amountMatch: number;
+  historical: number;
+  model: number;
+  rules: number;
 }
 
 export interface ClassifyContext {
   profile: ChartProfile;
   ledgers: LedgerSnapshot[];
   taxCodes: TaxCodeSnapshot[];
-  siblings?: Array<{ merchantName?: string | null; amount: number; description: string }>;
+  siblings?: HistoricalSibling[];
   documents?: MatchableDocument[];
   merchantRules: MerchantRule[];
   mccRules: MccRule[];
+  model?: CategorisationModel;
 }
 
 export interface ClassifySignal {
@@ -112,4 +147,6 @@ export interface Classification {
   confidence: number;
   reasons: string[];
   draftJournal: SuggestedJournal;
+  model: ModelPrediction | null;
+  confidenceBreakdown: ConfidenceBreakdown;
 }
