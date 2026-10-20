@@ -40,6 +40,12 @@ describe("VATInference", () => {
     ).toBe(TaxCodeKind.NO_VAT);
   });
 
+  it("uses OCR VAT rate when the receipt shows standard or zero VAT", () => {
+    expect(inferTaxCodeKind({ type: "DEBIT", description: "CARD", ocrVatRate: 20, ocrVatAmount: 8 })).toBe(TaxCodeKind.VAT_STANDARD);
+    expect(inferTaxCodeKind({ type: "DEBIT", description: "CARD", ocrVatRate: 5 })).toBe(TaxCodeKind.VAT_REDUCED);
+    expect(inferTaxCodeKind({ type: "DEBIT", description: "CARD", ocrVatRate: 0, ocrVatAmount: 0 })).toBe(TaxCodeKind.NO_VAT);
+  });
+
   it("falls back to standard VAT on unmatched credits and NO_VAT on unmatched debits", () => {
     expect(inferTaxCodeKind({ type: "CREDIT", description: "Unknown inbound" })).toBe(TaxCodeKind.VAT_STANDARD);
     expect(inferTaxCodeKind({ type: "DEBIT", description: "Unknown spend" })).toBe(TaxCodeKind.NO_VAT);

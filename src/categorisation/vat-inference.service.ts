@@ -12,6 +12,8 @@ export class VATInferenceService {
     mccRule?: MccRule | null;
     transactionCategory?: string | null;
     description?: string;
+    ocrVatRate?: number | null;
+    ocrVatAmount?: number | null;
   }): TaxCodeKind {
     return inferTaxCodeKind(input);
   }

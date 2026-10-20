@@ -24,9 +24,13 @@ export function buildDraftJournal(input: {
   inputVat?: LedgerSnapshot;
 }): SuggestedJournal {
   const rate = input.tax && input.taxCodeKind !== TaxCodeKind.NO_VAT && input.taxCodeKind !== TaxCodeKind.VAT_EXEMPT ? Number(input.tax.rate) : 0;
-  const split = splitGross(input.txn.amount, rate);
-  const vat =
-    input.tax && rate > 0
+  const hasOcrSplit = input.txn.ocrNetAmount != null && input.txn.ocrVatAmount != null;
+  const split = hasOcrSplit
+    ? { net: money(input.txn.ocrNetAmount!), vat: money(input.txn.ocrVatAmount!), gross: money(input.txn.amount) }
+    : splitGross(input.txn.amount, rate);
+  const vat = hasOcrSplit
+    ? split.vat
+    : input.tax && rate > 0
       ? vatOnNet(split.net, { id: input.tax.id, code: input.tax.code, name: input.tax.name, rate: input.tax.rate, type: input.tax.type })
       : 0;
   const net = vat > 0 ? money(split.gross - vat) : split.net;

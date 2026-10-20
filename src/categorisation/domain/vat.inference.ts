@@ -9,7 +9,18 @@ export function inferTaxCodeKind(input: {
   mccRule?: MccRule | null;
   transactionCategory?: string | null;
   description?: string;
+  ocrVatRate?: number | null;
+  ocrVatAmount?: number | null;
 }): TaxCodeKind {
+  if (input.ocrVatRate === 20 || (input.ocrVatAmount != null && input.ocrVatAmount > 0 && input.ocrVatRate == null)) {
+    return TaxCodeKind.VAT_STANDARD;
+  }
+  if (input.ocrVatRate === 5) {
+    return TaxCodeKind.VAT_REDUCED;
+  }
+  if (input.ocrVatRate === 0 && input.ocrVatAmount === 0) {
+    return TaxCodeKind.NO_VAT;
+  }
   if (input.merchantRule?.taxCodeKind) {
     return input.merchantRule.taxCodeKind;
   }

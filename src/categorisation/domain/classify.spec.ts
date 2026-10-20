@@ -125,6 +125,30 @@ describe("classifyTransaction", () => {
     expect(result.reasons.some((reason) => reason.startsWith("fallback"))).toBe(true);
   });
 
+  it("classifies a thin bank line from receipt OCR text and VAT", () => {
+    const result = classifyTransaction(
+      {
+        date: "2026-03-08",
+        amount: 48,
+        type: "DEBIT",
+        description: "CARD PAYMENT",
+        ocrText: "The Lane Restaurant\nVAT @ 20% £8.00\nTotal £48.00",
+        ocrMerchantName: "The Lane Restaurant",
+        ocrAmount: 48,
+        ocrNetAmount: 40,
+        ocrVatAmount: 8,
+        ocrVatRate: 20,
+      },
+      context,
+    );
+    expect(result.ledgerCode).toBe(3090);
+    expect(result.taxCodeKind).toBe(TaxCodeKind.VAT_STANDARD);
+    expect(result.reasons.some((reason) => reason.startsWith("naive_bayes") || reason.startsWith("ocr_merchant"))).toBe(true);
+    expect(result.confidenceBreakdown.ocrMatch).toBeGreaterThan(0.4);
+    expect(result.model?.categoryKey).toBe("restaurants");
+    expect(result.draftJournal.lines.some((line) => line.debit === 8 || line.credit === 8)).toBe(true);
+  });
+
   it("matches an invoice description on a credit to sales", () => {
     const result = classifyTransaction(
       {
