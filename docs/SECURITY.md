@@ -184,6 +184,7 @@ These are logical services. Today they ship as NestJS modules in one API process
 | MTD VAT | `src/vat` | Obligations, boxes 1–9, submit |
 | MTD ITSA | `src/itsa` | Quarterly, EOPS, Final Declaration |
 | Bookkeeping | `src/bookkeeping`, `src/ledger` | Journals, invoices, bills |
+| Bookkeeping agent | `src/agent` | Firm-scoped copilot; writes stay queued until an accountant confirms |
 | Bank feeds | `src/yapily`, `src/manual-statements` | Yapily + CSV |
 | Documents | `src/documents`, `src/receipts` | Upload, attach, OCR text |
 | OCR | `src/invoice-extraction` (OCR path) | Merchant / date / amount / VAT |

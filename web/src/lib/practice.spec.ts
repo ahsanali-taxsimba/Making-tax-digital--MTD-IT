@@ -28,6 +28,7 @@ describe("practice helpers", () => {
     expect(pageTitle("/admin/overview")).toBe("Platform dashboard");
     expect(pageTitle("/practice/dashboard")).toBe("Dashboard");
     expect(pageTitle("/practice/billing")).toBe("Billing");
+    expect(pageTitle("/practice/agent")).toBe("Bookkeeping agent");
     expect(pageTitle("/practice/invoices")).toBe("Invoice history");
     expect(pageTitle("/admin/billing/plans")).toBe("Billing");
     expect(pageTitle("/practice/audit")).toBe("Audit");

@@ -33,7 +33,7 @@ async function main() {
   for (const plan of DEFAULT_BILLING_PLANS) {
     await prisma.billingPlan.upsert({
       where: { slug: plan.slug },
-      update: { name: plan.name, description: plan.description, unitAmountPence: plan.unitAmountPence, enabled: true },
+      update: { name: plan.name, description: plan.description, unitAmountPence: plan.unitAmountPence, features: plan.features, enabled: true },
       create: {
         slug: plan.slug,
         name: plan.name,

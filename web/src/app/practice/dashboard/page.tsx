@@ -48,7 +48,7 @@ export default function PracticeDashboardPage() {
             <FirmStatsCard label="Open VAT obligations" value={data.openVatObligations} hint="Due or in progress with HMRC" />
             <FirmStatsCard label="Open ITSA obligations" value={data.openItsaObligations} hint="Quarterly updates, EOPS and finals" />
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Link href="/practice/vat" className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">VAT</p>
               <h3 className="mt-2 text-lg font-semibold">VAT returns</h3>
@@ -60,6 +60,10 @@ export default function PracticeDashboardPage() {
             <Link href="/practice/bank-feeds" className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">Bank</p>
               <h3 className="mt-2 text-lg font-semibold">Bank feeds</h3>
+            </Link>
+            <Link href="/practice/agent" className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">Agent</p>
+              <h3 className="mt-2 text-lg font-semibold">Bookkeeping copilot</h3>
             </Link>
           </div>
           <section className="rounded-2xl border border-line bg-white p-5 shadow-sm">

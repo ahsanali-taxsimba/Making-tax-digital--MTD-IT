@@ -68,6 +68,9 @@ describe("role routing", () => {
     expect(canAccessPath(owner, "/client/home")).toBe(false);
     expect(canAccessPath(accountant, "/admin/firms")).toBe(false);
     expect(canAccessPath(accountant, "/practice/vat")).toBe(true);
+    expect(canAccessPath(accountant, "/practice/agent")).toBe(true);
+    expect(canAccessPath(staff, "/practice/agent")).toBe(true);
+    expect(canAccessPath(client, "/practice/agent")).toBe(false);
     expect(canAccessPath(accountant, "/practice/audit")).toBe(true);
     expect(canAccessPath(accountant, "/practice/digital-links/doc-1")).toBe(true);
     expect(canAccessPath(accountant, "/practice/digital-links/itsa/q1")).toBe(true);
@@ -102,6 +105,8 @@ describe("role routing", () => {
     expect(canViewAudit("firm_admin")).toBe(true);
     expect(canViewAudit("firm_accountant")).toBe(true);
     expect(canViewAudit("firm_staff")).toBe(false);
+    expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/agent")).toBe(true);
+    expect(practiceNavFor("firm_staff").some((item) => item.href === "/practice/agent")).toBe(true);
     expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/audit")).toBe(true);
     expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/digital-links")).toBe(true);
     expect(practiceNavFor("firm_staff").some((item) => item.href === "/practice/audit")).toBe(false);

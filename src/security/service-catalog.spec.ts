@@ -6,6 +6,7 @@ describe("service catalog", () => {
     expect(serviceForPath("/vat/returns")).toBe("mtd-vat");
     expect(serviceForPath("/itsa/eops")).toBe("mtd-itsa");
     expect(serviceForPath("/yapily/accounts")).toBe("bank-feeds");
+    expect(serviceForPath("/agent/conversations")).toBe("bookkeeping");
     expect(serviceForPath("/admin/feature-flags")).toBe("platform-admin");
     expect(IDENTITY_HEADERS.firmId).toBe("x-mtd-firm-id");
   });

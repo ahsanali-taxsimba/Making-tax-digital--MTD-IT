@@ -27,6 +27,7 @@ const BILLING_PATHS = ["/practice/billing", "/practice/pricing", "/practice/subs
 
 export const PRACTICE_NAV: NavItem[] = [
   { href: "/practice/dashboard", label: "Dashboard", match: "/practice/dashboard" },
+  { href: "/practice/agent", label: "Agent", match: "/practice/agent" },
   { href: "/practice/clients", label: "Clients", match: "/practice/clients" },
   { href: "/practice/vat", label: "VAT", match: "/practice/vat" },
   { href: "/practice/itsa", label: "ITSA", match: "/practice/itsa" },
