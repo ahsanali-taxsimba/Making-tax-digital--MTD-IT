@@ -36,6 +36,8 @@ export class ChartOfAccountsService {
 
   async applyProfile(clientId: string, profile: ChartProfile) {
     const chart = getChart(profile);
+    const templates = await this.prisma.chartOfAccount.findMany({ where: { profile } });
+    const templateByCode = new Map(templates.map((item) => [item.code, item.id]));
     const rows = chart.accounts.map((account) => ({
       clientId,
       profile,
@@ -43,8 +45,19 @@ export class ChartOfAccountsService {
       name: account.name,
       category: account.category,
       type: toLedgerAccountType(account.type),
+      chartOfAccountId: templateByCode.get(account.code),
+      isActive: true,
     }));
     await this.prisma.ledger.createMany({ data: rows, skipDuplicates: true });
+    if (templateByCode.size > 0) {
+      const existing = await this.prisma.ledger.findMany({ where: { clientId, profile, chartOfAccountId: null } });
+      for (const account of existing) {
+        const chartId = templateByCode.get(account.code);
+        if (chartId) {
+          await this.prisma.ledger.update({ where: { id: account.id }, data: { chartOfAccountId: chartId } });
+        }
+      }
+    }
     return this.prisma.ledger.findMany({
       where: { clientId, profile },
       orderBy: { code: "asc" },

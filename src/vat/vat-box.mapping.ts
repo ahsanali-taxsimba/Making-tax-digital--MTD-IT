@@ -125,6 +125,18 @@ const COMMON_VAT_ACCOUNTS: Array<{
 
 export const VAT_LEDGER_ACCOUNTS = COMMON_VAT_ACCOUNTS;
 
+export const CONTROL_LEDGER_ACCOUNTS: Array<{
+  code: number;
+  name: string;
+  category: string;
+  type: "income" | "expense" | "capital" | "balance_sheet";
+}> = [
+  { code: 1100, name: "Trade Debtors", category: "Assets", type: "balance_sheet" },
+  { code: 1200, name: "Bank Current Account", category: "Assets", type: "balance_sheet" },
+  { code: 2100, name: "Trade Creditors", category: "Liabilities", type: "balance_sheet" },
+  { code: 3200, name: "Capital Introduced", category: "Equity", type: "balance_sheet" },
+];
+
 const VAT_SOURCES_BY_CODE: Record<number, string[]> = {
   1000: ["Sales", "Turnover"],
   1010: ["Sales", "Turnover"],

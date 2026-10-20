@@ -23,6 +23,7 @@ controllers  →  application services  →  repositories / Prisma
 - **Charts of accounts:** landlord, sole trader, and company templates are provisioned when a client is created. Extra profiles can be applied later (for example a sole trader who also lets property).
 - **ITSA engine:** quarterly updates, EOPS, and Final Declaration go through a coded validator (period, category, capital exclusion, zero-update, missing EOPS/FD). Public routes live at `/itsa/*`; client-scoped aliases remain at `/clients/:id/itsa/*`.
 - **VAT engine:** HMRC obligations, returns, payments, and OAuth sit behind a Notice 700/12 validator. Boxes 1–9 are rolled from the ledger, checked with coded errors (`VAT_ERR_ARITHMETIC`, `VAT_ERR_PERIOD_MISMATCH`, …), and submitted only when valid. Public routes live at `/vat/*`; client-scoped aliases remain at `/clients/:id/vat/*`.
+- **Bookkeeping engine:** double-entry journals, sales invoices, purchase bills, bank feeds, and period-locked reports. VAT boxes 1/4/6/7 and ITSA category totals are rolled from posted journals for the MTD engines. Public routes live at `/bookkeeping/*`.
 
 ## Local development
 
@@ -89,4 +90,4 @@ npm run test:e2e
 
 ## API surface
 
-Auth, firms, users, clients, HMRC connections, VAT, ITSA, audit, tasks, notifications, webhooks, documents, ledger, and client-portal routes. See `/docs` or [PLAYBOOK.md](./PLAYBOOK.md) for the accountant journey.
+Auth, firms, users, clients, HMRC connections, VAT, ITSA, bookkeeping, audit, tasks, notifications, webhooks, documents, ledger, and client-portal routes. See `/docs` or [PLAYBOOK.md](./PLAYBOOK.md) for the accountant journey.

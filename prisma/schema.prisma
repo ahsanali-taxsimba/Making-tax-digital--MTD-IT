@@ -119,6 +119,9 @@ model Firm {
   webhookEvents    WebhookEvent[]
   tasks            Task[]
   notifications    Notification[]
+  journalEntries   JournalEntry[]
+  bankAccounts     BankAccount[]
+  accountingPeriods AccountingPeriod[]
 }
 
 model User {
@@ -139,6 +142,7 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   notifications Notification[]
+  journalEntries JournalEntry[]
 }
 
 model RefreshToken {
@@ -182,6 +186,12 @@ model Client {
   documents       SupportingDocument[]
   tasks           Task[]
   auditLogs       AuditLog[]
+  journalEntries  JournalEntry[]
+  bankAccounts    BankAccount[]
+  invoices        SalesInvoice[]
+  bills           PurchaseBill[]
+  customers       TradingParty[]
+  accountingPeriods AccountingPeriod[]
 
   @@index([firmId])
 }
@@ -402,17 +412,23 @@ model ItsaAccountMapping {
 }
 
 model Ledger {
-  id           String            @id @default(uuid())
-  clientId     String
-  client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  profile      ChartProfile      @default(SOLE_TRADER)
-  code         Int
-  name         String
-  category     String
-  type         LedgerAccountType
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  transactions Transaction[]
+  id              String            @id @default(uuid())
+  clientId        String
+  client          Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  profile         ChartProfile      @default(SOLE_TRADER)
+  code            Int
+  name            String
+  category        String
+  type            LedgerAccountType
+  isActive        Boolean           @default(true)
+  openingBalance  Decimal           @default(0) @db.Decimal(14, 2)
+  currentBalance  Decimal           @default(0) @db.Decimal(14, 2)
+  chartOfAccountId String?
+  chartOfAccount   ChartOfAccount?  @relation(fields: [chartOfAccountId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  transactions    Transaction[]
+  journalLines    JournalLine[]
 
   @@unique([clientId, profile, code])
   @@index([clientId, profile])
@@ -511,6 +527,240 @@ model SupportingDocument {
   storageKey String
   uploadedBy String?
   createdAt  DateTime @default(now())
+}
+
+enum JournalSource {
+  MANUAL
+  BANK_FEED
+  IMPORT
+  INVOICE
+  BILL
+}
+
+enum TaxCodeKind {
+  VAT_STANDARD
+  VAT_REDUCED
+  VAT_ZERO
+  VAT_EXEMPT
+  NO_VAT
+}
+
+enum BankTxnDirection {
+  CREDIT
+  DEBIT
+}
+
+enum BankTxnStatus {
+  UNMATCHED
+  MATCHED
+  IGNORED
+  RECONCILED
+}
+
+enum DocumentStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+enum ReconciliationStatus {
+  OPEN
+  COMPLETE
+}
+
+enum PartyKind {
+  CUSTOMER
+  SUPPLIER
+}
+
+model ChartOfAccount {
+  id        String            @id @default(uuid())
+  code      Int
+  name      String
+  type      LedgerAccountType
+  profile   ChartProfile
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  ledgers   Ledger[]
+
+  @@unique([profile, code])
+}
+
+model TaxCode {
+  id        String      @id @default(uuid())
+  code      String      @unique
+  name      String
+  rate      Decimal     @db.Decimal(5, 2)
+  type      TaxCodeKind
+  createdAt DateTime    @default(now())
+  journalLines JournalLine[]
+  invoiceLines SalesInvoiceLine[]
+  billLines    PurchaseBillLine[]
+}
+
+model AccountingPeriod {
+  id        String   @id @default(uuid())
+  firmId    String
+  firm      Firm     @relation(fields: [firmId], references: [id])
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  start     DateTime
+  end       DateTime
+  locked    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, start, end])
+}
+
+model JournalEntry {
+  id              String        @id @default(uuid())
+  firmId          String
+  firm            Firm          @relation(fields: [firmId], references: [id])
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date            DateTime
+  reference       String?
+  description     String
+  source          JournalSource @default(MANUAL)
+  createdByUserId String?
+  createdBy       User?         @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  lines           JournalLine[]
+  bankMatches     BankTransaction[]
+  invoice         SalesInvoice?
+  bill            PurchaseBill?
+
+  @@index([clientId, date])
+}
+
+model JournalLine {
+  id              String       @id @default(uuid())
+  journalEntryId  String
+  journal         JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  ledgerAccountId String
+  ledger          Ledger       @relation(fields: [ledgerAccountId], references: [id])
+  debit           Decimal      @default(0) @db.Decimal(14, 2)
+  credit          Decimal      @default(0) @db.Decimal(14, 2)
+  taxCodeId       String?
+  taxCode         TaxCode?     @relation(fields: [taxCodeId], references: [id])
+  description     String?
+}
+
+model TradingParty {
+  id        String    @id @default(uuid())
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind      PartyKind
+  name      String
+  createdAt DateTime  @default(now())
+  invoices  SalesInvoice[]
+  bills     PurchaseBill[]
+}
+
+model SalesInvoice {
+  id          String         @id @default(uuid())
+  clientId    String
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    TradingParty   @relation(fields: [customerId], references: [id])
+  date        DateTime
+  dueDate     DateTime
+  status      DocumentStatus @default(DRAFT)
+  netTotal    Decimal        @db.Decimal(14, 2)
+  vatTotal    Decimal        @db.Decimal(14, 2)
+  grossTotal  Decimal        @db.Decimal(14, 2)
+  journalId   String?        @unique
+  journal     JournalEntry?  @relation(fields: [journalId], references: [id])
+  lines       SalesInvoiceLine[]
+  createdAt   DateTime       @default(now())
+}
+
+model SalesInvoiceLine {
+  id          String       @id @default(uuid())
+  invoiceId   String
+  invoice     SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  net         Decimal      @db.Decimal(14, 2)
+  taxCodeId   String?
+  taxCode     TaxCode?     @relation(fields: [taxCodeId], references: [id])
+  vat         Decimal      @db.Decimal(14, 2)
+  ledgerId    String?
+}
+
+model PurchaseBill {
+  id          String         @id @default(uuid())
+  clientId    String
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplierId  String
+  supplier    TradingParty   @relation(fields: [supplierId], references: [id])
+  date        DateTime
+  dueDate     DateTime
+  status      DocumentStatus @default(DRAFT)
+  netTotal    Decimal        @db.Decimal(14, 2)
+  vatTotal    Decimal        @db.Decimal(14, 2)
+  grossTotal  Decimal        @db.Decimal(14, 2)
+  journalId   String?        @unique
+  journal     JournalEntry?  @relation(fields: [journalId], references: [id])
+  lines       PurchaseBillLine[]
+  createdAt   DateTime       @default(now())
+}
+
+model PurchaseBillLine {
+  id          String       @id @default(uuid())
+  billId      String
+  bill        PurchaseBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  description String
+  net         Decimal      @db.Decimal(14, 2)
+  taxCodeId   String?
+  taxCode     TaxCode?     @relation(fields: [taxCodeId], references: [id])
+  vat         Decimal      @db.Decimal(14, 2)
+  ledgerId    String?
+}
+
+model BankAccount {
+  id            String            @id @default(uuid())
+  firmId        String
+  firm          Firm              @relation(fields: [firmId], references: [id])
+  clientId      String
+  client        Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name          String
+  sortCode      String?
+  accountNumber String?
+  provider      String?
+  externalId    String?
+  ledgerId      String?
+  createdAt     DateTime          @default(now())
+  transactions  BankTransaction[]
+  sessions      ReconciliationSession[]
+}
+
+model BankTransaction {
+  id                    String           @id @default(uuid())
+  bankAccountId         String
+  bankAccount           BankAccount      @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  date                  DateTime
+  amount                Decimal          @db.Decimal(14, 2)
+  type                  BankTxnDirection
+  description           String
+  externalRef           String?
+  matchedJournalEntryId String?
+  matchedJournal        JournalEntry?    @relation(fields: [matchedJournalEntryId], references: [id])
+  status                BankTxnStatus    @default(UNMATCHED)
+  createdAt             DateTime         @default(now())
+}
+
+model ReconciliationSession {
+  id            String                @id @default(uuid())
+  bankAccountId String
+  bankAccount   BankAccount           @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  periodStart   DateTime
+  periodEnd     DateTime
+  status        ReconciliationStatus  @default(OPEN)
+  createdByUserId String?
+  statementBalance Decimal?           @db.Decimal(14, 2)
+  createdAt     DateTime              @default(now())
 }
 
 model HmrcInteraction {

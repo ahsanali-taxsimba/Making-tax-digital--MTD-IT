@@ -7,6 +7,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Response } from "express";
+import { BookkeepingError } from "../../bookkeeping/bookkeeping.errors";
 import { HmrcApiError } from "../../hmrc/hmrc.errors";
 
 @Catch()
@@ -15,6 +16,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+
+    if (exception instanceof BookkeepingError) {
+      const body = exception.getResponse();
+      const message =
+        typeof body === "object" && body && "message" in body
+          ? String((body as { message: string }).message)
+          : exception.message;
+      response.status(exception.getStatus()).json({
+        data: null,
+        error: {
+          code: exception.code,
+          message,
+          details: typeof body === "object" ? body : undefined,
+        },
+      });
+      return;
+    }
 
     if (exception instanceof HmrcApiError) {
       response.status(exception.statusCode >= 400 ? exception.statusCode : HttpStatus.BAD_GATEWAY).json({

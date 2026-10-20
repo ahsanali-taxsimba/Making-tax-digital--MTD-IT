@@ -70,7 +70,8 @@ describe("MTD API (e2e)", () => {
         ...data,
       })),
     },
-    ledger: { createMany: jest.fn().mockResolvedValue({ count: 26 }), findMany: jest.fn().mockResolvedValue([]) },
+    chartOfAccount: { findMany: jest.fn().mockResolvedValue([]) },
+    ledger: { createMany: jest.fn().mockResolvedValue({ count: 26 }), findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
     transaction: { count: jest.fn().mockResolvedValue(0) },
     vatTransactionSummary: { upsert: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
     vatObligation: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
@@ -89,6 +90,10 @@ describe("MTD API (e2e)", () => {
     itsaEndOfPeriodStatement: { findMany: jest.fn().mockResolvedValue([]) },
     itsaFinalDeclaration: { findMany: jest.fn().mockResolvedValue([]) },
     itsaAccountMapping: { findMany: jest.fn().mockResolvedValue([]) },
+    journalEntry: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), create: jest.fn() },
+    taxCode: { findMany: jest.fn().mockResolvedValue([]) },
+    accountingPeriod: { findMany: jest.fn().mockResolvedValue([]) },
+    bankAccount: { findMany: jest.fn().mockResolvedValue([]) },
     oauthState: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
     mtdConnection: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     auditLog: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
@@ -191,6 +196,35 @@ describe("MTD API (e2e)", () => {
       .set("Authorization", `Bearer ${token}`)
       .expect(200);
     expect(itsaValidate.body.data.validation.valid).toBe(true);
+
+    const chart = await request(app.getHttpServer())
+      .get("/bookkeeping/chart-of-accounts")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(chart.body.data.templates).toEqual([]);
+
+    const vatSummary = await request(app.getHttpServer())
+      .get("/bookkeeping/vat/summary")
+      .query({
+        clientId: "22222222-2222-4222-8222-222222222222",
+        periodStart: "2026-01-01",
+        periodEnd: "2026-03-31",
+      })
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(vatSummary.body.data.boxes.box1).toBe(0);
+
+    const itsaSummary = await request(app.getHttpServer())
+      .get("/bookkeeping/itsa/summary")
+      .query({
+        clientId: "22222222-2222-4222-8222-222222222222",
+        businessType: "sole_trader",
+        periodStart: "2026-04-06",
+        periodEnd: "2026-07-05",
+      })
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(itsaSummary.body.data.totals.income).toBe(0);
   });
 
   it("rejects invalid login payloads", async () => {

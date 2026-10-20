@@ -58,7 +58,23 @@ curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/chart-of-accounts \
   -d '{"profile":"landlord"}'
 ```
 
-Post bookkeeping against a numbered account via `POST /clients/:id/transactions` with that account's `ledgerId`.
+Post bookkeeping against a numbered account via `POST /clients/:id/transactions` with that account's `ledgerId`, or use the double-entry engine at `/bookkeeping/*`.
+
+```bash
+curl -s "http://localhost:3000/bookkeeping/chart-of-accounts?clientId=$CLIENT_ID" -H "Authorization: Bearer $TOKEN"
+curl -s -X POST http://localhost:3000/bookkeeping/journals \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"clientId":"'"$CLIENT_ID"'","date":"2026-04-20","description":"Studio receipt","lines":[{"ledgerAccountId":"BANK_LEDGER_ID","debit":5000,"credit":0},{"ledgerAccountId":"SALES_LEDGER_ID","debit":0,"credit":5000,"taxCodeId":"77777777-7777-4777-8777-777777777701"}]}'
+curl -s "http://localhost:3000/bookkeeping/ledger/trial-balance?clientId=$CLIENT_ID&periodStart=2026-04-06&periodEnd=2026-07-05" \
+  -H "Authorization: Bearer $TOKEN"
+curl -s "http://localhost:3000/bookkeeping/vat/summary?clientId=$CLIENT_ID&periodStart=2026-01-01&periodEnd=2026-03-31" \
+  -H "Authorization: Bearer $TOKEN"
+curl -s "http://localhost:3000/bookkeeping/itsa/summary?clientId=$CLIENT_ID&businessType=sole_trader&periodStart=2026-04-06&periodEnd=2026-07-05" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Seeded Amelia Hartley already has a Q1 VAT invoice/bill and Q1 2025-26 ITSA journals, plus bank account `88888888-8888-4888-8888-888888888888`.
 
 Ledger codes roll into HMRC ITSA boxes. Capital spend and disallowable entertainment stay off the quarterly update.
 

@@ -30,6 +30,20 @@ describe("chart of accounts catalog", () => {
     expect(codes).toEqual(expect.arrayContaining([4300, 4400]));
   });
 
+  it("adds bank, debtor and creditor control accounts to every profile", () => {
+    for (const profile of [ChartProfile.LANDLORD, ChartProfile.SOLE_TRADER, ChartProfile.COMPANY]) {
+      const codes = getChart(profile).accounts.map((account) => account.code);
+      expect(codes).toEqual(expect.arrayContaining([1100, 1200, 2100, 3200]));
+    }
+  });
+
+  it("adds bank, debtor and creditor control accounts to every profile", () => {
+    for (const profile of [ChartProfile.LANDLORD, ChartProfile.SOLE_TRADER, ChartProfile.COMPANY]) {
+      const codes = getChart(profile).accounts.map((account) => account.code);
+      expect(codes).toEqual(expect.arrayContaining([1100, 1200, 2100, 3200]));
+    }
+  });
+
   it("adds VAT control accounts to every profile", () => {
     for (const profile of [ChartProfile.LANDLORD, ChartProfile.SOLE_TRADER, ChartProfile.COMPANY]) {
       const codes = getChart(profile).accounts.map((account) => account.code);
@@ -40,9 +54,11 @@ describe("chart of accounts catalog", () => {
 
 describe("ChartOfAccountsService", () => {
   const prisma = {
+    chartOfAccount: { findMany: jest.fn().mockResolvedValue([]) },
     ledger: {
       createMany: jest.fn().mockResolvedValue({ count: 26 }),
       findMany: jest.fn().mockResolvedValue([{ code: 1000, profile: ChartProfile.SOLE_TRADER }]),
+      update: jest.fn(),
     },
   };
   const service = new ChartOfAccountsService(prisma as never);

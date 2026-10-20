@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
+import { BookkeepingModule } from "./bookkeeping/bookkeeping.module";
 import { ClientsModule } from "./clients/clients.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
@@ -50,6 +51,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
     DocumentsModule,
     ChartOfAccountsModule,
     LedgerModule,
+    BookkeepingModule,
     PortalModule,
   ],
   controllers: [HealthController],
