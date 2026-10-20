@@ -1,4 +1,5 @@
 import { ObligationStatus } from "@prisma/client";
+import { VatRepository } from "./vat.repository";
 import { VatService } from "./vat.service";
 import { SubmitVatReturnDto } from "./dto/vat.dto";
 
@@ -24,7 +25,9 @@ describe("VatService", () => {
     vatReturn: { create: jest.fn() },
     ledger: { findMany: jest.fn() },
     transaction: { count: jest.fn().mockResolvedValue(4) },
+    vatTransactionSummary: { upsert: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
   };
+  const repo = new VatRepository(prisma as never);
   const audit = { record: jest.fn() };
   const tasks = { ensure: jest.fn(), complete: jest.fn() };
   const notifications = { notify: jest.fn() };
@@ -39,6 +42,7 @@ describe("VatService", () => {
     tasks as never,
     notifications as never,
     webhooks as never,
+    repo,
   );
 
   beforeEach(() => {
@@ -128,7 +132,7 @@ describe("VatService", () => {
       expect.objectContaining({ code: 4000, reason: "unmapped" }),
     ]);
     expect(preview.boxes.find((box) => box.id === "box_5")?.value).toBe(1000);
-    expect(preview.validation).toEqual({ valid: true, errors: [], warnings: [] });
+    expect(preview.validation).toEqual({ valid: true, errors: [], warnings: [], issues: [] });
     expect(preview.vatReturn.box5).toBe(1000);
   });
 
@@ -151,7 +155,12 @@ describe("VatService", () => {
       status: 200,
       data: { processingDate: "2026-04-01T00:00:00Z", formBundleNumber: "FB1" },
     });
-    prisma.vatObligation.findUnique.mockResolvedValue({ id: "ob1" });
+    prisma.vatObligation.findUnique.mockResolvedValue({
+      id: "ob1",
+      periodKey: "26A1",
+      start: new Date("2026-01-01T00:00:00.000Z"),
+      end: new Date("2026-03-31T00:00:00.000Z"),
+    });
     prisma.vatReturn.create.mockResolvedValue({ id: "ret1", formBundleNumber: "FB1" });
     prisma.vatObligation.update.mockResolvedValue({});
 
@@ -162,13 +171,12 @@ describe("VatService", () => {
   });
 
   it("submits from ledger using the obligation dates when period bounds are omitted", async () => {
-    prisma.vatObligation.findUnique
-      .mockResolvedValueOnce({
-        id: "ob1",
-        start: new Date("2026-01-01T00:00:00.000Z"),
-        end: new Date("2026-03-31T00:00:00.000Z"),
-      })
-      .mockResolvedValueOnce({ id: "ob1" });
+    prisma.vatObligation.findUnique.mockResolvedValue({
+      id: "ob1",
+      periodKey: "26A1",
+      start: new Date("2026-01-01T00:00:00.000Z"),
+      end: new Date("2026-03-31T00:00:00.000Z"),
+    });
     prisma.ledger.findMany.mockResolvedValue([
       { code: 1000, name: "Sales", profile: "SOLE_TRADER", transactions: [{ amount: 6000 }] },
       { code: 2200, name: "VAT on Sales", profile: "SOLE_TRADER", transactions: [{ amount: 1200 }] },

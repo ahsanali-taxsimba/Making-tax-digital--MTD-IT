@@ -23,17 +23,15 @@ import {
   VAT_LEDGER_ACCOUNTS,
   VatBoxInput,
 } from "./vat-box.mapping";
-import { toVatReturnView, validateVatReturn, VatReturnView, VatValidationResult } from "./vat-return.validator";
-
-const MANUAL_BOX_FIELDS: Array<keyof VatBoxInput> = [
-  "vatDueSales",
-  "vatDueAcquisitions",
-  "vatReclaimedCurrPeriod",
-  "totalValueSalesExVAT",
-  "totalValuePurchasesExVAT",
-  "totalValueGoodsSuppliedExVAT",
-  "totalAcquisitionsExVAT",
-];
+import { presentStoredReturn, toIsoDate } from "./vat.presenter";
+import { VatRepository } from "./vat.repository";
+import {
+  toVatReturnView,
+  validateVatReturn,
+  VatObligationPeriod,
+  VatReturnView,
+  VatValidationResult,
+} from "./vat-return.validator";
 
 @Injectable()
 export class VatService {
@@ -46,6 +44,7 @@ export class VatService {
     private readonly tasks: TasksService,
     private readonly notifications: NotificationsService,
     private readonly webhooks: WebhooksService,
+    private readonly repo: VatRepository,
   ) {}
 
   mapping() {
@@ -70,23 +69,38 @@ export class VatService {
   }
 
   async previewReturn(user: AuthUser, clientId: string, dto: PreviewVatReturnDto) {
-    await this.clients.get(user, clientId);
-    const rolled = await this.rollUpFromLedger(clientId, dto.periodStart, dto.periodEnd);
+    const client = await this.clients.get(user, clientId);
+    const rolled = await this.rollUpFromLedger(clientId, dto.periodStart, dto.periodEnd, dto.periodKey);
+    const validation = await this.validateTotals(rolled.totals, rolled.transactionCount, dto.region ?? client.vatRegion, {
+      periodKey: dto.periodKey,
+      periodStart: dto.periodStart,
+      periodEnd: dto.periodEnd,
+    }, clientId);
     return {
       ...rolled,
       periodKey: dto.periodKey,
       vatReturn: toVatReturnView(rolled.totals),
-      validation: this.validateTotals(rolled.totals, rolled.transactionCount, dto.region),
+      validation,
     };
   }
 
   async validateReturn(user: AuthUser, clientId: string, dto: ValidateVatReturnDto) {
-    await this.clients.get(user, clientId);
-    const { view, totals, transactionCount } = await this.resolveReturnForValidation(clientId, dto);
-    const validation = this.validateTotals(view, transactionCount, dto.region);
+    const client = await this.clients.get(user, clientId);
+    const resolved = await this.resolveReturnForValidation(clientId, dto);
+    const validation = await this.validateTotals(
+      resolved.view,
+      resolved.transactionCount,
+      dto.region ?? client.vatRegion,
+      {
+        periodKey: dto.periodKey,
+        periodStart: resolved.periodStart ?? dto.periodStart,
+        periodEnd: resolved.periodEnd ?? dto.periodEnd,
+      },
+      clientId,
+    );
     return {
-      vatReturn: view,
-      totals,
+      vatReturn: resolved.view,
+      totals: resolved.totals,
       validation,
     };
   }
@@ -141,7 +155,30 @@ export class VatService {
 
   async listReturns(user: AuthUser, clientId: string) {
     await this.requireVatClient(user, clientId);
-    return this.prisma.vatReturn.findMany({ where: { clientId }, orderBy: { createdAt: "desc" } });
+    const rows = await this.repo.listReturns(clientId);
+    return rows.map((row) => presentStoredReturn(row));
+  }
+
+  async listSummaries(user: AuthUser, clientId: string) {
+    await this.clients.get(user, clientId);
+    return this.repo.listSummaries(clientId);
+  }
+
+  async fetchHmrcReturn(user: AuthUser, clientId: string, periodKey: string) {
+    const client = await this.requireVatClient(user, clientId);
+    const ctx = await this.connections.getCallContext(client.id);
+    const result = await this.vat.getReturn(ctx, client.vatRegistrationNumber!, periodKey);
+    await this.audit.record({
+      actor: user,
+      clientId: client.id,
+      actionType: "vat.return.fetched",
+      metadata: { correlationId: result.correlationId, periodKey },
+    });
+    return {
+      source: "hmrc",
+      correlationId: result.correlationId,
+      ...presentStoredReturn(result.data),
+    };
   }
 
   async submit(user: AuthUser, clientId: string, dto: SubmitVatReturnDto) {
@@ -150,7 +187,17 @@ export class VatService {
     }
     const client = await this.requireVatClient(user, clientId);
     const resolved = await this.resolveReturnForValidation(client.id, dto);
-    const validation = this.validateTotals(resolved.view, resolved.transactionCount, dto.region);
+    const validation = await this.validateTotals(
+      resolved.view,
+      resolved.transactionCount,
+      dto.region ?? client.vatRegion,
+      {
+        periodKey: dto.periodKey,
+        periodStart: resolved.periodStart ?? dto.periodStart,
+        periodEnd: resolved.periodEnd ?? dto.periodEnd,
+      },
+      client.id,
+    );
     this.assertValid(validation);
     const totals = finaliseVatBoxes(resolved.input);
     const boxes: VatReturnBoxes = {
@@ -168,6 +215,8 @@ export class VatService {
         data: {
           clientId: client.id,
           obligationId: dto.obligationId ?? obligation?.id,
+          periodStart: resolved.periodStart ? new Date(resolved.periodStart) : obligation?.start,
+          periodEnd: resolved.periodEnd ? new Date(resolved.periodEnd) : obligation?.end,
           ...boxes,
           status: "SUBMITTED",
           formBundleNumber: result.data.formBundleNumber,
@@ -193,6 +242,7 @@ export class VatService {
           periodKey: dto.periodKey,
           fromLedger: Boolean(dto.fromLedger),
           warnings: validation.warnings,
+          issues: validation.issues,
         },
       });
       await this.webhooks.emit(client.firmId, "VAT_RETURN_SUBMITTED", {
@@ -207,7 +257,7 @@ export class VatService {
         body: `VAT return ${dto.periodKey} was accepted for ${client.name}.`,
         metadata: { clientId: client.id },
       });
-      return saved;
+      return presentStoredReturn(saved);
     } catch (error) {
       await this.notifications.notify({
         firmId: client.firmId,
@@ -246,66 +296,82 @@ export class VatService {
       actionType: "vat.payments.fetched",
       metadata: { correlationId: result.correlationId },
     });
-    return this.prisma.vatPayment.findMany({ where: { clientId: client.id }, orderBy: { received: "desc" } });
+    return this.repo.listPayments(client.id);
   }
 
   private async resolveReturnForValidation(clientId: string, dto: SubmitVatReturnDto | ValidateVatReturnDto) {
     if (dto.fromLedger) {
       const [periodStart, periodEnd] = await this.resolveLedgerPeriod(clientId, dto);
-      const rolled = await this.rollUpFromLedger(clientId, periodStart, periodEnd);
+      const rolled = await this.rollUpFromLedger(clientId, periodStart, periodEnd, dto.periodKey);
       return {
         view: toVatReturnView(rolled.totals),
         totals: rolled.totals,
         input: rolled.totals,
         transactionCount: rolled.transactionCount,
+        periodStart,
+        periodEnd,
       };
     }
     const raw = this.readManualBoxes(dto);
     const view: VatReturnView = {
       box1: raw.vatDueSales,
       box2: raw.vatDueAcquisitions,
-      box3: dto.totalVatDue ?? raw.vatDueSales + raw.vatDueAcquisitions,
+      box3: dto.totalVatDue ?? dto.box3 ?? raw.vatDueSales + raw.vatDueAcquisitions,
       box4: raw.vatReclaimedCurrPeriod,
-      box5: dto.netVatDue ?? raw.vatDueSales + raw.vatDueAcquisitions - raw.vatReclaimedCurrPeriod,
+      box5: dto.netVatDue ?? dto.box5 ?? raw.vatDueSales + raw.vatDueAcquisitions - raw.vatReclaimedCurrPeriod,
       box6: raw.totalValueSalesExVAT,
       box7: raw.totalValuePurchasesExVAT,
       box8: raw.totalValueGoodsSuppliedExVAT,
       box9: raw.totalAcquisitionsExVAT,
     };
     const [periodStart, periodEnd] = await this.tryResolvePeriod(clientId, dto);
-    const transactionCount = await this.prisma.transaction.count({
-      where: {
-        clientId,
-        ...(periodStart && periodEnd ? { date: { gte: new Date(periodStart), lte: new Date(periodEnd) } } : {}),
-      },
-    });
-    return { view, totals: raw, input: raw, transactionCount };
+    const transactionCount = await this.repo.countTransactions(clientId, periodStart, periodEnd);
+    return { view, totals: raw, input: raw, transactionCount, periodStart, periodEnd };
   }
 
   private readManualBoxes(dto: SubmitVatReturnDto | ValidateVatReturnDto): VatBoxInput {
-    for (const field of MANUAL_BOX_FIELDS) {
-      if (dto[field] === undefined || dto[field] === null) {
-        throw new BadRequestException(`${field} is required unless fromLedger is true`);
-      }
-    }
-    return {
-      vatDueSales: dto.vatDueSales!,
-      vatDueAcquisitions: dto.vatDueAcquisitions!,
-      vatReclaimedCurrPeriod: dto.vatReclaimedCurrPeriod!,
-      totalValueSalesExVAT: dto.totalValueSalesExVAT!,
-      totalValuePurchasesExVAT: dto.totalValuePurchasesExVAT!,
-      totalValueGoodsSuppliedExVAT: dto.totalValueGoodsSuppliedExVAT!,
-      totalAcquisitionsExVAT: dto.totalAcquisitionsExVAT!,
+    const raw: VatBoxInput = {
+      vatDueSales: dto.vatDueSales ?? dto.box1 ?? missing("vatDueSales"),
+      vatDueAcquisitions: dto.vatDueAcquisitions ?? dto.box2 ?? missing("vatDueAcquisitions"),
+      vatReclaimedCurrPeriod: dto.vatReclaimedCurrPeriod ?? dto.box4 ?? missing("vatReclaimedCurrPeriod"),
+      totalValueSalesExVAT: dto.totalValueSalesExVAT ?? dto.box6 ?? missing("totalValueSalesExVAT"),
+      totalValuePurchasesExVAT: dto.totalValuePurchasesExVAT ?? dto.box7 ?? missing("totalValuePurchasesExVAT"),
+      totalValueGoodsSuppliedExVAT: dto.totalValueGoodsSuppliedExVAT ?? dto.box8 ?? missing("totalValueGoodsSuppliedExVAT"),
+      totalAcquisitionsExVAT: dto.totalAcquisitionsExVAT ?? dto.box9 ?? missing("totalAcquisitionsExVAT"),
     };
+    return raw;
   }
 
-  private validateTotals(
+  private async validateTotals(
     source: VatReturnView | ReturnType<typeof finaliseVatBoxes>,
     transactionCount: number,
-    region?: "GB" | "NI",
-  ): VatValidationResult {
+    region: string | undefined,
+    submitted: { periodKey?: string; periodStart?: string; periodEnd?: string },
+    clientId: string,
+  ): Promise<VatValidationResult> {
     const view = "box1" in source ? source : toVatReturnView(source);
-    return validateVatReturn(view, { transactionCount }, { region: region ?? "GB" });
+    const obligation = await this.obligationPeriod(clientId, submitted.periodKey);
+    return validateVatReturn(
+      view,
+      { transactionCount },
+      { region: region === "NI" ? "NI" : "GB" },
+      { obligation, submitted },
+    );
+  }
+
+  private async obligationPeriod(clientId: string, periodKey?: string): Promise<VatObligationPeriod | null> {
+    if (!periodKey) {
+      return null;
+    }
+    const obligation = await this.repo.findObligation(clientId, periodKey);
+    if (!obligation?.start || !obligation?.end) {
+      return null;
+    }
+    return {
+      periodKey: obligation.periodKey,
+      start: toIsoDate(obligation.start),
+      end: toIsoDate(obligation.end),
+    };
   }
 
   private assertValid(validation: VatValidationResult) {
@@ -316,6 +382,7 @@ export class VatService {
       message: "VAT return failed validation",
       errors: validation.errors,
       warnings: validation.warnings,
+      issues: validation.issues,
     });
   }
 
@@ -340,25 +407,15 @@ export class VatService {
     if (!dto.periodKey) {
       return [undefined, undefined];
     }
-    const obligation = await this.prisma.vatObligation.findUnique({
-      where: { clientId_periodKey: { clientId, periodKey: dto.periodKey } },
-    });
+    const obligation = await this.repo.findObligation(clientId, dto.periodKey);
     if (obligation?.start && obligation?.end) {
       return [toIsoDate(obligation.start), toIsoDate(obligation.end)];
     }
     return [undefined, undefined];
   }
 
-  private async rollUpFromLedger(clientId: string, periodStart: string, periodEnd: string) {
-    const start = new Date(periodStart);
-    const end = new Date(periodEnd);
-    const accounts = await this.prisma.ledger.findMany({
-      where: { clientId },
-      include: {
-        transactions: { where: { date: { gte: start, lte: end } } },
-      },
-      orderBy: [{ profile: "asc" }, { code: "asc" }],
-    });
+  private async rollUpFromLedger(clientId: string, periodStart: string, periodEnd: string, periodKey?: string) {
+    const accounts = await this.repo.loadLedgersForPeriod(clientId, periodStart, periodEnd);
     const input = emptyVatBoxInput();
     const lines: Array<{
       code: number;
@@ -399,6 +456,14 @@ export class VatService {
 
     const totals = finaliseVatBoxes(input);
     const transactionCount = accounts.reduce((count, account) => count + account.transactions.length, 0);
+    const view = toVatReturnView(totals);
+    await this.repo.upsertSummary(clientId, new Date(periodStart), new Date(periodEnd), {
+      periodKey,
+      boxes: view,
+      transactionCount,
+      lines,
+      excluded,
+    });
     return {
       periodStart,
       periodEnd,
@@ -407,6 +472,7 @@ export class VatService {
       lines,
       excluded,
       transactionCount,
+      summary: view,
     };
   }
 
@@ -419,6 +485,6 @@ export class VatService {
   }
 }
 
-function toIsoDate(value: Date): string {
-  return value.toISOString().slice(0, 10);
+function missing(field: string): never {
+  throw new BadRequestException(`${field} is required unless fromLedger is true`);
 }

@@ -1,4 +1,4 @@
-import { toVatReturnView, validateVatReturn } from "./vat-return.validator";
+import { toVatReturnView, validateVatReturn, VAT_ISSUE_CODE } from "./vat-return.validator";
 
 const gb = { region: "GB" as const };
 const ni = { region: "NI" as const };
@@ -24,18 +24,20 @@ describe("validateVatReturn", () => {
       valid: true,
       errors: [],
       warnings: [],
+      issues: [],
     });
   });
 
   it("requires box 3 to equal box 1 + box 2", () => {
     const result = validateVatReturn(boxes({ box3: 900 }), { transactionCount: 1 }, gb);
     expect(result.valid).toBe(false);
+    expect(result.issues[0]?.code).toBe(VAT_ISSUE_CODE.VAT_ERR_ARITHMETIC);
     expect(result.errors).toContain("Box 3 must equal Box 1 + Box 2.");
   });
 
   it("requires box 5 to equal box 3 - box 4, or the HMRC absolute net", () => {
     const wrong = validateVatReturn(boxes({ box5: 50 }), { transactionCount: 1 }, gb);
-    expect(wrong.errors).toContain("Box 5 must equal Box 3 - Box 4.");
+    expect(wrong.issues.map((issue) => issue.code)).toContain(VAT_ISSUE_CODE.VAT_ERR_ARITHMETIC);
 
     const repaymentSigned = validateVatReturn(boxes({ box1: 100, box3: 100, box4: 400, box5: -300, box7: 2000 }), { transactionCount: 1 }, gb);
     expect(repaymentSigned.valid).toBe(true);
@@ -46,24 +48,25 @@ describe("validateVatReturn", () => {
 
   it("rejects negative source boxes but allows a signed box 5", () => {
     const result = validateVatReturn(boxes({ box1: -10, box3: -10, box5: -210 }), { transactionCount: 1 }, gb);
+    expect(result.issues.map((issue) => issue.code)).toContain(VAT_ISSUE_CODE.VAT_ERR_NEGATIVE);
     expect(result.errors).toContain("Box 1 cannot be negative.");
     expect(result.errors.some((error) => error.includes("Box 5"))).toBe(false);
   });
 
-  it("warns when output or input VAT is above a 20% plus 10% tolerance", () => {
+  it("warns when output or input VAT exceeds 20% of the net box", () => {
     const output = validateVatReturn(boxes({ box1: 1400, box3: 1400, box5: 1200 }), { transactionCount: 1 }, gb);
-    expect(output.warnings).toContain("Output VAT (Box 1) appears high compared to net sales (Box 6).");
+    expect(output.issues[0]?.code).toBe(VAT_ISSUE_CODE.VAT_WARN_OUTPUT_VAT_HIGH);
 
     const input = validateVatReturn(boxes({ box4: 400, box5: 800 }), { transactionCount: 1 }, gb);
-    expect(input.warnings).toContain("Input VAT (Box 4) appears high compared to net purchases (Box 7).");
+    expect(input.issues.map((issue) => issue.code)).toContain(VAT_ISSUE_CODE.VAT_WARN_INPUT_VAT_HIGH);
   });
 
   it("warns on EU acquisition and non-NI supply mismatches", () => {
     const eu = validateVatReturn(boxes({ box2: 80, box3: 1280, box5: 1080 }), { transactionCount: 1 }, gb);
-    expect(eu.warnings).toContain("Box 2 > 0 but Box 9 is zero – check EU acquisitions.");
+    expect(eu.issues[0]?.code).toBe(VAT_ISSUE_CODE.VAT_WARN_EU_INCONSISTENT);
 
     const supplies = validateVatReturn(boxes({ box8: 500 }), { transactionCount: 1 }, gb);
-    expect(supplies.warnings).toContain("Box 8 > 0 but business is not NI-based – check EU supplies.");
+    expect(supplies.issues[0]?.code).toBe(VAT_ISSUE_CODE.VAT_WARN_EU_INCONSISTENT);
 
     const niSupplies = validateVatReturn(boxes({ box8: 500 }), { transactionCount: 1 }, ni);
     expect(niSupplies.warnings).toEqual([]);
@@ -82,8 +85,21 @@ describe("validateVatReturn", () => {
       box9: 0,
     };
     const result = validateVatReturn(zero, { transactionCount: 3 }, gb);
-    expect(result.errors).toContain("Return is zero but ledger shows transactions – check mapping.");
+    expect(result.issues[0]?.code).toBe(VAT_ISSUE_CODE.VAT_ERR_ZERO_RETURN_INVALID);
     expect(validateVatReturn(zero, { transactionCount: 0 }, gb).valid).toBe(true);
+  });
+
+  it("errors when submitted dates do not match the HMRC obligation", () => {
+    const result = validateVatReturn(
+      boxes(),
+      { transactionCount: 1 },
+      gb,
+      {
+        obligation: { periodKey: "26A1", start: "2026-01-01", end: "2026-03-31" },
+        submitted: { periodKey: "26A1", periodStart: "2025-01-01", periodEnd: "2025-03-31" },
+      },
+    );
+    expect(result.issues.map((issue) => issue.code)).toContain(VAT_ISSUE_CODE.VAT_ERR_PERIOD_MISMATCH);
   });
 
   it("maps HMRC field names onto box1-9", () => {
@@ -95,8 +111,8 @@ describe("validateVatReturn", () => {
       netVatDue: 1,
       totalValueSalesExVAT: 6,
       totalValuePurchasesExVAT: 7,
-      totalValueGoodsSuppliedExVAT: 8,
       totalAcquisitionsExVAT: 9,
+      totalValueGoodsSuppliedExVAT: 8,
     })).toEqual({
       box1: 1,
       box2: 2,

@@ -38,6 +38,7 @@ export class ClientsService {
       name: dto.name,
       utr: dto.utr,
       vatRegistrationNumber: dto.vatRegistrationNumber,
+      vatRegion: dto.vatRegion,
       niNumber: dto.niNumber,
       nino: dto.nino ?? dto.niNumber,
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
@@ -54,6 +55,7 @@ export class ClientsService {
       name: dto.name,
       utr: dto.utr,
       vatRegistrationNumber: dto.vatRegistrationNumber,
+      vatRegion: dto.vatRegion,
       niNumber: dto.niNumber,
       nino: dto.nino,
     });

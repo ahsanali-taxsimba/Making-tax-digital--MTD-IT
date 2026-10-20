@@ -159,18 +159,20 @@ model Client {
   name                  String
   utr                   String?
   vatRegistrationNumber String?
+  vatRegion             String     @default("GB")
   niNumber              String?
   nino                  String?
   dateOfBirth           DateTime?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
-  portalUsers     User[]
-  businesses      Business[]
-  mtdConnections  MtdConnection[]
-  vatObligations  VatObligation[]
-  vatReturns      VatReturn[]
-  vatPayments     VatPayment[]
+  portalUsers              User[]
+  businesses               Business[]
+  mtdConnections           MtdConnection[]
+  vatObligations           VatObligation[]
+  vatReturns               VatReturn[]
+  vatPayments              VatPayment[]
+  vatTransactionSummaries  VatTransactionSummary[]
   itsaObligations ItsaObligation[]
   itsaUpdates     ItsaUpdate[]
   itsaEops        ItsaEndOfPeriodStatement[]
@@ -253,6 +255,8 @@ model VatReturn {
   obligationId                 String?          @unique
   obligation                   VatObligation?   @relation(fields: [obligationId], references: [id])
   periodKey                    String
+  periodStart                  DateTime?
+  periodEnd                    DateTime?
   vatDueSales                  Decimal          @db.Decimal(14, 2)
   vatDueAcquisitions           Decimal          @db.Decimal(14, 2)
   totalVatDue                  Decimal          @db.Decimal(14, 2)
@@ -271,6 +275,32 @@ model VatReturn {
   rawPayload                   Json?
   createdAt                    DateTime         @default(now())
   updatedAt                    DateTime         @updatedAt
+}
+
+model VatTransactionSummary {
+  id               String   @id @default(uuid())
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  periodKey        String?
+  periodStart      DateTime
+  periodEnd        DateTime
+  box1             Decimal  @db.Decimal(14, 2)
+  box2             Decimal  @db.Decimal(14, 2)
+  box3             Decimal  @db.Decimal(14, 2)
+  box4             Decimal  @db.Decimal(14, 2)
+  box5             Decimal  @db.Decimal(14, 2)
+  box6             Decimal  @db.Decimal(14, 2)
+  box7             Decimal  @db.Decimal(14, 2)
+  box8             Decimal  @db.Decimal(14, 2)
+  box9             Decimal  @db.Decimal(14, 2)
+  transactionCount Int
+  lines            Json
+  excluded         Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([clientId, periodStart, periodEnd])
+  @@index([clientId])
 }
 
 model VatPayment {

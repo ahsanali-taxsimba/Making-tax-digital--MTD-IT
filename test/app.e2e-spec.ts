@@ -71,6 +71,10 @@ describe("MTD API (e2e)", () => {
       })),
     },
     ledger: { createMany: jest.fn().mockResolvedValue({ count: 26 }), findMany: jest.fn().mockResolvedValue([]) },
+    transaction: { count: jest.fn().mockResolvedValue(0) },
+    vatTransactionSummary: { upsert: jest.fn().mockResolvedValue({}), findMany: jest.fn().mockResolvedValue([]) },
+    vatObligation: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+    vatReturn: { findMany: jest.fn().mockResolvedValue([]) },
     oauthState: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
     mtdConnection: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     auditLog: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
@@ -148,6 +152,18 @@ describe("MTD API (e2e)", () => {
 
     const vatMapping = await request(app.getHttpServer()).get("/vat/mapping").set("Authorization", `Bearer ${token}`).expect(200);
     expect(vatMapping.body.data.boxes.box_5.name).toContain("Net VAT");
+
+    const validated = await request(app.getHttpServer())
+      .get("/vat/validate")
+      .query({
+        clientId: "22222222-2222-4222-8222-222222222222",
+        fromLedger: true,
+        periodStart: "2026-01-01",
+        periodEnd: "2026-03-31",
+      })
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(validated.body.data.validation.valid).toBe(true);
   });
 
   it("rejects invalid login payloads", async () => {

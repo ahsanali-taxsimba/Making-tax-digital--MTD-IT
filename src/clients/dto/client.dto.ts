@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { ClientType } from "@prisma/client";
-import { IsDateString, IsEnum, IsOptional, IsString, Matches } from "class-validator";
+import { IsDateString, IsEnum, IsIn, IsOptional, IsString, Matches } from "class-validator";
 
 export class CreateClientDto {
   @ApiProperty({ enum: ClientType })
@@ -20,6 +20,11 @@ export class CreateClientDto {
   @IsOptional()
   @Matches(/^\d{9}$/)
   vatRegistrationNumber?: string;
+
+  @ApiPropertyOptional({ enum: ["GB", "NI"] })
+  @IsOptional()
+  @IsIn(["GB", "NI"])
+  vatRegion?: "GB" | "NI";
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -52,6 +57,11 @@ export class UpdateClientDto {
   @IsOptional()
   @Matches(/^\d{9}$/)
   vatRegistrationNumber?: string;
+
+  @ApiPropertyOptional({ enum: ["GB", "NI"] })
+  @IsOptional()
+  @IsIn(["GB", "NI"])
+  vatRegion?: "GB" | "NI";
 
   @ApiPropertyOptional()
   @IsOptional()

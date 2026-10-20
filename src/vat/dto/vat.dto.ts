@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsDateString, IsIn, IsNumber, IsOptional, IsString, ValidateIf } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsBoolean, IsDateString, IsIn, IsNumber, IsOptional, IsString, IsUUID, ValidateIf } from "class-validator";
 
 export class SubmitVatReturnDto {
   @ApiProperty()
@@ -79,6 +80,60 @@ export class SubmitVatReturnDto {
   @IsOptional()
   @IsString()
   obligationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box1?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box2?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box3?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box4?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box5?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box6?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box7?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box8?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box9?: number;
 }
 
 export class PreviewVatReturnDto {
@@ -171,4 +226,156 @@ export class ValidateVatReturnDto {
   @ValidateIf((dto: ValidateVatReturnDto) => !dto.fromLedger)
   @IsNumber()
   totalAcquisitionsExVAT?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box1?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box2?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box3?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box4?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box5?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box6?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box7?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box8?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box9?: number;
+}
+
+export class VatClientQueryDto {
+  @ApiProperty()
+  @IsUUID()
+  clientId!: string;
+}
+
+export class VatEngineSubmitDto extends SubmitVatReturnDto {
+  @ApiProperty()
+  @IsUUID()
+  clientId!: string;
+}
+
+export class VatValidateQueryDto {
+  @ApiProperty()
+  @IsUUID()
+  clientId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  periodKey?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  periodStart?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  periodEnd?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  fromLedger?: boolean;
+
+  @ApiPropertyOptional({ enum: ["GB", "NI"] })
+  @IsOptional()
+  @IsIn(["GB", "NI"])
+  region?: "GB" | "NI";
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box1?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box2?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box3?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box4?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box5?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box6?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box7?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box8?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  box9?: number;
 }
