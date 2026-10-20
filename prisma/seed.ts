@@ -2,6 +2,7 @@ import {
   PrismaClient,
   ClientType,
   UserRole,
+  RiskLevel,
   ObligationStatus,
   ChartProfile,
   JournalSource,
@@ -81,7 +82,7 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
+  const adminUser = await prisma.user.upsert({
     where: { email: "marco.r@example.org" },
     update: { passwordHash },
     create: {
@@ -93,7 +94,7 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
+  const accountant = await prisma.user.upsert({
     where: { email: "carol.w@example.org" },
     update: { passwordHash },
     create: {
@@ -103,6 +104,31 @@ async function main() {
       firmId: firm.id,
       passwordHash,
     },
+  });
+
+  const assistant = await prisma.user.upsert({
+    where: { email: "wendy.h@example.net" },
+    update: { passwordHash },
+    create: {
+      name: "Noah Adeyemi",
+      email: "wendy.h@example.net",
+      role: UserRole.ASSISTANT,
+      firmId: firm.id,
+      passwordHash,
+    },
+  });
+
+  await prisma.client.update({
+    where: { id: soleTrader.id },
+    data: { assignedUserId: accountant.id, riskLevel: RiskLevel.MEDIUM },
+  });
+  await prisma.client.update({
+    where: { id: landlord.id },
+    data: { assignedUserId: accountant.id, riskLevel: RiskLevel.HIGH },
+  });
+  await prisma.client.update({
+    where: { id: company.id },
+    data: { assignedUserId: adminUser.id, riskLevel: RiskLevel.LOW },
   });
 
   await prisma.user.upsert({
@@ -603,28 +629,114 @@ async function main() {
 
   await prisma.task.upsert({
     where: { id: "77777777-7777-4777-8777-777777777761" },
-    update: {},
+    update: { assigneeId: assistant.id, status: TaskStatus.WAITING_ON_CLIENT },
     create: {
       id: "77777777-7777-4777-8777-777777777761",
       firmId: firm.id,
       clientId: soleTrader.id,
+      assigneeId: assistant.id,
       type: TaskType.PROVIDE_RECORDS,
-      status: TaskStatus.OPEN,
+      status: TaskStatus.WAITING_ON_CLIENT,
       dueDate: new Date("2026-04-20"),
       title: "Provide Q1 records",
     },
   });
   await prisma.task.upsert({
     where: { id: "77777777-7777-4777-8777-777777777762" },
-    update: {},
+    update: { assigneeId: accountant.id },
     create: {
       id: "77777777-7777-4777-8777-777777777762",
       firmId: firm.id,
       clientId: soleTrader.id,
+      assigneeId: accountant.id,
       type: TaskType.APPROVE_RETURN,
       status: TaskStatus.OPEN,
       dueDate: new Date("2026-05-07"),
       title: "Approve draft VAT return 26A1",
+    },
+  });
+  await prisma.task.upsert({
+    where: { id: "77777777-7777-4777-8777-777777777763" },
+    update: {},
+    create: {
+      id: "77777777-7777-4777-8777-777777777763",
+      firmId: firm.id,
+      clientId: soleTrader.id,
+      assigneeId: accountant.id,
+      type: TaskType.VAT_RETURN,
+      status: TaskStatus.IN_PROGRESS,
+      dueDate: new Date("2026-05-07"),
+      title: "Prepare VAT return 26A1",
+    },
+  });
+  await prisma.task.upsert({
+    where: { id: "77777777-7777-4777-8777-777777777764" },
+    update: {},
+    create: {
+      id: "77777777-7777-4777-8777-777777777764",
+      firmId: firm.id,
+      clientId: soleTrader.id,
+      assigneeId: accountant.id,
+      type: TaskType.ITSA_UPDATE,
+      status: TaskStatus.OPEN,
+      dueDate: new Date("2026-08-07"),
+      title: "ITSA quarterly update Q1 2025-26",
+    },
+  });
+  await prisma.task.upsert({
+    where: { id: "77777777-7777-4777-8777-777777777765" },
+    update: {},
+    create: {
+      id: "77777777-7777-4777-8777-777777777765",
+      firmId: firm.id,
+      clientId: landlord.id,
+      assigneeId: assistant.id,
+      type: TaskType.BOOKKEEPING,
+      status: TaskStatus.IN_PROGRESS,
+      dueDate: new Date("2026-04-30"),
+      title: "Post April letting invoices",
+    },
+  });
+  await prisma.task.upsert({
+    where: { id: "77777777-7777-4777-8777-777777777766" },
+    update: {},
+    create: {
+      id: "77777777-7777-4777-8777-777777777766",
+      firmId: firm.id,
+      clientId: company.id,
+      assigneeId: adminUser.id,
+      type: TaskType.RECONCILIATION,
+      status: TaskStatus.COMPLETED,
+      dueDate: new Date("2026-03-31"),
+      completedAt: new Date("2026-03-28"),
+      title: "Reconcile March current account",
+    },
+  });
+  await prisma.task.upsert({
+    where: { id: "77777777-7777-4777-8777-777777777767" },
+    update: {},
+    create: {
+      id: "77777777-7777-4777-8777-777777777767",
+      firmId: firm.id,
+      clientId: company.id,
+      assigneeId: accountant.id,
+      type: TaskType.EOPS,
+      status: TaskStatus.OPEN,
+      dueDate: new Date("2026-05-31"),
+      title: "Draft company EOPS pack",
+    },
+  });
+  await prisma.task.upsert({
+    where: { id: "77777777-7777-4777-8777-777777777768" },
+    update: {},
+    create: {
+      id: "77777777-7777-4777-8777-777777777768",
+      firmId: firm.id,
+      clientId: soleTrader.id,
+      type: TaskType.FINAL_DECLARATION,
+      status: TaskStatus.OPEN,
+      dueDate: new Date("2027-01-31"),
+      title: "Final declaration 2025-26",
     },
   });
 
@@ -658,6 +770,8 @@ async function main() {
   console.log("  Admin      marco.r@example.org / PracticeAdmin123!");
   // eslint-disable-next-line no-console
   console.log("  Accountant carol.w@example.org / PracticeAdmin123!");
+  // eslint-disable-next-line no-console
+  console.log("  Assistant  wendy.h@example.net / PracticeAdmin123!");
   // eslint-disable-next-line no-console
   console.log("  Client     tom.h@example.org / PracticeAdmin123!");
 }

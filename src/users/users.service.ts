@@ -1,5 +1,6 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
+import { UserRole, UserStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { AuthUser } from "../common/types";
@@ -25,6 +26,9 @@ export class UsersService {
     if (existing) {
       throw new ConflictException("Email already in use");
     }
+    if (dto.role === UserRole.CLIENT && !dto.clientId) {
+      throw new BadRequestException("Client portal users must be linked to a client");
+    }
     const passwordHash = dto.password ? await bcrypt.hash(dto.password, 10) : null;
     const created = await this.prisma.user.create({
       data: {
@@ -34,7 +38,7 @@ export class UsersService {
         firmId: actor.firmId,
         clientId: dto.clientId,
         passwordHash,
-        status: passwordHash ? "ACTIVE" : "INVITED",
+        status: passwordHash ? UserStatus.ACTIVE : UserStatus.INVITED,
       },
     });
     await this.audit.record({ actor, actionType: "user.created", metadata: { userId: created.id, role: created.role } });
@@ -43,6 +47,9 @@ export class UsersService {
 
   async update(actor: AuthUser, id: string, dto: UpdateUserDto) {
     const user = await this.requireFirmUser(actor.firmId, id);
+    if (id === actor.id && dto.status && dto.status !== UserStatus.ACTIVE) {
+      throw new BadRequestException("You cannot deactivate your own account");
+    }
     const passwordHash = dto.password ? await bcrypt.hash(dto.password, 10) : undefined;
     const updated = await this.prisma.user.update({
       where: { id: user.id },
@@ -53,11 +60,14 @@ export class UsersService {
         passwordHash,
       },
     });
-    await this.audit.record({ actor, actionType: "user.updated", metadata: { userId: id } });
+    await this.audit.record({ actor, actionType: "user.updated", metadata: { userId: id, status: dto.status, role: dto.role } });
     return this.publicUser(updated);
   }
 
   async remove(actor: AuthUser, id: string) {
+    if (id === actor.id) {
+      throw new BadRequestException("You cannot delete your own account");
+    }
     await this.requireFirmUser(actor.firmId, id);
     await this.prisma.user.delete({ where: { id } });
     await this.audit.record({ actor, actionType: "user.deleted", metadata: { userId: id } });

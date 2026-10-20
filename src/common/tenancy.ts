@@ -16,7 +16,7 @@ export function assertClientScope(user: AuthUser, client: { id: string; firmId: 
 }
 
 export function staffRoles(): UserRole[] {
-  return [UserRole.ADMIN, UserRole.ACCOUNTANT];
+  return [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT];
 }
 
 export function resolveScopedClientId(user: AuthUser, requested?: string): string {

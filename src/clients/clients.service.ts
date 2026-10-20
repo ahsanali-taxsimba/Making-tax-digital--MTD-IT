@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { AuthUser } from "../common/types";
@@ -43,6 +43,7 @@ export class ClientsService {
   }
 
   async create(user: AuthUser, dto: CreateClientDto) {
+    const assignedUserId = dto.assignedUserId ? await this.requireStaff(user.firmId, dto.assignedUserId) : undefined;
     const client = await this.repo.create({
       firm: { connect: { id: user.firmId } },
       type: dto.type,
@@ -53,6 +54,8 @@ export class ClientsService {
       niNumber: dto.niNumber,
       nino: dto.nino ?? dto.niNumber,
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+      riskLevel: dto.riskLevel,
+      assignedUser: assignedUserId ? { connect: { id: assignedUserId } } : undefined,
     });
     await this.charts.provision(client.id, client.type);
     await this.audit.record({ actor: user, clientId: client.id, actionType: "client.created", metadata: { name: client.name } });
@@ -62,6 +65,12 @@ export class ClientsService {
 
   async update(user: AuthUser, id: string, dto: UpdateClientDto) {
     const client = await this.get(user, id);
+    const assignedUserId =
+      dto.assignedUserId === undefined
+        ? undefined
+        : dto.assignedUserId === null
+          ? null
+          : await this.requireStaff(user.firmId, dto.assignedUserId);
     const updated = await this.repo.update(client.id, {
       name: dto.name,
       utr: dto.utr,
@@ -69,6 +78,13 @@ export class ClientsService {
       vatRegion: dto.vatRegion,
       niNumber: dto.niNumber,
       nino: dto.nino,
+      riskLevel: dto.riskLevel,
+      assignedUser:
+        assignedUserId === undefined
+          ? undefined
+          : assignedUserId === null
+            ? { disconnect: true }
+            : { connect: { id: assignedUserId } },
     });
     await this.audit.record({ actor: user, clientId: id, actionType: "client.updated" });
     return updated;
@@ -79,5 +95,13 @@ export class ClientsService {
     await this.repo.delete(id);
     await this.audit.record({ actor: user, clientId: id, actionType: "client.deleted" });
     return { deleted: true };
+  }
+
+  private async requireStaff(firmId: string, userId: string) {
+    const staff = await this.repo.findStaff(firmId, userId);
+    if (!staff) {
+      throw new BadRequestException("Assigned accountant must be a staff member in this firm");
+    }
+    return staff.id;
   }
 }

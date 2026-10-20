@@ -27,7 +27,7 @@ export class ClientsController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT)
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateClientDto) {
     return this.clients.create(user, dto);
   }
@@ -38,7 +38,7 @@ export class ClientsController {
   }
 
   @Patch(":id")
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT)
   update(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: UpdateClientDto) {
     return this.clients.update(user, id, dto);
   }
