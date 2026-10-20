@@ -1,9 +1,20 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthUser } from "../common/types";
 import { AuthorizationService } from "../authorization/authorization.service";
 import { DigitalLinkNode, DigitalLinks } from "./domain/audit.types";
 import { parsePeriod } from "./domain/period";
+
+export type DigitalLinkSubmitKind = "vat" | "quarterly" | "eops" | "final";
+
+export interface DigitalLinkGateInput {
+  clientId: string;
+  kind: DigitalLinkSubmitKind;
+  periodStart?: string | Date | null;
+  periodEnd?: string | Date | null;
+  taxYear?: string | null;
+}
 
 const DOCUMENT_INCLUDE = {
   bankTransaction: { include: { matchedJournal: true } },
@@ -18,6 +29,7 @@ export class DigitalLinksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authz: AuthorizationService,
+    private readonly config: ConfigService,
   ) {}
 
   async build(user: AuthUser, resourceId: string, chain: "vat" | "itsa" | "invoice" = "vat"): Promise<DigitalLinks> {
@@ -163,6 +175,94 @@ export class DigitalLinksService {
       links.push(await this.build(user, update.id, "itsa"));
     }
     return links;
+  }
+
+  /**
+   * Block HMRC submit unless the source digital-link nodes exist in the period.
+   * VAT return / quarterly / EOPS / final nodes are submit outputs, not prerequisites.
+   * EOPS also needs a quarterly update; final also needs an EOPS.
+   */
+  async assertReady(user: AuthUser, input: DigitalLinkGateInput): Promise<void> {
+    if (this.config.get<boolean>("digitalLinks.enforce") === false) {
+      return;
+    }
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId, clientId: input.clientId });
+    const range = this.gateRange(input);
+    const dateFilter = range ? { gte: range.start, lte: range.end } : undefined;
+    const [document, bank, journal] = await Promise.all([
+      this.prisma.documentFile.findFirst({
+        where: {
+          clientId: input.clientId,
+          firmId: user.firmId,
+          ...(dateFilter ? { OR: [{ uploadedAt: dateFilter }, { ocrDate: dateFilter }] } : {}),
+        },
+        select: { id: true },
+      }),
+      this.prisma.bankTransaction.findFirst({
+        where: {
+          bankAccount: { clientId: input.clientId, firmId: user.firmId },
+          ...(dateFilter ? { date: dateFilter } : {}),
+        },
+        select: { id: true },
+      }),
+      this.prisma.journalEntry.findFirst({
+        where: {
+          clientId: input.clientId,
+          firmId: user.firmId,
+          ...(dateFilter ? { date: dateFilter } : {}),
+        },
+        select: { id: true },
+      }),
+    ]);
+    const missing: string[] = [];
+    if (!document) missing.push("document");
+    if (!bank) missing.push("bank_transaction");
+    if (!journal) missing.push("journal");
+
+    if (input.kind === "eops") {
+      const quarterly = await this.prisma.itsaUpdate.findFirst({
+        where: {
+          clientId: input.clientId,
+          client: { firmId: user.firmId },
+          ...(input.taxYear ? { taxYear: input.taxYear } : {}),
+        },
+        select: { id: true },
+      });
+      if (!quarterly) missing.push("quarterly_update");
+    }
+    if (input.kind === "final") {
+      const eops = await this.prisma.itsaEndOfPeriodStatement.findFirst({
+        where: {
+          clientId: input.clientId,
+          client: { firmId: user.firmId },
+          ...(input.taxYear ? { taxYear: input.taxYear } : {}),
+        },
+        select: { id: true },
+      });
+      if (!eops) missing.push("eops");
+    }
+
+    if (missing.length) {
+      throw new BadRequestException({
+        message: "Digital links incomplete — HMRC submissions need a document, bank transaction, and journal in the period",
+        errorCode: "DIGITAL_LINKS_INCOMPLETE",
+        missing,
+      });
+    }
+  }
+
+  private gateRange(input: DigitalLinkGateInput): { start: Date; end: Date } | null {
+    if (input.periodStart && input.periodEnd) {
+      const start = asDate(input.periodStart);
+      const end = asDate(input.periodEnd);
+      if (start && end) {
+        return { start, end };
+      }
+    }
+    if (input.taxYear) {
+      return parsePeriod(input.taxYear);
+    }
+    return null;
   }
 
   private findDocument(firmId: string, id: string) {
@@ -461,6 +561,11 @@ function presentVat(vat: {
     box8: Number(vat.totalValueGoodsSuppliedExVAT ?? 0),
     box9: Number(vat.totalAcquisitionsExVAT ?? 0),
   };
+}
+
+function asDate(value: string | Date): Date | null {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function node(

@@ -15,7 +15,8 @@ describe("DigitalLinksService", () => {
     itsaFinalDeclaration: { findFirst: jest.fn() },
   };
   const authz = { assertCanAccessClientData: jest.fn() };
-  const service = new DigitalLinksService(prisma as never, authz as never);
+  const config = { get: jest.fn().mockReturnValue(true) };
+  const service = new DigitalLinksService(prisma as never, authz as never, config as never);
   const user: AuthUser = {
     id: "u1",
     email: "james@northbridge.test",
@@ -29,6 +30,7 @@ describe("DigitalLinksService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    config.get.mockReturnValue(true);
     prisma.documentFile.findFirst.mockResolvedValue(null);
     prisma.bankTransaction.findFirst.mockResolvedValue(null);
     prisma.journalEntry.findFirst.mockResolvedValue(null);
@@ -181,6 +183,58 @@ describe("DigitalLinksService", () => {
     });
     expect(links.eops.detail).toMatchObject({ hmrcSubmissionId: "EOPS-99", typeOfBusiness: "self-employment" });
     expect(links.finalDeclaration.detail).toMatchObject({ hmrcSubmissionId: "FD-1", calculation: { incomeTax: 2100, nic: 400 } });
+  });
+
+  it("allows a VAT submit when document, bank, and journal exist in the period", async () => {
+    prisma.documentFile.findFirst.mockResolvedValue({ id: "doc-1" });
+    prisma.bankTransaction.findFirst.mockResolvedValue({ id: "txn-1" });
+    prisma.journalEntry.findFirst.mockResolvedValue({ id: "j-1" });
+    await expect(
+      service.assertReady(user, {
+        clientId: "client-1",
+        kind: "vat",
+        periodStart: "2026-01-01",
+        periodEnd: "2026-03-31",
+      }),
+    ).resolves.toBeUndefined();
+    expect(authz.assertCanAccessClientData).toHaveBeenCalledWith(user, { firmId: "firm-a", clientId: "client-1" });
+  });
+
+  it("blocks submit when the source digital-link nodes are missing", async () => {
+    prisma.documentFile.findFirst.mockResolvedValue(null);
+    prisma.bankTransaction.findFirst.mockResolvedValue({ id: "txn-1" });
+    prisma.journalEntry.findFirst.mockResolvedValue(null);
+    await expect(
+      service.assertReady(user, {
+        clientId: "client-1",
+        kind: "vat",
+        periodStart: "2026-01-01",
+        periodEnd: "2026-03-31",
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ errorCode: "DIGITAL_LINKS_INCOMPLETE", missing: ["document", "journal"] }),
+    });
+  });
+
+  it("requires a quarterly update before EOPS and EOPS before final", async () => {
+    prisma.documentFile.findFirst.mockResolvedValue({ id: "doc-1" });
+    prisma.bankTransaction.findFirst.mockResolvedValue({ id: "txn-1" });
+    prisma.journalEntry.findFirst.mockResolvedValue({ id: "j-1" });
+    prisma.itsaUpdate.findFirst.mockResolvedValue(null);
+    await expect(service.assertReady(user, { clientId: "client-1", kind: "eops", taxYear: "2025-26" })).rejects.toMatchObject({
+      response: expect.objectContaining({ missing: ["quarterly_update"] }),
+    });
+    prisma.itsaUpdate.findFirst.mockResolvedValue({ id: "q1" });
+    prisma.itsaEndOfPeriodStatement.findFirst.mockResolvedValue(null);
+    await expect(service.assertReady(user, { clientId: "client-1", kind: "final", taxYear: "2025-26" })).rejects.toMatchObject({
+      response: expect.objectContaining({ missing: ["eops"] }),
+    });
+  });
+
+  it("skips the gate when DIGITAL_LINKS_ENFORCE is false", async () => {
+    config.get.mockReturnValueOnce(false);
+    await expect(service.assertReady(user, { clientId: "client-1", kind: "vat" })).resolves.toBeUndefined();
+    expect(prisma.documentFile.findFirst).not.toHaveBeenCalled();
   });
 
   it("throws when no resource belongs to the firm", async () => {

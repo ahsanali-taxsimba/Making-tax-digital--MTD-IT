@@ -158,6 +158,30 @@ describe("HmrcClientService", () => {
     });
   });
 
+  it("forwards browser fraud context from the request scope onto HMRC HTTP", async () => {
+    apps.isLiveMode.mockReturnValue(true);
+    apps.isMockMode.mockReturnValue(false);
+    apps.callsHmrc.mockReturnValue(true);
+    apps.mode.mockReturnValue("sandbox");
+    http.send.mockResolvedValue({ ok: true, status: 200, body: { payments: [] }, correlationId: "f" });
+    await runHmrcScope(
+      {
+        sandbox: true,
+        environment: "sandbox",
+        fraud: { deviceId: "dev-9", publicIp: "81.2.69.142", timezone: "UTC+01:00" },
+      },
+      () => service.get("/organisations/vat/888888888/payments", "client-1", "live"),
+    );
+    expect(http.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fraud: expect.objectContaining({ deviceId: "dev-9", publicIp: "81.2.69.142" }),
+      }),
+      "GET",
+      "/organisations/vat/888888888/payments",
+      expect.any(Object),
+    );
+  });
+
   it("routes every HMRC call to sandbox when sandbox=true on the request scope", async () => {
     apps.isLiveMode.mockReturnValue(true);
     apps.isMockMode.mockReturnValue(false);

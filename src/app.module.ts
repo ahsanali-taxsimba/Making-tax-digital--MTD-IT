@@ -19,6 +19,7 @@ import { InvoiceExtractionModule } from "./invoice-extraction/invoice-extraction
 import { FirmsModule } from "./firms/firms.module";
 import { HealthController } from "./health/health.controller";
 import { HmrcModule } from "./hmrc/hmrc.module";
+import { ObligationsModule } from "./hmrc/obligations/obligations.module";
 import { ItsaModule } from "./itsa/itsa.module";
 import { ChartOfAccountsModule } from "./ledger/chart-of-accounts.module";
 import { LedgerModule } from "./ledger/ledger.module";
@@ -63,6 +64,7 @@ import { SecurityModule } from "./security/security.module";
     HmrcModule,
     VatModule,
     ItsaModule,
+    ObligationsModule,
     DocumentsModule,
     InvoiceExtractionModule,
     MessagesModule,

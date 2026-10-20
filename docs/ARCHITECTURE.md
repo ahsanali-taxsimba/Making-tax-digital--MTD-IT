@@ -352,6 +352,7 @@ These are logical services. Today they ship as NestJS modules in one API process
 +----------------------------------------------------------------------+
 | HMRC INTEGRATION SERVICE                                             |
 |  VAT obligations / submissions · ITSA quarterly · EOPS · Final       |
+|  Browser Gov-Client headers · obligation sync · digital-link submit  |
 |  OAuth token store · API health                                      |
 +----------------------------------+-----------------------------------+
                                    v

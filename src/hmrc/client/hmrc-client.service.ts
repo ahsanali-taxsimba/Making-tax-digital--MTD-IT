@@ -110,7 +110,7 @@ export class HmrcClientService {
 
     const payload = this.apps.callsHmrc() ? validateHmrcBody(method, url, body) : body;
     const token = await this.resolveToken(clientId, env);
-    const ctx: HmrcCallContext = { clientId, environment: env, accessToken: token };
+    const ctx: HmrcCallContext = { clientId, environment: env, accessToken: token, fraud: scoped?.fraud };
     const calls = expandLiveCalls(method, url, payload) ?? [
       { method, path: url.split("?")[0], accept: options?.accept, body: method === "GET" ? undefined : payload },
     ];

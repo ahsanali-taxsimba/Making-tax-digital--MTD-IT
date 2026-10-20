@@ -10,5 +10,6 @@ import { ItsaService } from "./itsa.service";
   imports: [ClientsModule, HmrcModule, ReceiptsModule],
   controllers: [ItsaController, ItsaEngineController],
   providers: [ItsaService, ItsaRepository],
+  exports: [ItsaService],
 })
 export class ItsaModule {}

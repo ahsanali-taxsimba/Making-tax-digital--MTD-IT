@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { ObligationStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
+import { DigitalLinksService } from "../audit/digital-links.service";
 import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
 import { HmrcClientService } from "../hmrc/client/hmrc-client.service";
@@ -45,6 +46,7 @@ export class ItsaService {
     private readonly notifications: NotificationsService,
     private readonly webhooks: WebhooksService,
     private readonly receipts: ReceiptsService,
+    private readonly digitalLinks: DigitalLinksService,
   ) {}
 
   mapping() {
@@ -76,7 +78,7 @@ export class ItsaService {
     return this.repo.listBusinesses(clientId);
   }
 
-  async obligations(user: AuthUser, clientId: string) {
+  async obligations(user: AuthUser, clientId: string, options?: { notifyFetched?: boolean }) {
     const client = await this.requireItsaClient(user, clientId);
     const result = await this.hmrc.get<{ obligations: ItsaObligationDto[] }>(
       `/income-tax/${client.nino}/obligations`,
@@ -122,13 +124,15 @@ export class ItsaService {
       actionType: "itsa.obligations.fetched",
       metadata: { correlationId: result.correlationId },
     });
-    await this.notifications.notify({
-      firmId: client.firmId,
-      type: "OBLIGATION_FETCHED",
-      title: "ITSA obligations refreshed",
-      body: `Income Tax obligations synced for ${client.name}.`,
-      metadata: { clientId: client.id },
-    });
+    if (options?.notifyFetched !== false) {
+      await this.notifications.notify({
+        firmId: client.firmId,
+        type: "OBLIGATION_FETCHED",
+        title: "ITSA obligations refreshed",
+        body: `Income Tax obligations synced for ${client.name}.`,
+        metadata: { clientId: client.id },
+      });
+    }
     return this.repo.listObligations(client.id);
   }
 
@@ -235,6 +239,13 @@ export class ItsaService {
       rolled?.transactionCount ?? 0,
     );
     this.assertValid(validation);
+    await this.digitalLinks.assertReady(user, {
+      clientId: client.id,
+      kind: "quarterly",
+      periodStart: dto.periodStart,
+      periodEnd: dto.periodEnd,
+      taxYear: dto.taxYear,
+    });
     const payload = {
       businessId: business.hmrcBusinessId ?? business.id,
       taxYear: dto.taxYear,
@@ -293,6 +304,13 @@ export class ItsaService {
       quarterlyUpdateCount: updates.length,
     });
     this.assertValid(validation);
+    await this.digitalLinks.assertReady(user, {
+      clientId: client.id,
+      kind: "eops",
+      periodStart: dto.accountingPeriodStart,
+      periodEnd: dto.accountingPeriodEnd,
+      taxYear: dto.taxYear,
+    });
     const payload = {
       businessId: business.hmrcBusinessId ?? business.id,
       taxYear: dto.taxYear,
@@ -336,6 +354,11 @@ export class ItsaService {
     const client = await this.requireItsaClient(user, clientId);
     const validation = await this.finalValidation(client.id, dto.taxYear);
     this.assertValid(validation);
+    await this.digitalLinks.assertReady(user, {
+      clientId: client.id,
+      kind: "final",
+      taxYear: dto.taxYear,
+    });
     const result = await this.hmrc.post<{ calculationId: string }>(
       itsaFinalDeclarationPath(client.nino),
       dto,

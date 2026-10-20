@@ -123,7 +123,9 @@ User
 | --- | --- |
 | HTTPS / TLS 1.3 | DigitalOcean load balancer (see `docs/ARCHITECTURE.md` §5) |
 | Helmet headers | `src/main.ts` `app.use(helmet())` |
-| CORS allow-list | `frontendOrigin` in `src/main.ts` |
+| CORS allow-list | `frontendOrigin` in `src/main.ts` (includes `x-mtd-fraud-prevention`) |
+| HMRC fraud headers | Browser `x-mtd-fraud-prevention`; server fills `Gov-Client-Public-IP` from `X-Forwarded-For` (`trust proxy`) |
+| Digital-link submit gate | VAT/ITSA submit requires document + bank + journal in the period |
 | Rate limiting | global `ThrottlerGuard` in `src/app.module.ts` |
 | Optional IP allow-list | Ingress / WAF annotation (cluster) |
 
@@ -213,6 +215,7 @@ HMRC digital links require a reconstructable path from source document to filing
 | Hash chain | `prevHash` / `entryHash` via `hashAuditEntry` |
 | VAT digital links | Document → Bank → Journal → VAT return |
 | ITSA digital links | Document → Bank → Journal → Quarterly → EOPS → Final |
+| Submit gate | `DigitalLinksService.assertReady` blocks VAT/ITSA submit until source nodes exist in the period |
 | Inspection export | `GET /audit/export` |
 | Viewer | `/practice/audit` (firm admin / accountant) |
 | Timelines | `/practice/digital-links/:id` and `/practice/digital-links/itsa/:id` |

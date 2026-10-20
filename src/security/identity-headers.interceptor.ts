@@ -2,6 +2,7 @@ import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nes
 import { ConfigService } from "@nestjs/config";
 import { Observable, tap } from "rxjs";
 import { AuthUser } from "../common/types";
+import { clientPublicIp, clientPublicPort, mergeFraudContext, parseBrowserFraudPayload } from "../hmrc/fraud-prevention";
 import { runHmrcScope } from "../hmrc/sandbox/hmrc-request-context";
 import { parseHmrcMode, resolveRequestSandbox } from "../hmrc/sandbox/hmrc-sandbox.mode";
 import { AlertsService } from "./alerts.service";
@@ -24,9 +25,11 @@ export class IdentityHeadersInterceptor implements NestInterceptor {
       url?: string;
       path?: string;
       method?: string;
+      ip?: string;
+      socket?: { remoteAddress?: string };
       query?: Record<string, unknown>;
       body?: unknown;
-      headers: Record<string, string>;
+      headers: Record<string, string | string[] | undefined>;
     }>();
     const response = http.getResponse<{ setHeader: (name: string, value: string) => void; statusCode?: number }>();
     const path = request.originalUrl ?? request.url ?? request.path ?? "/";
@@ -43,6 +46,13 @@ export class IdentityHeadersInterceptor implements NestInterceptor {
     });
     const hmrcEnvironment = scope.environment;
     const sandbox = scope.sandbox;
+    const browserFraud = parseBrowserFraudPayload(request.headers[IDENTITY_HEADERS.fraudPrevention]);
+    const fraud = mergeFraudContext(browserFraud, {
+      publicIp: clientPublicIp(request.headers, request.ip ?? request.socket?.remoteAddress),
+      publicPort: clientPublicPort(request.headers),
+      vendorPublicIp: this.config.get<string>("hmrc.vendorPublicIp") || undefined,
+      userIds: user ? `mtd=${user.id}` : undefined,
+    });
     request.headers[IDENTITY_HEADERS.hmrcMode] = hmrcMode;
     request.headers[IDENTITY_HEADERS.hmrcEnvironment] = hmrcEnvironment;
     request.headers[IDENTITY_HEADERS.hmrcSandbox] = sandbox ? "true" : "false";
@@ -67,7 +77,7 @@ export class IdentityHeadersInterceptor implements NestInterceptor {
     this.alerts.httpHit(service);
     return new Observable((subscriber) => {
       let inner: { unsubscribe: () => void } | undefined;
-      runHmrcScope(scope, () => {
+      runHmrcScope({ ...scope, fraud }, () => {
         inner = next
           .handle()
           .pipe(
