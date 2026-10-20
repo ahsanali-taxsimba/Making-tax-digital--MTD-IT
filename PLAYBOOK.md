@@ -74,7 +74,19 @@ curl -s "http://localhost:3000/bookkeeping/itsa/summary?clientId=$CLIENT_ID&busi
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Seeded Amelia Hartley already has a Q1 VAT invoice/bill and Q1 2025-26 ITSA journals, plus bank account `88888888-8888-4888-8888-888888888888`.
+Seeded Amelia Hartley already has a Q1 VAT invoice/bill and Q1 2025-26 ITSA journals, plus bank account `88888888-8888-4888-8888-888888888888`. Unmatched Yapily lines `MATCH-INV-1001` (£7,200 credit) and `MATCH-BILL-88` (£1,200 debit) are ready for invoice/bill matching.
+
+```bash
+curl -s "http://localhost:3000/matching/suggestions?clientId=$CLIENT_ID" -H "Authorization: Bearer $TOKEN"
+curl -s -X POST http://localhost:3000/matching/apply \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"suggestionId":"SUGGESTION_ID"}'
+curl -s -X POST http://localhost:3000/matching/reject \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"suggestionId":"SUGGESTION_ID"}'
+```
 
 Ledger codes roll into HMRC ITSA boxes. Capital spend and disallowable entertainment stay off the quarterly update.
 

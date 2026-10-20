@@ -139,6 +139,7 @@ model Firm {
   bankAccounts     BankAccount[]
   accountingPeriods AccountingPeriod[]
   categorisationSuggestions CategorisationSuggestion[]
+  matchingSuggestions MatchingSuggestion[]
 }
 
 model User {
@@ -217,6 +218,7 @@ model Client {
   customers       TradingParty[]
   accountingPeriods AccountingPeriod[]
   categorisationSuggestions CategorisationSuggestion[]
+  matchingSuggestions MatchingSuggestion[]
 
   @@index([firmId])
   @@index([assignedUserId])
@@ -829,6 +831,7 @@ model BankTransaction {
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
   categorisation        CategorisationSuggestion?
+  matching              MatchingSuggestion?
 
   @@index([bankAccountId, externalRef])
 }
@@ -944,4 +947,42 @@ model HmrcInteraction {
   responseBody  Json?
   errorCode     String?
   createdAt     DateTime @default(now())
+}
+
+enum MatchingStatus {
+  SUGGESTED
+  APPLIED
+  REJECTED
+}
+
+enum MatchingDocumentKind {
+  invoice
+  bill
+}
+
+/// Suggested pairing of a Yapily bank line to a sales invoice or purchase bill.
+model MatchingSuggestion {
+  id                String               @id @default(uuid())
+  bankTransactionId String               @unique
+  bankTransaction   BankTransaction      @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+  clientId          String
+  client            Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  firmId            String
+  firm              Firm                 @relation(fields: [firmId], references: [id])
+  documentKind      MatchingDocumentKind
+  documentId        String
+  documentReference String?
+  partyName         String?
+  amountGap         Decimal              @db.Decimal(14, 2)
+  dateGapDays       Int
+  confidence        Decimal              @db.Decimal(4, 3)
+  reasons           Json
+  signals           Json
+  status            MatchingStatus       @default(SUGGESTED)
+  journalEntryId    String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([clientId, status])
+  @@index([documentKind, documentId])
 }

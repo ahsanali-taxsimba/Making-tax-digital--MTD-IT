@@ -646,6 +646,56 @@ async function main() {
     });
   }
 
+  const matchingTxns = [
+    {
+      id: "88888888-8888-4888-8888-888888888811",
+      date: new Date("2026-01-16"),
+      amount: 7200,
+      type: BankTxnDirection.CREDIT,
+      description: "Brighton Gallery Ltd INV-1001",
+      externalRef: "MATCH-INV-1001",
+      merchantName: "Brighton Gallery Ltd",
+      merchantCategoryCode: "4829",
+      transactionCategory: "transfer",
+      labels: ["invoice"],
+      enrichment: { merchantName: "Brighton Gallery Ltd", merchantCategoryCode: "4829" },
+    },
+    {
+      id: "88888888-8888-4888-8888-888888888812",
+      date: new Date("2026-02-10"),
+      amount: 1200,
+      type: BankTxnDirection.DEBIT,
+      description: "North Ads Agency BILL-88",
+      externalRef: "MATCH-BILL-88",
+      merchantName: "North Ads Agency",
+      merchantCategoryCode: "7311",
+      transactionCategory: "advertising",
+      labels: ["bill"],
+      enrichment: { merchantName: "North Ads Agency", merchantCategoryCode: "7311" },
+    },
+  ];
+  for (const row of matchingTxns) {
+    await prisma.bankTransaction.upsert({
+      where: { id: row.id },
+      update: {
+        merchantName: row.merchantName,
+        merchantCategoryCode: row.merchantCategoryCode,
+        transactionCategory: row.transactionCategory,
+        labels: row.labels,
+        enrichment: row.enrichment,
+        description: row.description,
+        amount: row.amount,
+        type: row.type,
+        date: row.date,
+      },
+      create: {
+        ...row,
+        bankAccountId: "88888888-8888-4888-8888-888888888888",
+        status: BankTxnStatus.UNMATCHED,
+      },
+    });
+  }
+
   for (const rule of MERCHANT_DICTIONARY) {
     await prisma.categorisationMerchantRule.upsert({
       where: { merchantKey: rule.merchantKey },
