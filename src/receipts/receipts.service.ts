@@ -6,6 +6,8 @@ import { AuthUser } from "../common/types";
 import { decodeUploadContent, detectReceiptType, MAX_RECEIPT_BYTES, mimeFor } from "./domain/file-types";
 import { scoreReceiptAgainstTxn } from "./domain/ocr";
 import { ReceiptEvidenceQueryDto, ReceiptsQueryDto, UpdateReceiptTagsDto, UploadReceiptDto } from "./dto/receipts.dto";
+import { OcrFeedService } from "./ocr/ocr-feed.service";
+import { OcrExtraction } from "./ocr/ocr.types";
 import { OCRService } from "./ocr.service";
 import { ReceiptAttachmentService } from "./receipt-attachment.service";
 import { RECEIPT_ERR, ReceiptError } from "./receipts.errors";
@@ -21,6 +23,7 @@ export class ReceiptsService {
     private readonly attachments: ReceiptAttachmentService,
     private readonly audit: AuditService,
     @Inject(RECEIPT_STORAGE) private readonly storage: ReceiptStorage,
+    private readonly feed?: OcrFeedService,
   ) {}
 
   async upload(user: AuthUser, dto: UploadReceiptDto) {
@@ -44,7 +47,7 @@ export class ReceiptsService {
     } catch (error) {
       throw new ReceiptError(RECEIPT_ERR.STORAGE_FAILED, error instanceof Error ? error.message : "Unable to store receipt");
     }
-    const extracted = this.ocr.extract({ fileType, buffer, hint: dto.ocrText, fileName: dto.fileName });
+    const extracted = await this.ocr.extract({ fileType, buffer, hint: dto.ocrText, fileName: dto.fileName });
     const tags = dto.tags ?? [];
     const tagRows = tags.length ? await this.repo.ensureTags(tags) : [];
     let saved = await this.repo.create({
@@ -78,6 +81,7 @@ export class ReceiptsService {
       saved = await this.attachments.attachToJournal(user, saved.id, dto.journalEntryId);
     }
     saved = (await this.repo.find(saved.id)) ?? saved;
+    await this.feed?.afterOcr(user, saved, extracted);
     await this.audit.record({
       actor: user,
       clientId: client.id,
@@ -85,6 +89,36 @@ export class ReceiptsService {
       metadata: { receiptId: saved.id, fileType, attached: Boolean(dto.bankTransactionId || dto.invoiceId || dto.billId || dto.journalEntryId) },
     });
     return this.publicReceipt(saved);
+  }
+
+  async getOcr(user: AuthUser, id: string) {
+    const receipt = await this.require(user, id);
+    return this.publicOcr(receipt);
+  }
+
+  async reprocessOcr(user: AuthUser, id: string) {
+    const receipt = await this.require(user, id);
+    const file = await this.storage.get(receipt.storageKey);
+    const extracted = await this.ocr.extract({
+      fileType: receipt.fileType as "jpg" | "png" | "pdf",
+      buffer: file,
+      hint: receipt.ocrText ?? undefined,
+      fileName: receipt.fileName,
+    });
+    const saved = await this.repo.markProcessed(receipt.id, extracted);
+    await this.feed?.afterOcr(user, saved, extracted);
+    await this.audit.record({
+      actor: user,
+      clientId: receipt.clientId,
+      actionType: "receipt.ocr.reprocessed",
+      metadata: {
+        receiptId: receipt.id,
+        merchantName: extracted.merchantName,
+        invoiceNumber: extracted.invoiceNumber,
+        vatAmount: extracted.vatAmount,
+      },
+    });
+    return this.publicOcr((await this.repo.find(saved.id)) ?? saved, extracted);
   }
 
   async list(user: AuthUser, query: ReceiptsQueryDto) {
@@ -158,6 +192,7 @@ export class ReceiptsService {
             merchantName: receipt.ocrMerchant,
             amount: receipt.ocrAmount != null ? Number(receipt.ocrAmount) : null,
             date: receipt.ocrDate ? receipt.ocrDate.toISOString().slice(0, 10) : null,
+            invoiceNumber: receipt.ocrInvoiceNumber,
           },
           { merchantName: txn.merchantName, description: txn.description, amount: Number(txn.amount), date: txn.date },
         ),
@@ -259,7 +294,12 @@ export class ReceiptsService {
     tags?: unknown;
     ocrText?: string | null;
     ocrMerchant?: string | null;
+    ocrSupplierName?: string | null;
     ocrAmount?: unknown;
+    ocrNetAmount?: unknown;
+    ocrVatAmount?: unknown;
+    ocrVatRate?: unknown;
+    ocrInvoiceNumber?: string | null;
     ocrDate?: Date | null;
     status: string;
     tagLinks?: Array<{ tag: { name: string } }>;
@@ -284,10 +324,36 @@ export class ReceiptsService {
       tags: [...new Set(tagNames)],
       ocrText: row.ocrText ?? null,
       ocrMerchant: row.ocrMerchant ?? null,
+      ocrSupplierName: row.ocrSupplierName ?? null,
       ocrAmount: row.ocrAmount != null ? Number(row.ocrAmount) : null,
+      ocrNetAmount: row.ocrNetAmount != null ? Number(row.ocrNetAmount) : null,
+      ocrVatAmount: row.ocrVatAmount != null ? Number(row.ocrVatAmount) : null,
+      ocrVatRate: row.ocrVatRate != null ? Number(row.ocrVatRate) : null,
+      ocrInvoiceNumber: row.ocrInvoiceNumber ?? null,
       ocrDate: row.ocrDate ?? null,
       status: String(row.status).toLowerCase() as "uploaded" | "processed",
       proofAvailable: Boolean(row.bankTransactionId || row.invoiceId || row.billId || row.journalEntryId),
+    };
+  }
+
+  publicOcr(
+    row: Parameters<ReceiptsService["publicReceipt"]>[0],
+    extracted?: OcrExtraction,
+  ) {
+    const receipt = this.publicReceipt(row);
+    return {
+      receiptId: receipt.id,
+      text: extracted?.text ?? receipt.ocrText,
+      merchantName: extracted?.merchantName ?? receipt.ocrMerchant,
+      supplierName: extracted?.supplierName ?? receipt.ocrSupplierName,
+      amount: extracted?.amount ?? receipt.ocrAmount,
+      netAmount: extracted?.netAmount ?? receipt.ocrNetAmount,
+      vatAmount: extracted?.vatAmount ?? receipt.ocrVatAmount,
+      vatRate: extracted?.vatRate ?? receipt.ocrVatRate,
+      date: extracted?.date ?? (receipt.ocrDate ? String(receipt.ocrDate).slice(0, 10) : null),
+      invoiceNumber: extracted?.invoiceNumber ?? receipt.ocrInvoiceNumber,
+      source: extracted?.source ?? "hint",
+      confidence: extracted?.confidence ?? (receipt.ocrMerchant || receipt.ocrAmount ? 0.7 : 0.2),
     };
   }
 }

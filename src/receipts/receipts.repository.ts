@@ -127,15 +127,46 @@ export class ReceiptsRepository {
     return { receipts, bills, journals };
   }
 
+  listClientInvoices(clientId: string) {
+    return this.prisma.salesInvoice.findMany({
+      where: { clientId },
+      include: { customer: true },
+      orderBy: { date: "desc" },
+    });
+  }
+
+  listClientBills(clientId: string) {
+    return this.prisma.purchaseBill.findMany({
+      where: { clientId },
+      include: { supplier: true },
+      orderBy: { date: "desc" },
+    });
+  }
+
   markProcessed(
     id: string,
-    ocr: { text: string; merchantName: string | null; amount: number | null; date: string | null },
+    ocr: {
+      text: string;
+      merchantName: string | null;
+      supplierName?: string | null;
+      amount: number | null;
+      netAmount?: number | null;
+      vatAmount?: number | null;
+      vatRate?: number | null;
+      date: string | null;
+      invoiceNumber?: string | null;
+    },
   ) {
     return this.update(id, {
       status: ReceiptStatus.PROCESSED,
       ocrText: ocr.text || null,
       ocrMerchant: ocr.merchantName,
+      ocrSupplierName: ocr.supplierName ?? null,
       ocrAmount: ocr.amount ?? null,
+      ocrNetAmount: ocr.netAmount ?? null,
+      ocrVatAmount: ocr.vatAmount ?? null,
+      ocrVatRate: ocr.vatRate ?? null,
+      ocrInvoiceNumber: ocr.invoiceNumber ?? null,
       ocrDate: ocr.date ? new Date(`${ocr.date}T00:00:00.000Z`) : null,
     });
   }

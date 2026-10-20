@@ -17,6 +17,7 @@ import {
   useReceiptActivity,
   useReceiptFile,
   useReceiptTags,
+  useReprocessReceiptOcr,
   useUpdateReceiptTags,
 } from "@/hooks/useReceipts";
 import { useSession } from "@/hooks/useSession";
@@ -47,6 +48,7 @@ export function ReceiptDetailWorkspace({
   const activity = useReceiptActivity(clientId, receiptId);
   const saveTags = useUpdateReceiptTags(clientId);
   const detach = useDetachReceipt(clientId);
+  const reprocess = useReprocessReceiptOcr(clientId);
   const [tagDraft, setTagDraft] = useState<string[]>([]);
   const [attachOpen, setAttachOpen] = useState(false);
 
@@ -178,7 +180,11 @@ export function ReceiptDetailWorkspace({
               </section>
             </div>
           </div>
-          <OCRTextPanel receipt={row} />
+          <OCRTextPanel
+            receipt={row}
+            pending={reprocess.isPending}
+            onReprocess={() => void reprocess.mutateAsync(row.id)}
+          />
           <AttachReceiptModal receipt={row} clientId={clientId} open={attachOpen} onClose={() => setAttachOpen(false)} />
         </>
       )}

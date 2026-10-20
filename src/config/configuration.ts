@@ -68,6 +68,12 @@ export default () => ({
     ttl: parseInt(process.env.THROTTLE_TTL_SECONDS ?? "60", 10) * 1000,
     limit: parseInt(process.env.THROTTLE_LIMIT ?? "60", 10),
   },
+  ocr: {
+    driver: (process.env.OCR_DRIVER ?? "auto") as "auto" | "tesseract" | "cloud" | "off",
+    endpoint: process.env.OCR_ENDPOINT ?? "",
+    apiKey: process.env.OCR_API_KEY ?? "",
+    timeoutMs: parseInt(process.env.OCR_TIMEOUT_MS ?? "8000", 10),
+  },
   receipts: {
     driver: (process.env.RECEIPTS_STORAGE_DRIVER ?? "local") as "local" | "s3",
     localDir: process.env.RECEIPTS_LOCAL_DIR ?? "",

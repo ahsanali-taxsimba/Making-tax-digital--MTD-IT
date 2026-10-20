@@ -7,6 +7,7 @@ import {
   detachReceipt,
   fetchReceiptFile,
   getReceipt,
+  getReceiptOcr,
   listBankTransactionReceipts,
   listBillReceipts,
   listInvoiceReceipts,
@@ -19,6 +20,7 @@ import {
   listSalesInvoices,
   receiptEvidence,
   receiptSuggestions,
+  reprocessReceiptOcr,
   updateReceiptTags,
   uploadReceipt,
   type AttachTarget,
@@ -31,6 +33,7 @@ function invalidateReceipts(queryClient: ReturnType<typeof useQueryClient>, clie
     queryClient.invalidateQueries({ queryKey: ["receipts-target"] }),
     queryClient.invalidateQueries({ queryKey: ["receipt-evidence", clientId] }),
     queryClient.invalidateQueries({ queryKey: ["receipt-suggestions"] }),
+    queryClient.invalidateQueries({ queryKey: ["receipt-ocr"] }),
     queryClient.invalidateQueries({ queryKey: ["receipt-audit", clientId] }),
   ]);
 }
@@ -57,6 +60,24 @@ export function useReceiptFile(id?: string | null, enabled = true) {
     queryFn: () => fetchReceiptFile(id!),
     enabled: Boolean(id) && enabled,
     staleTime: 5 * 60_000,
+  });
+}
+
+export function useReceiptOcr(id?: string | null) {
+  return useQuery({
+    queryKey: ["receipt-ocr", id],
+    queryFn: () => getReceiptOcr(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function useReprocessReceiptOcr(clientId?: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: reprocessReceiptOcr,
+    onSuccess: async () => {
+      await invalidateReceipts(queryClient, clientId);
+    },
   });
 }
 

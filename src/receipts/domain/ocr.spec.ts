@@ -8,6 +8,13 @@ describe("receipt OCR parsing", () => {
     expect(parsed.date).toBe("2026-01-21");
   });
 
+  it("extracts VAT, net and invoice number from a labelled receipt", () => {
+    const parsed = parseReceiptText("BP Fuel\nInvoice No INV-9\nNet £40.00\nVAT @ 20% £8.00\nTotal £48.00\n21/01/2026");
+    expect(parsed.vatAmount).toBe(8);
+    expect(parsed.netAmount).toBe(40);
+    expect(parsed.invoiceNumber).toBe("INV-9");
+  });
+
   it("reads printable strings from a PDF-like buffer", () => {
     const buffer = Buffer.from("%PDF-1.4 (Tesco Extra) (Total £12.40) (20/01/2026)");
     const parsed = parseReceiptText(extractPdfText(buffer));

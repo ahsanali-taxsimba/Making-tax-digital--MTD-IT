@@ -164,4 +164,31 @@ describe("ReceiptsService", () => {
     expect(result.tags).toEqual(["VAT"]);
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "receipt.tagged" }));
   });
+
+  it("reprocesses OCR from stored bytes and records an audit event", async () => {
+    storage.get.mockResolvedValue(Buffer.from("%PDF-1.4 (BP Fuel) (Total £48.00) (VAT @ 20% £8.00) (Invoice No INV-9)"));
+    repo.markProcessed.mockResolvedValue({
+      id: "r1",
+      clientId: "c1",
+      fileName: "bp.pdf",
+      fileType: "pdf",
+      fileSize: 20,
+      storageUrl: "/x",
+      uploadedByUserId: "u1",
+      uploadedAt: new Date(),
+      tags: ["Fuel"],
+      ocrMerchant: "BP",
+      ocrAmount: 48,
+      ocrVatAmount: 8,
+      ocrInvoiceNumber: "INV-9",
+      ocrText: "BP Fuel",
+      status: "PROCESSED",
+    });
+    const result = await service.reprocessOcr(actor, "r1");
+    expect(storage.get).toHaveBeenCalled();
+    expect(repo.markProcessed).toHaveBeenCalled();
+    expect(result.merchantName).toBe("BP");
+    expect(result.invoiceNumber).toBe("INV-9");
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "receipt.ocr.reprocessed" }));
+  });
 });

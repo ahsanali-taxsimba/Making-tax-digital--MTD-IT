@@ -8,6 +8,8 @@ export interface BankMatchTxn {
   description: string;
   merchantName?: string | null;
   merchantCategoryCode?: string | null;
+  ocrInvoiceNumber?: string | null;
+  ocrText?: string | null;
 }
 
 export interface MatchableDocument {
