@@ -7,6 +7,7 @@ describe("YapilyService", () => {
     upsertConnection: jest.fn(),
     findConnection: jest.fn(),
     findConnectionById: jest.fn(),
+    findConnectionByState: jest.fn(),
     findBankAccount: jest.fn(),
     findBankAccountByNumbers: jest.fn(),
     findBankAccountById: jest.fn(),
@@ -54,13 +55,13 @@ describe("YapilyService", () => {
     });
     repo.upsertConnection.mockResolvedValue({ id: "conn-1" });
     const started = await service.startConsent(actor, { clientId: "c1" });
-    expect(started.authorizationUrl).toContain("state=conn-1");
+    expect(started.authorizationUrl).toMatch(/state=[0-9a-f]{48}/);
     expect(started).not.toHaveProperty("consentToken");
     expect(JSON.stringify(started)).not.toContain("enc:");
   });
 
   it("encrypts the callback token and returns a public connection", async () => {
-    repo.findConnectionById.mockResolvedValue({
+    repo.findConnectionByState.mockResolvedValue({
       id: "conn-1",
       clientId: "c1",
       institutionId: "modelo-sandbox",

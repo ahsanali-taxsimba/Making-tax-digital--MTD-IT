@@ -51,7 +51,7 @@ describe("HmrcTestUserService", () => {
   });
 
   it("returns a login hint with the sandbox grant URL", async () => {
-    prisma.hmrcSandboxTestUser.findUnique.mockResolvedValue({
+    prisma.hmrcSandboxTestUser.findFirst.mockResolvedValue({
       id: "tu-1",
       kind: HmrcTestUserKind.INDIVIDUAL,
       hmrcUserId: "sandbox-ind-user",

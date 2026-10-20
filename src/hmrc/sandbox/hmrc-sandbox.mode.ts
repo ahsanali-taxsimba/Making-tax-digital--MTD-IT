@@ -32,6 +32,7 @@ export function hmrcUsesSandboxHost(mode: HmrcRuntimeMode, environment?: string 
 export interface HmrcRequestScope {
   environment: "sandbox" | "live";
   sandbox: boolean;
+  govTestScenario?: string;
 }
 
 function headerValue(headers: Record<string, string | string[] | undefined> | undefined, name: string): string | undefined {
@@ -63,8 +64,13 @@ export function resolveRequestSandbox(input: {
   ).toLowerCase();
   const mode = parseHmrcMode(input.mode);
   const sandbox = flagged === true || (flagged !== false && hmrcUsesSandboxHost(mode, requestedEnv));
+  const govTestScenario =
+    (typeof input.query?.govTestScenario === "string" ? input.query.govTestScenario : undefined) ??
+    headerValue(input.headers, "gov-test-scenario") ??
+    (typeof body.govTestScenario === "string" ? body.govTestScenario : undefined);
   return {
     sandbox,
     environment: sandbox ? "sandbox" : "live",
+    ...(govTestScenario ? { govTestScenario } : {}),
   };
 }

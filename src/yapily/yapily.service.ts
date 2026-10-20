@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma, YapilyConsentStatus } from "@prisma/client";
+import { randomBytes } from "crypto";
 import { AuditService } from "../audit/audit.service";
 import { BankService } from "../bookkeeping/bank.service";
 import { ClientsService } from "../clients/clients.service";
@@ -34,14 +35,16 @@ export class YapilyService {
     const callback = input.callback || this.config.get<string>("yapily.callbackUrl") || "http://localhost:3000/yapily/consent/callback";
     const applicationUserId = `${client.firmId}:${client.id}`;
     const started = await this.gateway.createAuthRequest({ applicationUserId, institutionId, callback });
+    const callbackState = randomBytes(24).toString("hex");
     const connection = await this.repo.upsertConnection({
       clientId: client.id,
       institutionId,
       applicationUserId,
       consentId: started.consentId,
+      callbackState,
       status: YapilyConsentStatus.PENDING,
     });
-    const authorizationUrl = this.appendState(started.authorisationUrl, connection.id, client.id, institutionId);
+    const authorizationUrl = this.appendState(started.authorisationUrl, callbackState, client.id, institutionId);
     await this.audit.record({
       actor: user,
       clientId: client.id,
@@ -70,7 +73,7 @@ export class YapilyService {
       throw new YapilyError(YAPILY_ERR.CONSENT_FAILED, query.error_description || query.error);
     }
     const connection = query.state
-      ? await this.repo.findConnectionById(query.state)
+      ? ((await this.repo.findConnectionByState(query.state)) ?? (await this.repo.findConnectionById(query.state)))
       : query.clientId
         ? await this.repo.findConnection(query.clientId, query.institutionId)
         : null;

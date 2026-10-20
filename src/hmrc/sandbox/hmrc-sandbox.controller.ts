@@ -73,8 +73,8 @@ export class HmrcSandboxController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @ApiOperation({ summary: "List stored HMRC sandbox test users" })
-  listTestUsers() {
-    return this.testUsers.list();
+  listTestUsers(@CurrentUser() user: AuthUser) {
+    return this.testUsers.list(user);
   }
 
   @Post("sandbox/test-users")
@@ -91,8 +91,8 @@ export class HmrcSandboxController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
-  getTestUser(@Param("id", ParseUUIDPipe) id: string, @Query("reveal") reveal?: string) {
-    return this.testUsers.get(id, reveal === "true");
+  getTestUser(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Query("reveal") reveal?: string) {
+    return this.testUsers.get(id, reveal === "true", user);
   }
 
   @Post("sandbox/test-users/:id/login")

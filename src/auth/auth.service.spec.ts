@@ -88,6 +88,17 @@ describe("AuthService", () => {
     expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "auth.login" }));
   });
 
+  it("refuses refresh for a suspended firm user", async () => {
+    prisma.platformRefreshToken.findUnique.mockResolvedValue(null);
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: "rt-1",
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      user: { ...user, status: "SUSPENDED" },
+    });
+    await expect(service.refresh("deadbeef")).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
   it("challenges privileged users when MFA is enforced", async () => {
     mfa.enforce = () => true;
     mfa.challengeToken.mockResolvedValue("mfa.jwt");

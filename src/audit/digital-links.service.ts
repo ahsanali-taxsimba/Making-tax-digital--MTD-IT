@@ -278,18 +278,8 @@ export class DigitalLinksService {
     });
   }
 
-  private async findItsaUpdate(firmId: string, id: string, clientId?: string | null) {
-    const byId = await this.prisma.itsaUpdate.findFirst({ where: { id, client: { firmId } } });
-    if (byId) {
-      return byId;
-    }
-    if (!clientId) {
-      return null;
-    }
-    return this.prisma.itsaUpdate.findFirst({
-      where: { clientId, client: { firmId } },
-      orderBy: { createdAt: "desc" },
-    });
+  private async findItsaUpdate(firmId: string, id: string, _clientId?: string | null) {
+    return this.prisma.itsaUpdate.findFirst({ where: { id, client: { firmId } } });
   }
 
   private findEops(firmId: string, clientId: string, taxYear: string) {

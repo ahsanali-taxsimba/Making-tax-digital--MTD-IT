@@ -12,10 +12,10 @@ import { VATDetectionService } from "./ocr/vat-detection.service";
 @Injectable()
 export class OCRService {
   constructor(
-    private readonly parser: OCRParserService = new OCRParserService(),
-    private readonly merchants: MerchantDetectionService = new MerchantDetectionService(),
-    private readonly vat: VATDetectionService = new VATDetectionService(),
-    private readonly invoices: InvoiceDetectionService = new InvoiceDetectionService(),
+    private readonly parser: OCRParserService,
+    private readonly merchants: MerchantDetectionService,
+    private readonly vat: VATDetectionService,
+    private readonly invoices: InvoiceDetectionService,
     private readonly config?: ConfigService,
   ) {}
 

@@ -8,7 +8,7 @@ const SKIP = /^(total|vat|amount|date|invoice|receipt|tel|phone|thank|card|visa|
 
 @Injectable()
 export class MerchantDetectionService {
-  constructor(private readonly parser = new OCRParserService()) {}
+  constructor(private readonly parser: OCRParserService) {}
 
   detect(text: string): MerchantHit | null {
     const dictionary = matchMerchant(null, text, MERCHANT_DICTIONARY);

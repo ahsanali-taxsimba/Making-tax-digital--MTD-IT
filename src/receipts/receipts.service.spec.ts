@@ -1,6 +1,15 @@
 import { ReceiptsService } from "./receipts.service";
 import { OCRService } from "./ocr.service";
+import { InvoiceDetectionService } from "./ocr/invoice-detection.service";
+import { MerchantDetectionService } from "./ocr/merchant-detection.service";
+import { OCRParserService } from "./ocr/ocr-parser.service";
+import { VATDetectionService } from "./ocr/vat-detection.service";
 import { RECEIPT_ERR } from "./receipts.errors";
+
+function ocr() {
+  const parser = new OCRParserService();
+  return new OCRService(parser, new MerchantDetectionService(parser), new VATDetectionService(parser), new InvoiceDetectionService());
+}
 
 describe("ReceiptsService", () => {
   const repo = {
@@ -28,7 +37,7 @@ describe("ReceiptsService", () => {
   const service = new ReceiptsService(
     repo as never,
     clients as never,
-    new OCRService(),
+    ocr(),
     attachments as never,
     audit as never,
     storage as never,

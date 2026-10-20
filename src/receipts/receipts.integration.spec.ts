@@ -1,5 +1,14 @@
 import { ReceiptsService } from "./receipts.service";
 import { OCRService } from "./ocr.service";
+import { InvoiceDetectionService } from "./ocr/invoice-detection.service";
+import { MerchantDetectionService } from "./ocr/merchant-detection.service";
+import { OCRParserService } from "./ocr/ocr-parser.service";
+import { VATDetectionService } from "./ocr/vat-detection.service";
+
+function ocr() {
+  const parser = new OCRParserService();
+  return new OCRService(parser, new MerchantDetectionService(parser), new VATDetectionService(parser), new InvoiceDetectionService());
+}
 
 describe("receipt pipeline integration", () => {
   it("uploads, OCRs, attaches, and exposes proof for VAT and ITSA", async () => {
@@ -49,7 +58,7 @@ describe("receipt pipeline integration", () => {
     const service = new ReceiptsService(
       repo as never,
       { get: jest.fn().mockResolvedValue({ id: "c1", firmId: "f1" }) } as never,
-      new OCRService(),
+      ocr(),
       attachments as never,
       { record: jest.fn() } as never,
       storage as never,

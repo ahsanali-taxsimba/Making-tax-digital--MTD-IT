@@ -136,13 +136,13 @@ User
 | Email + password login | `POST /auth/login` | Live |
 | JWT access token | `AuthService` | Live |
 | Refresh token rotation | hashed `RefreshToken` rows | Live |
-| Password hashing | bcrypt | Live (Argon2id is the upgrade path) |
-| MFA (TOTP / email / SMS) | — | Target for privileged roles |
+| Password hashing | Argon2id (`PasswordHasher`) | Live (bcrypt hashes rehash on login) |
+| MFA (TOTP) | `MfaService` + `JWT_MFA_SECRET` | Live for privileged roles |
 | Device / browser checks | session + UA logging | Target |
 
-Privileged roles that must take MFA on the upgrade path: `admin_super`, `admin_owner`, `firm_admin`, `firm_accountant`.
+Privileged roles that must take MFA: `admin_super`, `admin_owner`, `admin_developer`, `firm_admin`, `firm_accountant`.
 
-Expired or tampered JWTs are rejected by `JwtAuthGuard` before any controller runs.
+Expired, tampered, or **MFA-purpose** JWTs are rejected by `JwtStrategy` before any controller runs. MFA challenge tokens are signed with `JWT_MFA_SECRET`, never `JWT_ACCESS_SECRET`. Five failed TOTP attempts lock MFA until an admin resets `mfaFailedCount`. Suspended firm users cannot refresh.
 
 Privileged logins (`admin_super` / `admin_owner` / `firm_admin` / `firm_accountant`) take TOTP when `MFA_ENFORCE=true` (always on in production):
 
@@ -150,7 +150,7 @@ Privileged logins (`admin_super` / `admin_owner` / `firm_admin` / `firm_accounta
 2. First-time setup: `POST /auth/mfa/setup` then `POST /auth/mfa/confirm`.
 3. Later logins: `POST /auth/mfa/verify`.
 
-Passwords are hashed with Argon2id. Legacy bcrypt hashes still verify and are rehashed on the next successful login. Refresh tokens rotate: the previous row is revoked before a new one is issued.
+Passwords are hashed with Argon2id. Legacy bcrypt hashes still verify and are rehashed on the next successful login. Refresh tokens rotate: the previous row is revoked before a new one is issued. `/metrics` requires `METRICS_TOKEN` in production and is not on the public Ingress. OpenAPI `/docs` is off unless `SWAGGER_ENABLED=true`.
 
 ### Authz & tenant isolation
 

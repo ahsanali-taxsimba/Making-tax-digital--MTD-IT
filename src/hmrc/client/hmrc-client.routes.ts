@@ -30,6 +30,8 @@ export function expandLiveCalls(method: string, url: string, body?: unknown): Li
     ];
   }
   if (method === "GET" && action === "income-expenses") {
+    // HMRC has no nino-only income GET. Period bounds come from the
+    // income-and-expenditure obligations feed; box figures are rolled from the ledger.
     return [{ path: `/obligations/details/${nino}/income-and-expenditure`, accept: "application/vnd.hmrc.2.0+json" }];
   }
   if ((method === "POST" || method === "PUT") && (action === "updates" || action === "uk-property/periodic")) {
@@ -40,7 +42,7 @@ export function expandLiveCalls(method: string, url: string, body?: unknown): Li
     return [
       {
         method: "POST",
-        path: `/individuals/business/end-of-period-statement/nino/${nino}/${payload.businessId}/${payload.taxYear}`,
+        path: `/individuals/business/end-of-period-statement/${nino}/${payload.businessId}/${payload.taxYear}`,
         accept: "application/vnd.hmrc.3.0+json",
         body: {
           typeOfBusiness: payload.typeOfBusiness,
@@ -55,12 +57,16 @@ export function expandLiveCalls(method: string, url: string, body?: unknown): Li
     (action === "final-declaration" || action === "calculations/final-declaration")
   ) {
     const payload = body as FinalDeclarationPayload;
+    const calculationId = payload.calculationId;
+    if (!calculationId) {
+      throw new Error("HMRC final declaration requires calculationId");
+    }
     return [
       {
         method: "POST",
-        path: `/individuals/calculations/${nino}/self-assessment/${payload.taxYear}/final-declaration`,
+        path: `/individuals/calculations/${nino}/self-assessment/${payload.taxYear}/${calculationId}/final-declaration`,
         accept: "application/vnd.hmrc.5.0+json",
-        body: { finalised: payload.finalised, calculationId: payload.calculationId },
+        body: { finalised: payload.finalised },
       },
     ];
   }
@@ -83,9 +89,10 @@ function quarterlyCall(nino: string, payload: QuarterlyUpdatePayload, forcePrope
       },
     };
   }
+  const periodId = payload.periodId || `${payload.periodStart}_${payload.periodEnd}`;
   return {
     method: "PUT",
-    path: `/individuals/business/self-employment/${nino}/${payload.businessId}/period/${payload.taxYear}`,
+    path: `/individuals/business/self-employment/${nino}/${payload.businessId}/${payload.taxYear}/${periodId}`,
     accept: "application/vnd.hmrc.5.0+json",
     body: {
       periodDates: { periodStartDate: payload.periodStart, periodEndDate: payload.periodEnd },

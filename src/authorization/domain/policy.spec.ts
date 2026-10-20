@@ -68,6 +68,8 @@ describe("firm isolation", () => {
     expect(firmMayAccessPath(adminA, "/firm/clients")).toBe(true);
     expect(firmMayAccessPath(client, "/firm/clients")).toBe(false);
     expect(firmMayAccessPath(client, "/client/me")).toBe(true);
+    expect(firmMayAccessPath(client, "/vat/obligations")).toBe(false);
+    expect(firmMayAccessPath(client, "/notifications")).toBe(true);
   });
 
   it("limits HMRC audit export and digital-link routes to firm admins and accountants", () => {
