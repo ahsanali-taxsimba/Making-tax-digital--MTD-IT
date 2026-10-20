@@ -255,3 +255,19 @@ curl -s -X POST http://localhost:3000/webhooks/endpoints \
 ```
 
 Payloads are HMAC-SHA256 signed with the firm `webhookSecret` using `timestamp.body`.
+
+## 8. Subscribe to a plan
+
+Catalog rows drive Checkout — adding a plan in `/admin/billing/plans` does not need a deploy.
+
+```bash
+curl -s http://localhost:3000/billing/plans -H "Authorization: Bearer $TOKEN"
+curl -s -X POST http://localhost:3000/billing/checkout \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"planSlug":"practice-start","vatNumber":"GB123456789"}'
+curl -s http://localhost:3000/billing/subscription -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:3000/billing/invoices -H "Authorization: Bearer $TOKEN"
+```
+
+`STRIPE_MODE=mock` returns a success URL with `session_id`. `POST /billing/checkout/complete` `{ "sessionId": "..." }` activates the subscription and writes a 20% VAT invoice. Accountant quantity is the active client count; past 25 clients the firm is moved to Practice Growth. Platform owners read MRR at `GET /admin/billing/metrics`.

@@ -5,7 +5,7 @@ import { AlertsService } from "../security/alerts.service";
 import { auditActionFor, serviceForPath } from "../security/service-catalog";
 import { AuditService } from "./audit.service";
 
-const SKIP = ["/health", "/docs", "/audit", "/auth/refresh", "/metrics"];
+const SKIP = ["/health", "/docs", "/audit", "/auth/refresh", "/metrics", "/billing/webhooks"];
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {

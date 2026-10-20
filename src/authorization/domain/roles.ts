@@ -20,6 +20,8 @@ export type PlatformAction =
   | "view_firm_counts_only"
   | "view_firm_and_client_metadata"
   | "manage_firm_subscription"
+  | "view_billing"
+  | "manage_billing"
   | "view_system_health"
   | "view_logs"
   | "manage_feature_flags"
@@ -155,4 +157,5 @@ export const CLIENT_DATA_PATHS = [
   "/users",
   "/audit",
   "/digital-links",
+  "/billing",
 ];

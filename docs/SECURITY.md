@@ -180,7 +180,7 @@ These are logical services. Today they ship as NestJS modules in one API process
 | --- | --- | --- |
 | API Gateway | `AppModule` + Ingress | Auth routing, throttling, envelope |
 | Auth | `src/auth` | Login, refresh, logout |
-| Tenant management | `src/firms`, `src/users`, `src/clients`, `src/tenant` | Firms, staff, clients |
+| Tenant management | `src/firms`, `src/users`, `src/clients`, `src/tenant`, `src/billing` | Firms, staff, clients, Stripe subscriptions |
 | MTD VAT | `src/vat` | Obligations, boxes 1–9, submit |
 | MTD ITSA | `src/itsa` | Quarterly, EOPS, Final Declaration |
 | Bookkeeping | `src/bookkeeping`, `src/ledger` | Journals, invoices, bills |
@@ -201,6 +201,7 @@ No service is allowed a back door around authz. VAT and ITSA still call HMRC onl
 | PostgreSQL | DigitalOcean managed encryption at rest (AES-256). Tenant columns `firmId` / `clientId` on every client-level table. |
 | HMRC OAuth tokens | AES-256-GCM in `HmrcOAuthService` (never returned to the browser) |
 | Yapily consent tokens | Encrypted at rest, never returned to the browser |
+| Stripe webhooks | HMAC signature (`STRIPE_WEBHOOK_SECRET`); events stored by `stripeEventId` |
 | Documents | DigitalOcean Spaces (S3), private objects |
 | Secrets | Environment / secrets manager for DB, API keys, HMRC client secret |
 | Key rotation | Replace `TOKEN_ENCRYPTION_KEY` and HMRC client secret without changing domain code |

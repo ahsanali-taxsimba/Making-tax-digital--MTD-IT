@@ -53,6 +53,16 @@ enum BillingStatus {
   CANCELLED
 }
 
+enum BillingAudience {
+  BUSINESS
+  PRACTICE
+}
+
+enum BillingModel {
+  FLAT
+  PER_UNIT
+}
+
 enum ClientType {
   INDIVIDUAL
   COMPANY
@@ -118,6 +128,8 @@ enum NotificationType {
   SUBMISSION_FAILED
   SUBMISSION_SUCCEEDED
   OBLIGATION_DUE
+  BILLING_PAYMENT_FAILED
+  BILLING_PAYMENT_SUCCEEDED
 }
 
 enum WebhookEventType {
@@ -188,10 +200,14 @@ model Firm {
   subscriptionPlan String     @default("starter")
   accountantScope AccountantScope @default(ALL)
   billingStatus BillingStatus @default(TRIAL)
+  stripeCustomerId String?
+  billingVatNumber String?
   webhookSecret String
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  billingSubscription FirmSubscription?
+  billingInvoices     BillingInvoice[]
   users            User[]
   clients          Client[]
   auditLogs        AuditLog[]
@@ -1318,4 +1334,103 @@ model InvoiceExtractionLog {
   createdAt    DateTime         @default(now())
 
   @@index([documentId, createdAt])
+}
+
+/// Catalog row. New commercial plans are inserted here (and optionally synced to Stripe) — no deploy required.
+model BillingPlan {
+  id              String          @id @default(uuid())
+  slug            String          @unique
+  name            String
+  description     String?
+  audience        BillingAudience
+  billingModel    BillingModel
+  currency        String          @default("GBP")
+  unitAmountPence Int
+  interval        String          @default("month")
+  vatPercent      Int             @default(20)
+  vatInclusive    Boolean         @default(false)
+  minQuantity     Int             @default(1)
+  maxQuantity     Int?
+  features        Json
+  highlight       Boolean         @default(false)
+  sortOrder       Int             @default(0)
+  enabled         Boolean         @default(true)
+  stripeProductId String?
+  stripePriceId   String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  subscriptions   FirmSubscription[]
+
+  @@index([enabled, audience, sortOrder])
+}
+
+model FirmSubscription {
+  id                   String        @id @default(uuid())
+  firmId               String        @unique
+  firm                 Firm          @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 BillingPlan   @relation(fields: [planId], references: [id])
+  status               String        @default("trialing")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  quantity             Int           @default(1)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean       @default(false)
+  trialEndsAt          DateTime?
+  vatNumber            String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  invoices             BillingInvoice[]
+  usageSnapshots       BillingUsageSnapshot[]
+
+  @@index([status])
+  @@index([planId])
+}
+
+model BillingInvoice {
+  id               String            @id @default(uuid())
+  firmId           String
+  firm             Firm              @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  subscriptionId   String?
+  subscription     FirmSubscription? @relation(fields: [subscriptionId], references: [id])
+  stripeInvoiceId  String?           @unique
+  number           String?
+  status           String
+  currency         String            @default("GBP")
+  subtotalPence    Int
+  taxPence         Int
+  totalPence       Int
+  hostedInvoiceUrl String?
+  invoicePdfUrl    String?
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  paidAt           DateTime?
+  rawPayload       Json?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([firmId, createdAt])
+}
+
+model BillingUsageSnapshot {
+  id             String           @id @default(uuid())
+  firmId         String
+  subscriptionId String
+  subscription   FirmSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  quantity       Int
+  recordedAt     DateTime         @default(now())
+  stripeUsageId  String?
+
+  @@index([firmId, recordedAt])
+}
+
+model BillingEvent {
+  id            String    @id @default(uuid())
+  type          String
+  stripeEventId String?   @unique
+  payload       Json
+  processedAt   DateTime?
+  createdAt     DateTime  @default(now())
 }

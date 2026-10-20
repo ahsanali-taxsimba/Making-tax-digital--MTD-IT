@@ -17,10 +17,13 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/overview", label: "Dashboard", match: "/admin/overview" },
   { href: "/admin/firms", label: "Firms", match: "/admin/firms" },
   { href: "/admin/integrations", label: "Integrations", match: "/admin/integrations" },
+  { href: "/admin/billing", label: "Billing", match: "/admin/billing" },
   { href: "/admin/feature-flags", label: "Feature Flags", match: "/admin/feature-flags" },
   { href: "/admin/logs", label: "Logs", match: "/admin/logs" },
   { href: "/admin/system-health", label: "System Health", match: "/admin/system-health" },
 ];
+
+const BILLING_PATHS = ["/practice/billing", "/practice/pricing", "/practice/subscription", "/practice/invoices"];
 
 export const PRACTICE_NAV: NavItem[] = [
   { href: "/practice/dashboard", label: "Dashboard", match: "/practice/dashboard" },
@@ -33,6 +36,7 @@ export const PRACTICE_NAV: NavItem[] = [
   { href: "/practice/audit", label: "Audit", match: "/practice/audit" },
   { href: "/practice/digital-links", label: "Digital links", match: "/practice/digital-links" },
   { href: "/practice/tasks", label: "Tasks", match: "/practice/tasks" },
+  { href: "/practice/billing", label: "Billing", match: "/practice/billing" },
 ];
 
 export const CLIENT_NAV: NavItem[] = [
@@ -86,6 +90,17 @@ export function isFirmStaffRole(role?: string | null): boolean {
 
 export function canViewAudit(role?: string | null): boolean {
   return role === "firm_admin" || role === "firm_accountant" || role === "ADMIN" || role === "ACCOUNTANT";
+}
+
+export function canViewPlatformBilling(role?: string | null): boolean {
+  return role === "admin_super" || role === "admin_owner";
+}
+
+export function adminNavFor(role?: string | null): NavItem[] {
+  if (canViewPlatformBilling(role)) {
+    return ADMIN_NAV;
+  }
+  return ADMIN_NAV.filter((item) => item.href !== "/admin/billing");
 }
 
 export function practiceNavFor(role?: string | null): NavItem[] {
@@ -151,6 +166,9 @@ export function canAccessPath(user: AuthUser | null | undefined, pathname: strin
     return false;
   }
   if (workspace === "admin") {
+    if (pathname.startsWith("/admin/billing")) {
+      return canViewPlatformBilling(role);
+    }
     return isPlatformRole(role);
   }
   if (workspace === "practice") {
@@ -248,6 +266,9 @@ export function navActive(pathname: string, href: string, match?: string): boole
   }
   if (prefix === "/client/home") {
     return pathname === "/client" || pathname === "/client/home";
+  }
+  if (prefix === "/practice/billing") {
+    return BILLING_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
   }
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }

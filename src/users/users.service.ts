@@ -5,6 +5,7 @@ import { AuditService } from "../audit/audit.service";
 import { AuthUser } from "../common/types";
 import { PasswordHasher } from "../security/password-hasher";
 import { CreateUserDto, UpdateUserDto } from "./dto/user.dto";
+import { BillingService } from "../billing/billing.service";
 
 @Injectable()
 export class UsersService {
@@ -12,6 +13,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly hasher: PasswordHasher,
+    private readonly billing: BillingService,
   ) {}
 
   async list(user: AuthUser) {
@@ -29,6 +31,9 @@ export class UsersService {
     }
     if (dto.role === UserRole.CLIENT && !dto.clientId) {
       throw new BadRequestException("Client portal users must be linked to a client");
+    }
+    if (dto.role !== UserRole.CLIENT) {
+      await this.billing.assertStaffSeat(actor.firmId);
     }
     const passwordHash = dto.password ? await this.hashPassword(dto.password) : null;
     const created = await this.prisma.user.create({
