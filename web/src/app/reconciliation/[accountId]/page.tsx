@@ -27,6 +27,7 @@ import { useSession } from "@/hooks/useSession";
 import { MatchingSuggestionCard } from "@/components/MatchingSuggestionCard";
 import { formatMoney } from "@/lib/format";
 import type { MatchingSuggestion } from "@/lib/matching";
+import { AttachReceiptButton } from "@/components/AttachReceiptButton";
 import { createBankJournal, listClientLedgers, type BankTransactionRecord, type LedgerOption } from "@/lib/reconciliation";
 
 export default function ReconciliationWorkspacePage() {
@@ -190,6 +191,7 @@ export default function ReconciliationWorkspacePage() {
                   onSplit={() => setSplitOpen(true)}
                   onCreate={() => setJournalOpen(true)}
                   onApplyCategory={() => applyCategory.mutate(selected.id)}
+                  clientId={clientId}
                 />
               )}
             </section>
@@ -240,6 +242,7 @@ function SelectedActions({
   onSplit,
   onCreate,
   onApplyCategory,
+  clientId,
 }: {
   transaction: BankTransactionRecord;
   matches: Array<{ bankTransactionId: string; journalEntryId: string; score: number; reasons: string[]; journal?: { id: string; date: string; description: string; reference?: string | null; total: number } | null }>;
@@ -261,6 +264,7 @@ function SelectedActions({
   onSplit: () => void;
   onCreate: () => void;
   onApplyCategory: () => void;
+  clientId?: string | null;
 }) {
   const open = transaction.status === "UNMATCHED";
   return (
@@ -336,6 +340,7 @@ function SelectedActions({
           <IgnoreButton onClick={onIgnore} pending={ignorePending} />
         </div>
       ) : null}
+      <AttachReceiptButton clientId={clientId} bankTransactionId={transaction.id} />
     </div>
   );
 }

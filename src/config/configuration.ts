@@ -68,4 +68,15 @@ export default () => ({
     ttl: parseInt(process.env.THROTTLE_TTL_SECONDS ?? "60", 10) * 1000,
     limit: parseInt(process.env.THROTTLE_LIMIT ?? "60", 10),
   },
+  receipts: {
+    driver: (process.env.RECEIPTS_STORAGE_DRIVER ?? "local") as "local" | "s3",
+    localDir: process.env.RECEIPTS_LOCAL_DIR ?? "",
+    s3: {
+      endpoint: process.env.RECEIPTS_S3_ENDPOINT ?? process.env.S3_ENDPOINT ?? "",
+      bucket: process.env.RECEIPTS_S3_BUCKET ?? process.env.S3_BUCKET ?? "receipts",
+      region: process.env.RECEIPTS_S3_REGION ?? process.env.S3_REGION ?? "eu-west-2",
+      accessKey: process.env.RECEIPTS_S3_ACCESS_KEY ?? process.env.S3_ACCESS_KEY ?? "",
+      secretKey: process.env.RECEIPTS_S3_SECRET_KEY ?? process.env.S3_SECRET_KEY ?? "",
+    },
+  },
 });

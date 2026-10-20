@@ -25,6 +25,7 @@ import {
 } from "./itsa-return.validator";
 import { ItsaRepository } from "./itsa.repository";
 import { chartProfileForBusinessType, lookupItsaMapping, MTD_ITSA_MAPPING } from "./mtd-itsa.mapping";
+import { ReceiptsService } from "../receipts/receipts.service";
 
 @Injectable()
 export class ItsaService {
@@ -36,6 +37,7 @@ export class ItsaService {
     private readonly tasks: TasksService,
     private readonly notifications: NotificationsService,
     private readonly webhooks: WebhooksService,
+    private readonly receipts: ReceiptsService,
   ) {}
 
   mapping() {
@@ -281,7 +283,8 @@ export class ItsaService {
       actionType: "itsa.eops.submitted",
       metadata: { correlationId: result.correlationId, issues: validation.issues },
     });
-    return { ...saved, validation };
+    const proof = await this.receipts.evidenceForClient(client.id);
+    return { ...saved, validation, receiptsAttached: proof.receiptsAttached, receipts: proof.itsa };
   }
 
   async submitFinal(user: AuthUser, clientId: string, dto: SubmitFinalDeclarationDto) {
@@ -312,7 +315,8 @@ export class ItsaService {
       actionType: "itsa.final_declaration.submitted",
       metadata: { correlationId: result.correlationId, taxYear: dto.taxYear, issues: validation.issues },
     });
-    return { ...saved, validation };
+    const proof = await this.receipts.evidenceForClient(client.id);
+    return { ...saved, validation, receiptsAttached: proof.receiptsAttached, receipts: proof.itsa };
   }
 
   async addBusiness(user: AuthUser, clientId: string, dto: CreateBusinessDto) {
@@ -358,11 +362,14 @@ export class ItsaService {
     const business = await this.requireBusiness(clientId, dto.businessId ?? "");
     const taxYear = dto.taxYear ?? "";
     const updates = await this.repo.listUpdates(clientId, { businessId: business.id, taxYear });
+    const proof = await this.receipts.evidenceForClient(clientId);
     return {
       kind: "eops",
       businessId: business.id,
       taxYear,
       quarterlyUpdateCount: updates.length,
+      receiptsAttached: proof.receiptsAttached,
+      receipts: proof.itsa,
       validation: validateItsaEops({ businessId: business.id, taxYear, quarterlyUpdateCount: updates.length }),
     };
   }
@@ -370,7 +377,8 @@ export class ItsaService {
   private async validateYear(clientId: string, dto: ValidateItsaDto, kind: "final" | "year") {
     const taxYear = dto.taxYear ?? "";
     const validation = await this.finalValidation(clientId, taxYear, kind === "year");
-    return { kind, taxYear, validation };
+    const proof = await this.receipts.evidenceForClient(clientId);
+    return { kind, taxYear, receiptsAttached: proof.receiptsAttached, receipts: proof.itsa, validation };
   }
 
   private async finalValidation(clientId: string, taxYear: string, includeMissingFinal = false) {

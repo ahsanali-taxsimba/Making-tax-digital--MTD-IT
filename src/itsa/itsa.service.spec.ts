@@ -55,6 +55,7 @@ describe("ItsaService", () => {
     tasks as never,
     notifications as never,
     webhooks as never,
+    { evidenceForClient: jest.fn().mockResolvedValue({ receiptsAttached: 2, itsa: { attached: 2, allowableExpenses: 3, allowableExpensesWithReceipt: 2 } }) } as never,
   );
 
   beforeEach(() => {

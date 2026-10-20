@@ -27,6 +27,7 @@ import { VatModule } from "./vat/vat.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { MatchingModule } from "./matching/matching.module";
 import { ManualStatementsModule } from "./manual-statements/manual-statements.module";
+import { ReceiptsModule } from "./receipts/receipts.module";
 import { YapilyModule } from "./yapily/yapily.module";
 
 @Module({
@@ -62,6 +63,7 @@ import { YapilyModule } from "./yapily/yapily.module";
     MatchingModule,
     YapilyModule,
     ManualStatementsModule,
+    ReceiptsModule,
     PortalModule,
   ],
   controllers: [HealthController],

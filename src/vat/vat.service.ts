@@ -23,6 +23,7 @@ import {
   VatBoxInput,
 } from "./vat-box.mapping";
 import { presentStoredReturn, toIsoDate } from "./vat.presenter";
+import { ReceiptsService } from "../receipts/receipts.service";
 import { VatRepository } from "./vat.repository";
 import {
   toVatReturnView,
@@ -43,6 +44,7 @@ export class VatService {
     private readonly notifications: NotificationsService,
     private readonly webhooks: WebhooksService,
     private readonly repo: VatRepository,
+    private readonly receipts: ReceiptsService,
   ) {}
 
   mapping() {
@@ -96,10 +98,12 @@ export class VatService {
       },
       clientId,
     );
+    const proof = await this.receipts.evidenceForClient(clientId);
     return {
       vatReturn: resolved.view,
       totals: resolved.totals,
       validation,
+      proof: proof.vat,
     };
   }
 

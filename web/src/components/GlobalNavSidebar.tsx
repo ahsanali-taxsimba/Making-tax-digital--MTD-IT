@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/reconciliation", label: "Bank" },
   { href: "/categorisation", label: "Categorise" },
   { href: "/matching", label: "Matching" },
+  { href: "/receipts", label: "Receipts" },
   { href: "/vat", label: "VAT" },
   { href: "/itsa", label: "ITSA" },
   { href: "/portal", label: "Portal" },

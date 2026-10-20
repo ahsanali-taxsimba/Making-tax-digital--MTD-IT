@@ -37,6 +37,7 @@ describe("VatService", () => {
     notifications as never,
     webhooks as never,
     repo,
+    { evidenceForClient: jest.fn().mockResolvedValue({ vat: { box4: { items: 0, withProof: 0, proofAttached: false } } }) } as never,
   );
 
   beforeEach(() => {

@@ -27,5 +27,6 @@ coverage
 *.sw?
 
 uploads
+var/receipts
 mongo-data
 combined.log
