@@ -18,7 +18,7 @@ async function bootstrap() {
     .setTitle("Making Tax Digital IT API")
     .setDescription(
       [
-        "Multi-tenant MTD backend for VAT, Income Tax (ITSA), double-entry bookkeeping, and HMRC OAuth2 token management.",
+        "Multi-tenant MTD backend for VAT, Income Tax (ITSA), double-entry bookkeeping, HMRC OAuth2, Yapily bank feeds, and auto-categorisation.",
         "",
         "VAT and ITSA never call HMRC directly. All HMRC HTTP goes through HmrcClientService (`get`, `post`, `getValidAccessToken`, `handleTokenRefresh`, `handleHMRCError`), which refreshes user-restricted tokens before they expire and retries once after a 401.",
         "",

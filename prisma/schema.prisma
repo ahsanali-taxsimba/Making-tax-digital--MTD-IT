@@ -138,6 +138,7 @@ model Firm {
   journalEntries   JournalEntry[]
   bankAccounts     BankAccount[]
   accountingPeriods AccountingPeriod[]
+  categorisationSuggestions CategorisationSuggestion[]
 }
 
 model User {
@@ -215,6 +216,7 @@ model Client {
   bills           PurchaseBill[]
   customers       TradingParty[]
   accountingPeriods AccountingPeriod[]
+  categorisationSuggestions CategorisationSuggestion[]
 
   @@index([firmId])
   @@index([assignedUserId])
@@ -816,13 +818,82 @@ model BankTransaction {
   externalRef           String?
   merchantName          String?
   category              String?
+  merchantCategoryCode  String?
+  transactionCategory   String?
+  location              String?
+  labels                String[]         @default([])
+  enrichment            Json?
   matchedJournalEntryId String?
   matchedJournal        JournalEntry?    @relation(fields: [matchedJournalEntryId], references: [id])
   status                BankTxnStatus    @default(UNMATCHED)
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
+  categorisation        CategorisationSuggestion?
 
   @@index([bankAccountId, externalRef])
+}
+
+enum CategorisationStatus {
+  SUGGESTED
+  APPLIED
+  REJECTED
+}
+
+/// Known merchant → chart-of-accounts / VAT / ITSA mapping (BP → Fuel, Tesco → Groceries).
+model CategorisationMerchantRule {
+  id           String      @id @default(uuid())
+  merchantKey  String      @unique
+  merchantName String
+  aliases      String[]
+  categoryKey  String
+  ledgerCode   Int
+  taxCodeKind  TaxCodeKind
+  itsaCategory String?
+  confidence   Decimal     @default(0.95) @db.Decimal(3, 2)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+/// ISO 18245 merchant category code → industry, VAT-ability, and ledger mapping.
+model CategorisationMccRule {
+  id           String      @id @default(uuid())
+  mcc          String      @unique
+  industry     String
+  categoryKey  String
+  ledgerCode   Int
+  taxCodeKind  TaxCodeKind
+  vatable      Boolean
+  itsaCategory String?
+  confidence   Decimal     @default(0.85) @db.Decimal(3, 2)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+/// Draft categorisation for a bank line. Journals are posted only when the suggestion is applied.
+model CategorisationSuggestion {
+  id                    String               @id @default(uuid())
+  bankTransactionId     String               @unique
+  bankTransaction       BankTransaction      @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  firmId                String
+  firm                  Firm                 @relation(fields: [firmId], references: [id])
+  ledgerAccountId       String?
+  ledgerCode            Int
+  taxCodeId             String?
+  taxCodeKind           TaxCodeKind
+  itsaCategory          String?
+  itsaBucket            String?
+  vatBoxes              Json
+  confidence            Decimal              @db.Decimal(4, 3)
+  reasons               Json
+  draftJournal          Json
+  status                CategorisationStatus @default(SUGGESTED)
+  appliedJournalEntryId String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@index([clientId, status])
 }
 
 enum YapilyConsentStatus {
