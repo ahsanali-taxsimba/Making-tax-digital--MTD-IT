@@ -1,7 +1,9 @@
 import {
   canAccessPath,
+  canViewAudit,
   canonicalRole,
   homePath,
+  practiceNavFor,
   tenantMismatch,
   tenantQuery,
   withTenantQuery,
@@ -30,6 +32,17 @@ const accountant: AuthUser = {
   firmRole: "firm_accountant",
 };
 
+const staff: AuthUser = {
+  id: "s1",
+  email: "n",
+  name: "Noah",
+  role: "ASSISTANT",
+  firmId: "firm-a",
+  clientId: null,
+  principal: "firm",
+  firmRole: "firm_staff",
+};
+
 const client: AuthUser = {
   id: "c1",
   email: "am",
@@ -55,7 +68,11 @@ describe("role routing", () => {
     expect(canAccessPath(owner, "/client/home")).toBe(false);
     expect(canAccessPath(accountant, "/admin/firms")).toBe(false);
     expect(canAccessPath(accountant, "/practice/vat")).toBe(true);
+    expect(canAccessPath(accountant, "/practice/audit")).toBe(true);
+    expect(canAccessPath(staff, "/practice/vat")).toBe(true);
+    expect(canAccessPath(staff, "/practice/audit")).toBe(false);
     expect(canAccessPath(client, "/practice/clients")).toBe(false);
+    expect(canAccessPath(client, "/practice/audit")).toBe(false);
     expect(canAccessPath(client, "/client/documents")).toBe(true);
   });
 
@@ -75,5 +92,13 @@ describe("role routing", () => {
     expect(withTenantQuery("/client/documents", client, { clientId: "client-2" })).toBe("/client/documents?clientId=client-1");
     expect(withTenantQuery("/firm/clients?firmId=firm-b", accountant)).toBe("/firm/clients?firmId=firm-a");
     expect(withTenantQuery("/admin/firms?firmId=firm-a&clientId=client-1", owner)).toBe("/admin/firms");
+  });
+
+  it("limits the audit viewer to firm admins and accountants", () => {
+    expect(canViewAudit("firm_admin")).toBe(true);
+    expect(canViewAudit("firm_accountant")).toBe(true);
+    expect(canViewAudit("firm_staff")).toBe(false);
+    expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/audit")).toBe(true);
+    expect(practiceNavFor("firm_staff").some((item) => item.href === "/practice/audit")).toBe(false);
   });
 });
