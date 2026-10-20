@@ -194,6 +194,115 @@ AUTH --> TENANT CONTEXT (principal, firmId, clientId)
 
 Practice services call HMRC, bank feeds, documents, extraction, and bookkeeping. Clients never call another client’s routes. Platform staff cannot call `/clients`, `/documents`, or bank and financial routes.
 
+### Backend module stack
+
+Every module below is tenant-scoped except Platform Admin, which sees aggregated counts only.
+
+```
++------------------------------------------------------------------+
+|                     PLATFORM BACKEND                             |
+|                  (multi-tenant architecture)                     |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| AUTH MODULE                                                      |
+|  - Login / logout / sessions                                     |
+|  - Role Router (platform vs firm vs client)                      |
+|  - RBAC + ABAC enforcement                                       |
+|  - Tenant isolation (firmId, clientId)                           |
+|  - JWT / OAuth2 (HMRC)                                           |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| HMRC MODULE                                                      |
+|  - MTD VAT obligations                                           |
+|  - VAT submissions                                               |
+|  - ITSA quarterly updates                                        |
+|  - EOPS + Final Declaration                                      |
+|  - HMRC OAuth token store                                        |
+|  - HMRC API health monitor                                       |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| BANK FEEDS MODULE                                                |
+|  - Yapily integration                                            |
+|  - Manual CSV upload                                             |
+|  - Transaction ingestion                                         |
+|  - Enrichment pipeline                                           |
+|  - Reconciliation engine                                         |
+|  - Journal posting                                               |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| OCR MODULE                                                       |
+|  - OCR extraction (PDF / JPG / PNG)                              |
+|  - Text cleaning                                                 |
+|  - Merchant / date / amount detection                            |
+|  - Invoice number detection                                      |
+|  - VAT line detection                                            |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| AI EXTRACTION MODULE                                             |
+|  - Invoice extraction (supplier, totals, line items)             |
+|  - Receipt extraction                                            |
+|  - Confidence scoring                                            |
+|  - Draft invoice / bill creation                                 |
+|  - Auto-matching with bank transactions                          |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| DOCUMENT MANAGEMENT MODULE                                       |
+|  - Upload documents (PDF / JPG / PNG)                            |
+|  - Tagging system                                                |
+|  - OCR text storage                                              |
+|  - Attach to bank transactions                                   |
+|  - Attach to invoices / bills / journals                         |
+|  - Search by OCR text                                            |
+|  - Audit logs                                                    |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| BOOKKEEPING MODULE                                               |
+|  - Chart of accounts                                             |
+|  - Journal entries                                               |
+|  - Ledger posting                                                |
+|  - Trial balance                                                 |
+|  - VAT / ITSA mapping                                            |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| TENANT MANAGEMENT MODULE                                         |
+|  - Firms (tenants)                                               |
+|  - Firm users (admins, accountants, staff)                       |
+|  - Firm clients                                                  |
+|  - Firm isolation enforcement                                    |
+|  - Subscription plans                                            |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| PLATFORM ADMIN MODULE                                            |
+|  - View firms (no client data)                                   |
+|  - Aggregated stats per firm                                     |
+|  - Feature flags                                                 |
+|  - System health                                                 |
+|  - Logs                                                          |
+|  - Marketing console                                             |
+|  - Developer console                                             |
++------------------------------------------------------------------+
+```
+
+Auth and tenant management run on every request. HMRC, bank feeds, OCR, extraction, documents, and bookkeeping are practice modules and stay inside `firmId`. Platform Admin never loads those client-level stores.
+
 ---
 
 ## 3. Tenant isolation
