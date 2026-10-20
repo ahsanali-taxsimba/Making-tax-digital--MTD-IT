@@ -11,6 +11,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 import configuration from "./config/configuration";
 import { DocumentsModule } from "./documents/documents.module";
+import { InvoiceExtractionModule } from "./invoice-extraction/invoice-extraction.module";
 import { FirmsModule } from "./firms/firms.module";
 import { HealthController } from "./health/health.controller";
 import { HmrcModule } from "./hmrc/hmrc.module";
@@ -55,6 +56,7 @@ import { YapilyModule } from "./yapily/yapily.module";
     VatModule,
     ItsaModule,
     DocumentsModule,
+    InvoiceExtractionModule,
     MessagesModule,
     ChartOfAccountsModule,
     LedgerModule,

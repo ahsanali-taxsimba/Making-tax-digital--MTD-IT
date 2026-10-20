@@ -249,6 +249,16 @@ export class BookkeepingRepository {
     });
   }
 
+  listParties(clientId: string, kind: PartyKind) {
+    return this.prisma.tradingParty.findMany({ where: { clientId, kind }, orderBy: { name: "asc" } });
+  }
+
+  findPartyByName(clientId: string, kind: PartyKind, name: string) {
+    return this.prisma.tradingParty.findFirst({
+      where: { clientId, kind, name: { equals: name, mode: "insensitive" } },
+    });
+  }
+
   createInvoice(data: Prisma.SalesInvoiceCreateInput) {
     return this.prisma.salesInvoice.create({ data, include: { lines: true, customer: true, journal: { include: journalInclude } } });
   }
