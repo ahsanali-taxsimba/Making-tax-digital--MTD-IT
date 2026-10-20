@@ -489,3 +489,182 @@ Backend
 ```
 
 Seed check: Northbridge (`marco.r@example.org`) cannot read Westgate (`zoe.m@example.net`). Platform users (`grace.l@example.com` and the other `admin_*` accounts) receive firm counts only.
+
+---
+
+## 4. Data model
+
+Platform users have no `firmId`. Every firm-scoped row carries `firmId`. Client-scoped rows also carry `clientId`. In the live schema, `FirmUser` is the `User` table.
+
+```
++------------------------------+
+| PLATFORM USERS               |
++------------------------------+
+  PlatformUser
+  +------------------------------------------+
+  | id (PK)                                  |
+  | role (admin_super, admin_owner,          |
+  |       admin_marketing, admin_developer,  |
+  |       admin_support)                     |
+  | name                                     |
+  | email                                    |
+  | passwordHash                             |
+  | createdAt                                |
+  +------------------------------------------+
+
++------------------------------+
+| ACCOUNTANCY FIRMS (TENANTS)  |
++------------------------------+
+  Firm
+  +------------------------------------------+
+  | id (PK)                                  |
+  | name                                     |
+  | slug                                     |
+  | subscriptionPlan                         |
+  | createdAt                                |
+  +------------------------------------------+
+
+  FirmUser  (table: User)
+  +------------------------------------------+
+  | id (PK)                                  |
+  | firmId (FK -> Firm.id)                   |
+  | role (firm_admin, firm_accountant,       |
+  |       firm_staff, firm_client)           |
+  | name                                     |
+  | email                                    |
+  | passwordHash                             |
+  | clientId (nullable, FK -> Client.id)     |
+  | createdAt                                |
+  +------------------------------------------+
+
++------------------------------+
+| CLIENTS (SUB-TENANTS)        |
++------------------------------+
+  Client
+  +------------------------------------------+
+  | id (PK)                                  |
+  | firmId (FK -> Firm.id)                   |
+  | name                                     |
+  | type (sole_trader, landlord, company)    |
+  | nino (nullable)                          |
+  | vrn (nullable)                           |
+  | createdAt                                |
+  +------------------------------------------+
+
++------------------------------+
+| BANK FEEDS                   |
++------------------------------+
+  BankAccount
+  +------------------------------------------+
+  | id (PK)                                  |
+  | firmId (FK)  clientId (FK)               |
+  | provider (yapily, csv)                   |
+  | externalAccountId  name  currency        |
+  | createdAt                                |
+  +------------------------------------------+
+
+  BankTransaction
+  +------------------------------------------+
+  | id (PK)                                  |
+  | bankAccountId (FK)                       |
+  | firmId (FK)  clientId (FK)               |
+  | date  amount  type (credit/debit)        |
+  | description  status  createdAt           |
+  +------------------------------------------+
+
++------------------------------+
+| DOCUMENT MANAGEMENT          |
++------------------------------+
+  DocumentFile
+  +------------------------------------------+
+  | id (PK)                                  |
+  | firmId (FK)  clientId (FK)               |
+  | type (receipt, invoice, bill, contract,  |
+  |       statement, hmrc_letter)            |
+  | fileName  fileType  fileSize             |
+  | storageUrl  ocrText  tags (JSON)         |
+  | createdAt                                |
+  +------------------------------------------+
+
+  DocumentAttachment
+  +------------------------------------------+
+  | id (PK)                                  |
+  | documentId (FK -> DocumentFile.id)       |
+  | firmId (FK)  clientId (FK)               |
+  | targetType (bank_transaction, invoice,   |
+  |             bill, journal_entry,         |
+  |             vat_return, itsa_submission) |
+  | targetId  attachedAt                     |
+  +------------------------------------------+
+
++------------------------------+
+| OCR + AI EXTRACTION          |
++------------------------------+
+  InvoiceExtraction
+  +------------------------------------------+
+  | id (PK)                                  |
+  | documentId (FK)                          |
+  | firmId (FK)  clientId (FK)               |
+  | extractedData (JSON)                     |
+  | confidenceScore                          |
+  | status (draft, approved, failed)         |
+  | createdAt                                |
+  +------------------------------------------+
+
++------------------------------+
+| BOOKKEEPING                  |
++------------------------------+
+  Invoice / Bill
+  +------------------------------------------+
+  | id (PK)                                  |
+  | firmId (FK)  clientId (FK)               |
+  | supplierId (nullable)                    |
+  | invoiceNumber  invoiceDate  dueDate      |
+  | totalNet  totalVat  totalGross  status   |
+  | createdAt                                |
+  +------------------------------------------+
+
+  JournalEntry                         JournalLine
+  +--------------------------------+   +--------------------------------+
+  | id (PK)                        |   | id (PK)                        |
+  | firmId (FK)  clientId (FK)     |   | journalEntryId (FK)            |
+  | date  reference  createdAt     |   | accountCode  debit  credit     |
+  +--------------------------------+   +--------------------------------+
+
++------------------------------+
+| HMRC (VAT + ITSA)            |
++------------------------------+
+  VATReturn
+  +------------------------------------------+
+  | id (PK)                                  |
+  | firmId (FK)  clientId (FK)               |
+  | periodStart  periodEnd                   |
+  | box1..box9  status  hmrcSubmissionId     |
+  | createdAt                                |
+  +------------------------------------------+
+
+  ITSASubmission
+  +------------------------------------------+
+  | id (PK)                                  |
+  | firmId (FK)  clientId (FK)               |
+  | taxYear                                  |
+  | type (quarterly, eops, final)            |
+  | status  hmrcSubmissionId                 |
+  | createdAt                                |
+  +------------------------------------------+
+
++------------------------------+
+| AUDIT LOGS                   |
++------------------------------+
+  AuditLog
+  +------------------------------------------+
+  | id (PK)                                  |
+  | firmId (FK)                              |
+  | clientId (nullable FK)                   |
+  | userId (FK -> FirmUser or PlatformUser)  |
+  | action  resourceType  resourceId         |
+  | metadata (JSON)  createdAt               |
+  +------------------------------------------+
+```
+
+Tenant rule: a query that returns `BankTransaction`, `DocumentFile`, `Invoice`, `VATReturn`, or `ITSASubmission` must include `WHERE firmId = user.firmId`. Client portal queries also require `clientId = user.clientId`. Platform Admin queries `Firm` counts only and never these client-level tables.
