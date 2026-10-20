@@ -2,6 +2,9 @@ import { Module, ValidationPipe } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { AdminModule } from "./admin/admin.module";
+import { AuthorizationModule } from "./authorization/authorization.module";
+import { TenantIsolationInterceptor } from "./authorization/tenant-isolation.interceptor";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { BookkeepingModule } from "./bookkeeping/bookkeeping.module";
@@ -29,6 +32,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
 import { MatchingModule } from "./matching/matching.module";
 import { ManualStatementsModule } from "./manual-statements/manual-statements.module";
 import { ReceiptsModule } from "./receipts/receipts.module";
+import { TenantModule } from "./tenant/tenant.module";
 import { YapilyModule } from "./yapily/yapily.module";
 
 @Module({
@@ -44,6 +48,7 @@ import { YapilyModule } from "./yapily/yapily.module";
       ],
     }),
     PrismaModule,
+    AuthorizationModule,
     AuditModule,
     TasksModule,
     NotificationsModule,
@@ -67,12 +72,15 @@ import { YapilyModule } from "./yapily/yapily.module";
     ManualStatementsModule,
     ReceiptsModule,
     PortalModule,
+    AdminModule,
+    TenantModule,
   ],
   controllers: [HealthController],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }) },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: TenantIsolationInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })

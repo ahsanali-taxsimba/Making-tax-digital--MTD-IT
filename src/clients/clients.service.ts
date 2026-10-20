@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { UserRole } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { AuthUser } from "../common/types";
+import { AuthorizationService } from "../authorization/authorization.service";
 import { assertClientScope } from "../common/tenancy";
 import { ChartOfAccountsService } from "../ledger/chart-of-accounts.service";
 import { WebhooksService } from "../webhooks/webhooks.service";
@@ -15,9 +16,11 @@ export class ClientsService {
     private readonly audit: AuditService,
     private readonly webhooks: WebhooksService,
     private readonly charts: ChartOfAccountsService,
+    private readonly authz: AuthorizationService,
   ) {}
 
   list(user: AuthUser) {
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId });
     const scopedId = user.role === UserRole.CLIENT ? user.clientId : undefined;
     return this.repo.list(user.firmId, scopedId);
   }
@@ -34,11 +37,13 @@ export class ClientsService {
   }
 
   async get(user: AuthUser, id: string) {
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId, clientId: id });
     const client = await this.repo.findInFirm(user.firmId, id);
     if (!client) {
       throw new NotFoundException("Client not found");
     }
     assertClientScope(user, client);
+    this.authz.assertFirm(user, "view", "client", { firmId: client.firmId, clientId: client.id, assignedUserId: client.assignedUserId });
     return client;
   }
 

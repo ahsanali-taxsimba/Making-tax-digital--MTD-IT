@@ -1,6 +1,7 @@
 import {
   PrismaClient,
   ClientType,
+  PlatformRole,
   UserRole,
   RiskLevel,
   ObligationStatus,
@@ -29,13 +30,15 @@ async function main() {
 
   const firm = await prisma.firm.upsert({
     where: { id: "11111111-1111-4111-8111-111111111111" },
-    update: {},
+    update: { slug: "northbridge", subscriptionPlan: "practice" },
     create: {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Northbridge Accountants LLP",
+      slug: "northbridge",
       address: "14 King Street, Manchester, M2 6AW",
       contactEmail: "carol.w@example.org",
       planType: "PRACTICE",
+      subscriptionPlan: "practice",
       billingStatus: "ACTIVE",
       webhookSecret: randomBytes(32).toString("hex"),
     },
@@ -145,6 +148,61 @@ async function main() {
       passwordHash,
     },
   });
+
+  const platformPassword = await bcrypt.hash("PlatformAdmin123!", 10);
+  const platformRoles: Array<{ email: string; name: string; role: PlatformRole }> = [
+    { email: "grace.l@example.com", name: "Samira Khan", role: PlatformRole.ADMIN_SUPER },
+    { email: "ivan.p@example.net", name: "Owen Blake", role: PlatformRole.ADMIN_OWNER },
+    { email: "ethan.b@example.com", name: "Lila Chen", role: PlatformRole.ADMIN_MARKETING },
+    { email: "nathan.k@example.net", name: "Theo Brooks", role: PlatformRole.ADMIN_DEVELOPER },
+    { email: "nina.v@example.com", name: "Ruth Adeyemi", role: PlatformRole.ADMIN_SUPPORT },
+  ];
+  for (const member of platformRoles) {
+    await prisma.platformUser.upsert({
+      where: { email: member.email },
+      update: { passwordHash: platformPassword, isActive: true, role: member.role, name: member.name },
+      create: { ...member, passwordHash: platformPassword, isActive: true },
+    });
+  }
+
+  const westgate = await prisma.firm.upsert({
+    where: { id: "aaaaaaa1-1111-4111-8111-111111111111" },
+    update: { slug: "westgate", subscriptionPlan: "starter" },
+    create: {
+      id: "aaaaaaa1-1111-4111-8111-111111111111",
+      name: "Westgate Tax Ltd",
+      slug: "westgate",
+      address: "2 Harbour Parade, Bristol, BS1 4AJ",
+      contactEmail: "yuki.t@example.com",
+      planType: "STARTER",
+      subscriptionPlan: "starter",
+      billingStatus: "TRIAL",
+      webhookSecret: randomBytes(32).toString("hex"),
+    },
+  });
+  await prisma.user.upsert({
+    where: { email: "zoe.m@example.net" },
+    update: { passwordHash, firmId: westgate.id },
+    create: {
+      name: "Helen Ward",
+      email: "zoe.m@example.net",
+      role: UserRole.ADMIN,
+      firmId: westgate.id,
+      passwordHash,
+    },
+  });
+
+  for (const flag of [
+    { key: "yapily_open_banking", enabled: true, description: "Yapily bank feeds" },
+    { key: "invoice_extraction", enabled: true, description: "AI invoice extraction" },
+    { key: "platform_marketing_console", enabled: false, description: "Marketing metrics console" },
+  ]) {
+    await prisma.featureFlag.upsert({
+      where: { key: flag.key },
+      update: { enabled: flag.enabled, description: flag.description },
+      create: flag,
+    });
+  }
 
   await prisma.business.upsert({
     where: { id: "44444444-4444-4444-8444-444444444444" },

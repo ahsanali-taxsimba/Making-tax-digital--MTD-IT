@@ -4,7 +4,8 @@ import { ClientsService } from "./clients.service";
 
 describe("ClientsService.me", () => {
   const repo = { list: jest.fn(), findInFirm: jest.fn() };
-  const service = new ClientsService(repo as never, {} as never, {} as never, {} as never);
+  const authz = { assertCanAccessClientData: jest.fn(), assertFirm: jest.fn() };
+  const service = new ClientsService(repo as never, {} as never, {} as never, {} as never, authz as never);
 
   it("returns the linked client for a portal user", async () => {
     repo.findInFirm.mockResolvedValue({ id: "c1", firmId: "f1", name: "Amelia" });
