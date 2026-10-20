@@ -71,3 +71,15 @@ export function formatMoney(value?: number | null): string {
   }
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(Number(value));
 }
+
+export function categoryLabel(value?: string | null): string {
+  const spaced = String(value ?? "")
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!spaced) {
+    return "—";
+  }
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { ApiError } from "@/lib/api";
 import { hmrcUserMessage } from "@/lib/errors";
-import { businessTypeLabel, formatDate, formatMoney, obligationStatus } from "@/lib/format";
+import { businessTypeLabel, categoryLabel, formatDate, formatMoney, obligationStatus } from "@/lib/format";
 import { useItsaObligations, useItsaValidation, useSubmitItsaQuarterly } from "@/hooks/useItsaObligations";
 import { useSession } from "@/hooks/useSession";
 import { ErrorBanner } from "@/components/ErrorBanner";
@@ -22,7 +22,7 @@ function TotalsTable({ title, values }: { title: string; values?: Record<string,
         <dl className="mt-4 grid gap-3 sm:grid-cols-2">
           {entries.map(([key, value]) => (
             <div key={key}>
-              <dt className="text-xs uppercase text-ink-muted">{key.replace(/[_-]+/g, " ")}</dt>
+              <dt className="text-xs uppercase text-ink-muted">{categoryLabel(key)}</dt>
               <dd className="mt-1 text-sm font-medium">{formatMoney(value)}</dd>
             </div>
           ))}
@@ -142,8 +142,8 @@ function QuarterlyFlow() {
               <ul className="mt-3 space-y-2 text-sm text-ink-muted">
                 {preview.data.excluded.map((item, index) => (
                   <li key={`${item.category}-${index}`}>
-                    {item.category?.replace(/[_-]+/g, " ")} {formatMoney(item.amount)}
-                    {item.reason ? ` · ${item.reason.replace(/[_-]+/g, " ")}` : ""}
+                    {categoryLabel(item.category)} {formatMoney(item.amount)}
+                    {item.reason ? ` · ${categoryLabel(item.reason)}` : ""}
                   </li>
                 ))}
               </ul>

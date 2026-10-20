@@ -1,4 +1,4 @@
-import { businessTypeLabel, formatMoney, obligationStatus, obligationTypeLabel } from "./format";
+import { businessTypeLabel, categoryLabel, formatMoney, obligationStatus, obligationTypeLabel } from "./format";
 
 describe("businessTypeLabel", () => {
   it("maps sole trade and property businesses", () => {
@@ -26,5 +26,12 @@ describe("obligation labels", () => {
 describe("formatMoney", () => {
   it("formats sterling amounts", () => {
     expect(formatMoney(12500)).toMatch(/12,500\.00/);
+  });
+});
+
+describe("categoryLabel", () => {
+  it("humanises camelCase and snake_case keys", () => {
+    expect(categoryLabel("advertisingAndBusinessPromotion")).toBe("Advertising And Business Promotion");
+    expect(categoryLabel("capital_not_in_quarterly_update")).toBe("Capital not in quarterly update");
   });
 });
