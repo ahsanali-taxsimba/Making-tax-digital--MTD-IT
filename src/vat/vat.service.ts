@@ -10,7 +10,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { TasksService } from "../tasks/tasks.service";
 import { WebhooksService } from "../webhooks/webhooks.service";
-import { PreviewVatReturnDto, SubmitVatReturnDto } from "./dto/vat.dto";
+import { PreviewVatReturnDto, SubmitVatReturnDto, ValidateVatReturnDto } from "./dto/vat.dto";
 import {
   applyAmountToVatBoxes,
   decorateAccountWithVat,
@@ -23,6 +23,7 @@ import {
   VAT_LEDGER_ACCOUNTS,
   VatBoxInput,
 } from "./vat-box.mapping";
+import { toVatReturnView, validateVatReturn, VatReturnView, VatValidationResult } from "./vat-return.validator";
 
 const MANUAL_BOX_FIELDS: Array<keyof VatBoxInput> = [
   "vatDueSales",
@@ -71,7 +72,23 @@ export class VatService {
   async previewReturn(user: AuthUser, clientId: string, dto: PreviewVatReturnDto) {
     await this.clients.get(user, clientId);
     const rolled = await this.rollUpFromLedger(clientId, dto.periodStart, dto.periodEnd);
-    return { ...rolled, periodKey: dto.periodKey };
+    return {
+      ...rolled,
+      periodKey: dto.periodKey,
+      vatReturn: toVatReturnView(rolled.totals),
+      validation: this.validateTotals(rolled.totals, rolled.transactionCount, dto.region),
+    };
+  }
+
+  async validateReturn(user: AuthUser, clientId: string, dto: ValidateVatReturnDto) {
+    await this.clients.get(user, clientId);
+    const { view, totals, transactionCount } = await this.resolveReturnForValidation(clientId, dto);
+    const validation = this.validateTotals(view, transactionCount, dto.region);
+    return {
+      vatReturn: view,
+      totals,
+      validation,
+    };
   }
 
   async obligations(user: AuthUser, clientId: string) {
@@ -132,13 +149,10 @@ export class VatService {
       throw new BadRequestException("HMRC requires the VAT return to be finalised before submission");
     }
     const client = await this.requireVatClient(user, clientId);
-    let totals;
-    if (dto.fromLedger) {
-      const [periodStart, periodEnd] = await this.resolveLedgerPeriod(client.id, dto);
-      totals = (await this.rollUpFromLedger(client.id, periodStart, periodEnd)).totals;
-    } else {
-      totals = this.manualBoxes(dto);
-    }
+    const resolved = await this.resolveReturnForValidation(client.id, dto);
+    const validation = this.validateTotals(resolved.view, resolved.transactionCount, dto.region);
+    this.assertValid(validation);
+    const totals = finaliseVatBoxes(resolved.input);
     const boxes: VatReturnBoxes = {
       periodKey: dto.periodKey,
       ...totals,
@@ -174,7 +188,12 @@ export class VatService {
         actor: user,
         clientId: client.id,
         actionType: "vat.return.submitted",
-        metadata: { correlationId: result.correlationId, periodKey: dto.periodKey, fromLedger: Boolean(dto.fromLedger) },
+        metadata: {
+          correlationId: result.correlationId,
+          periodKey: dto.periodKey,
+          fromLedger: Boolean(dto.fromLedger),
+          warnings: validation.warnings,
+        },
       });
       await this.webhooks.emit(client.firmId, "VAT_RETURN_SUBMITTED", {
         clientId: client.id,
@@ -230,13 +249,46 @@ export class VatService {
     return this.prisma.vatPayment.findMany({ where: { clientId: client.id }, orderBy: { received: "desc" } });
   }
 
-  private manualBoxes(dto: SubmitVatReturnDto) {
+  private async resolveReturnForValidation(clientId: string, dto: SubmitVatReturnDto | ValidateVatReturnDto) {
+    if (dto.fromLedger) {
+      const [periodStart, periodEnd] = await this.resolveLedgerPeriod(clientId, dto);
+      const rolled = await this.rollUpFromLedger(clientId, periodStart, periodEnd);
+      return {
+        view: toVatReturnView(rolled.totals),
+        totals: rolled.totals,
+        input: rolled.totals,
+        transactionCount: rolled.transactionCount,
+      };
+    }
+    const raw = this.readManualBoxes(dto);
+    const view: VatReturnView = {
+      box1: raw.vatDueSales,
+      box2: raw.vatDueAcquisitions,
+      box3: dto.totalVatDue ?? raw.vatDueSales + raw.vatDueAcquisitions,
+      box4: raw.vatReclaimedCurrPeriod,
+      box5: dto.netVatDue ?? raw.vatDueSales + raw.vatDueAcquisitions - raw.vatReclaimedCurrPeriod,
+      box6: raw.totalValueSalesExVAT,
+      box7: raw.totalValuePurchasesExVAT,
+      box8: raw.totalValueGoodsSuppliedExVAT,
+      box9: raw.totalAcquisitionsExVAT,
+    };
+    const [periodStart, periodEnd] = await this.tryResolvePeriod(clientId, dto);
+    const transactionCount = await this.prisma.transaction.count({
+      where: {
+        clientId,
+        ...(periodStart && periodEnd ? { date: { gte: new Date(periodStart), lte: new Date(periodEnd) } } : {}),
+      },
+    });
+    return { view, totals: raw, input: raw, transactionCount };
+  }
+
+  private readManualBoxes(dto: SubmitVatReturnDto | ValidateVatReturnDto): VatBoxInput {
     for (const field of MANUAL_BOX_FIELDS) {
       if (dto[field] === undefined || dto[field] === null) {
         throw new BadRequestException(`${field} is required unless fromLedger is true`);
       }
     }
-    return finaliseVatBoxes({
+    return {
       vatDueSales: dto.vatDueSales!,
       vatDueAcquisitions: dto.vatDueAcquisitions!,
       vatReclaimedCurrPeriod: dto.vatReclaimedCurrPeriod!,
@@ -244,20 +296,57 @@ export class VatService {
       totalValuePurchasesExVAT: dto.totalValuePurchasesExVAT!,
       totalValueGoodsSuppliedExVAT: dto.totalValueGoodsSuppliedExVAT!,
       totalAcquisitionsExVAT: dto.totalAcquisitionsExVAT!,
+    };
+  }
+
+  private validateTotals(
+    source: VatReturnView | ReturnType<typeof finaliseVatBoxes>,
+    transactionCount: number,
+    region?: "GB" | "NI",
+  ): VatValidationResult {
+    const view = "box1" in source ? source : toVatReturnView(source);
+    return validateVatReturn(view, { transactionCount }, { region: region ?? "GB" });
+  }
+
+  private assertValid(validation: VatValidationResult) {
+    if (validation.errors.length === 0) {
+      return;
+    }
+    throw new BadRequestException({
+      message: "VAT return failed validation",
+      errors: validation.errors,
+      warnings: validation.warnings,
     });
   }
 
-  private async resolveLedgerPeriod(clientId: string, dto: SubmitVatReturnDto): Promise<[string, string]> {
+  private async resolveLedgerPeriod(
+    clientId: string,
+    dto: SubmitVatReturnDto | ValidateVatReturnDto,
+  ): Promise<[string, string]> {
+    const resolved = await this.tryResolvePeriod(clientId, dto);
+    if (resolved[0] && resolved[1]) {
+      return [resolved[0], resolved[1]];
+    }
+    throw new BadRequestException("periodStart and periodEnd are required when fromLedger is true");
+  }
+
+  private async tryResolvePeriod(
+    clientId: string,
+    dto: { periodKey?: string; periodStart?: string; periodEnd?: string },
+  ): Promise<[string | undefined, string | undefined]> {
     if (dto.periodStart && dto.periodEnd) {
       return [dto.periodStart, dto.periodEnd];
+    }
+    if (!dto.periodKey) {
+      return [undefined, undefined];
     }
     const obligation = await this.prisma.vatObligation.findUnique({
       where: { clientId_periodKey: { clientId, periodKey: dto.periodKey } },
     });
-    if (obligation) {
+    if (obligation?.start && obligation?.end) {
       return [toIsoDate(obligation.start), toIsoDate(obligation.end)];
     }
-    throw new BadRequestException("periodStart and periodEnd are required when fromLedger is true");
+    return [undefined, undefined];
   }
 
   private async rollUpFromLedger(clientId: string, periodStart: string, periodEnd: string) {
@@ -309,6 +398,7 @@ export class VatService {
     }
 
     const totals = finaliseVatBoxes(input);
+    const transactionCount = accounts.reduce((count, account) => count + account.transactions.length, 0);
     return {
       periodStart,
       periodEnd,
@@ -316,6 +406,7 @@ export class VatService {
       boxes: describeVatBoxes(totals),
       lines,
       excluded,
+      transactionCount,
     };
   }
 

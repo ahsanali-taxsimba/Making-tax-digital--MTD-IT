@@ -7,7 +7,7 @@ import { Roles } from "../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AuthUser } from "../common/types";
-import { PreviewVatReturnDto, SubmitVatReturnDto } from "./dto/vat.dto";
+import { PreviewVatReturnDto, SubmitVatReturnDto, ValidateVatReturnDto } from "./dto/vat.dto";
 import { VatService } from "./vat.service";
 
 @ApiTags("mtd-vat")
@@ -39,6 +39,12 @@ export class VatController {
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   preview(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: PreviewVatReturnDto) {
     return this.vat.previewReturn(user, id, dto);
+  }
+
+  @Post("returns/validate")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  validate(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ValidateVatReturnDto) {
+    return this.vat.validateReturn(user, id, dto);
   }
 
   @Get("obligations")

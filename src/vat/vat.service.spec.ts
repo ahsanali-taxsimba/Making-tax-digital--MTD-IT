@@ -23,6 +23,7 @@ describe("VatService", () => {
     vatObligation: { upsert: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     vatReturn: { create: jest.fn() },
     ledger: { findMany: jest.fn() },
+    transaction: { count: jest.fn().mockResolvedValue(4) },
   };
   const audit = { record: jest.fn() };
   const tasks = { ensure: jest.fn(), complete: jest.fn() };
@@ -127,6 +128,8 @@ describe("VatService", () => {
       expect.objectContaining({ code: 4000, reason: "unmapped" }),
     ]);
     expect(preview.boxes.find((box) => box.id === "box_5")?.value).toBe(1000);
+    expect(preview.validation).toEqual({ valid: true, errors: [], warnings: [] });
+    expect(preview.vatReturn.box5).toBe(1000);
   });
 
   it("submits a finalised VAT return", async () => {
@@ -202,5 +205,38 @@ describe("VatService", () => {
     await expect(service.submit(user, client.id, { periodKey: "26A9", fromLedger: true, finalised: true })).rejects.toThrow(
       "periodStart and periodEnd are required when fromLedger is true",
     );
+  });
+
+  it("blocks submit when box arithmetic is wrong", async () => {
+    prisma.vatObligation.findUnique.mockResolvedValue(null);
+    await expect(
+      service.submit(user, client.id, {
+        periodKey: "26A1",
+        vatDueSales: 1200,
+        vatDueAcquisitions: 0,
+        totalVatDue: 900,
+        vatReclaimedCurrPeriod: 200,
+        netVatDue: 700,
+        totalValueSalesExVAT: 6000,
+        totalValuePurchasesExVAT: 1000,
+        totalValueGoodsSuppliedExVAT: 0,
+        totalAcquisitionsExVAT: 0,
+        finalised: true,
+      }),
+    ).rejects.toThrow("VAT return failed validation");
+    expect(vatGateway.submitReturn).not.toHaveBeenCalled();
+  });
+
+  it("validates a fromLedger return without submitting", async () => {
+    prisma.ledger.findMany.mockResolvedValue([
+      { code: 4000, name: "Equipment", profile: "SOLE_TRADER", transactions: [{ amount: 1500 }] },
+    ]);
+    const result = await service.validateReturn(user, client.id, {
+      fromLedger: true,
+      periodStart: "2026-01-01",
+      periodEnd: "2026-03-31",
+    });
+    expect(result.validation.valid).toBe(false);
+    expect(result.validation.errors).toContain("Return is zero but ledger shows transactions – check mapping.");
   });
 });
