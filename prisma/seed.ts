@@ -17,8 +17,10 @@ import {
 } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
-import { CHART_OF_ACCOUNTS, getChart, toChartProfile, toLedgerAccountType } from "../src/ledger/chart-of-accounts.catalog";
+import { MCC_MAPPING } from "../src/categorisation/domain/mcc.mapping";
+import { MERCHANT_DICTIONARY } from "../src/categorisation/domain/merchant.dictionary";
 import { flattenItsaCatalog } from "../src/itsa/mtd-itsa.mapping";
+import { CHART_OF_ACCOUNTS, getChart, toChartProfile, toLedgerAccountType } from "../src/ledger/chart-of-accounts.catalog";
 
 const prisma = new PrismaClient();
 
@@ -555,9 +557,141 @@ async function main() {
           type: BankTxnDirection.DEBIT,
           description: "Unmatched bank fee",
           externalRef: "STAR-40",
+          merchantName: "Starling",
+          category: "bank_charges",
           status: BankTxnStatus.UNMATCHED,
         },
       ],
+    });
+  }
+
+  const enrichedTxns = [
+    {
+      id: "88888888-8888-4888-8888-888888888801",
+      date: new Date("2026-03-04"),
+      amount: 55,
+      type: BankTxnDirection.DEBIT,
+      description: "BP CONNECT BRIGHTON",
+      externalRef: "STAR-BP-55",
+      merchantName: "BP",
+      category: "fuel",
+      merchantCategoryCode: "5541",
+      transactionCategory: "fuel",
+      location: "Brighton, GB",
+      labels: ["motor"],
+      enrichment: { merchantName: "BP", merchantCategoryCode: "5541" },
+    },
+    {
+      id: "88888888-8888-4888-8888-888888888802",
+      date: new Date("2026-03-06"),
+      amount: 23.4,
+      type: BankTxnDirection.DEBIT,
+      description: "TESCO STORES 2847",
+      externalRef: "STAR-TESCO-2340",
+      merchantName: "Tesco",
+      category: "groceries",
+      merchantCategoryCode: "5411",
+      transactionCategory: "groceries",
+      location: "Brighton, GB",
+      labels: ["supermarket"],
+      enrichment: { merchantName: "Tesco", merchantCategoryCode: "5411" },
+    },
+    {
+      id: "88888888-8888-4888-8888-888888888803",
+      date: new Date("2026-03-08"),
+      amount: 48,
+      type: BankTxnDirection.DEBIT,
+      description: "THE LANE RESTAURANT",
+      externalRef: "STAR-LANE-48",
+      merchantName: "The Lane Restaurant",
+      category: "restaurants",
+      merchantCategoryCode: "5812",
+      transactionCategory: "restaurants",
+      location: "Brighton, GB",
+      labels: ["dining"],
+      enrichment: { merchantName: "The Lane Restaurant", merchantCategoryCode: "5812" },
+    },
+    {
+      id: "88888888-8888-4888-8888-888888888804",
+      date: new Date("2026-03-01"),
+      amount: 12.99,
+      type: BankTxnDirection.DEBIT,
+      description: "ADOBE CREATIVE CLOUD MONTHLY",
+      externalRef: "STAR-ADOBE-1299",
+      merchantName: "Adobe",
+      category: "subscriptions",
+      merchantCategoryCode: "5817",
+      transactionCategory: "subscriptions",
+      labels: ["saas"],
+      enrichment: { merchantName: "Adobe", merchantCategoryCode: "5817" },
+    },
+  ];
+  for (const row of enrichedTxns) {
+    await prisma.bankTransaction.upsert({
+      where: { id: row.id },
+      update: {
+        merchantName: row.merchantName,
+        category: row.category,
+        merchantCategoryCode: row.merchantCategoryCode,
+        transactionCategory: row.transactionCategory,
+        location: row.location,
+        labels: row.labels,
+        enrichment: row.enrichment,
+      },
+      create: {
+        ...row,
+        bankAccountId: "88888888-8888-4888-8888-888888888888",
+        status: BankTxnStatus.UNMATCHED,
+      },
+    });
+  }
+
+  for (const rule of MERCHANT_DICTIONARY) {
+    await prisma.categorisationMerchantRule.upsert({
+      where: { merchantKey: rule.merchantKey },
+      update: {
+        merchantName: rule.merchantName,
+        aliases: rule.aliases,
+        categoryKey: rule.categoryKey,
+        ledgerCode: rule.ledgerCode,
+        taxCodeKind: rule.taxCodeKind,
+        itsaCategory: rule.itsaCategory,
+        confidence: rule.confidence,
+      },
+      create: {
+        merchantKey: rule.merchantKey,
+        merchantName: rule.merchantName,
+        aliases: rule.aliases,
+        categoryKey: rule.categoryKey,
+        ledgerCode: rule.ledgerCode,
+        taxCodeKind: rule.taxCodeKind,
+        itsaCategory: rule.itsaCategory,
+        confidence: rule.confidence,
+      },
+    });
+  }
+  for (const rule of MCC_MAPPING) {
+    await prisma.categorisationMccRule.upsert({
+      where: { mcc: rule.mcc },
+      update: {
+        industry: rule.industry,
+        categoryKey: rule.categoryKey,
+        ledgerCode: rule.ledgerCode,
+        taxCodeKind: rule.taxCodeKind,
+        vatable: rule.vatable,
+        itsaCategory: rule.itsaCategory,
+        confidence: rule.confidence,
+      },
+      create: {
+        mcc: rule.mcc,
+        industry: rule.industry,
+        categoryKey: rule.categoryKey,
+        ledgerCode: rule.ledgerCode,
+        taxCodeKind: rule.taxCodeKind,
+        vatable: rule.vatable,
+        itsaCategory: rule.itsaCategory,
+        confidence: rule.confidence,
+      },
     });
   }
 

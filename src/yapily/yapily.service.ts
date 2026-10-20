@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { BankTxnStatus, JournalSource, YapilyConsentStatus } from "@prisma/client";
+import { BankTxnStatus, JournalSource, Prisma, YapilyConsentStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { BookkeepingRepository } from "../bookkeeping/bookkeeping.repository";
 import { defaultProfileForClientType } from "../ledger/chart-of-accounts.catalog";
@@ -177,6 +177,21 @@ export class YapilyService {
         externalRef: item.id,
         merchantName: enriched.merchantName,
         category: enriched.category,
+        merchantCategoryCode: item.merchantCategoryCode ?? null,
+        transactionCategory: item.transactionCategory ?? enriched.category,
+        location: item.location ?? null,
+        labels: item.labels ?? [],
+        enrichment: {
+          merchantName: enriched.merchantName,
+          category: enriched.category,
+          merchantCategoryCode: item.merchantCategoryCode ?? null,
+          transactionCategory: item.transactionCategory ?? null,
+          location: item.location ?? null,
+          labels: item.labels ?? [],
+          vatHint: enriched.vatHint,
+          itsaBucket: enriched.itsaBucket,
+          raw: item.enrichment ?? null,
+        } as Prisma.InputJsonValue,
       };
       rows.push(
         existing
@@ -413,6 +428,11 @@ export class YapilyService {
     externalRef?: string | null;
     merchantName?: string | null;
     category?: string | null;
+    merchantCategoryCode?: string | null;
+    transactionCategory?: string | null;
+    location?: string | null;
+    labels?: string[];
+    enrichment?: unknown;
     status: string;
     matchedJournalEntryId?: string | null;
     createdAt: Date;
@@ -428,6 +448,11 @@ export class YapilyService {
       description: row.description,
       merchantName: row.merchantName ?? null,
       category: row.category ?? null,
+      merchantCategoryCode: row.merchantCategoryCode ?? null,
+      transactionCategory: row.transactionCategory ?? null,
+      location: row.location ?? null,
+      labels: row.labels ?? [],
+      enrichment: row.enrichment ?? null,
       status: row.status.toLowerCase(),
       matchedJournalEntryId: row.matchedJournalEntryId ?? null,
       createdAt: row.createdAt,

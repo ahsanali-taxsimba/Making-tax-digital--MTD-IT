@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { BookkeepingModule } from "./bookkeeping/bookkeeping.module";
+import { CategorisationModule } from "./categorisation/categorisation.module";
 import { ClientsModule } from "./clients/clients.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
@@ -55,6 +56,7 @@ import { YapilyModule } from "./yapily/yapily.module";
     ChartOfAccountsModule,
     LedgerModule,
     BookkeepingModule,
+    CategorisationModule,
     YapilyModule,
     PortalModule,
   ],

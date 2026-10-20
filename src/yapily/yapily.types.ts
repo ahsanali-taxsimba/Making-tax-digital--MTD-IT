@@ -24,6 +24,11 @@ export interface YapilyTransaction {
   description: string;
   merchantName?: string | null;
   category?: string | null;
+  merchantCategoryCode?: string | null;
+  transactionCategory?: string | null;
+  location?: string | null;
+  labels?: string[];
+  enrichment?: Record<string, unknown> | null;
   transactionType?: string | null;
 }
 

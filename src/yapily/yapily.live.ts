@@ -92,7 +92,12 @@ interface RawTransaction {
   transactionInformation?: string;
   description?: string;
   proprietaryBankTransactionCode?: { issuer?: string; code?: string };
-  enrichment?: { merchant?: { merchantName?: string; name?: string }; transaction?: { transactionCategory?: string } };
+  enrichment?: {
+    merchant?: { merchantName?: string; name?: string; merchantCategoryCode?: string };
+    transaction?: { transactionCategory?: string };
+    location?: { town?: string; city?: string; country?: string };
+    labels?: string[];
+  };
 }
 
 interface RawBalance {
@@ -119,6 +124,9 @@ function mapAccount(row: RawAccount): YapilyAccount {
 function mapTransaction(row: RawTransaction): YapilyTransaction {
   const amount = Number(row.amount ?? 0);
   const type: "CREDIT" | "DEBIT" = amount < 0 ? "DEBIT" : "CREDIT";
+  const location = [row.enrichment?.location?.town, row.enrichment?.location?.city, row.enrichment?.location?.country]
+    .filter(Boolean)
+    .join(", ");
   return {
     id: row.id ?? "",
     date: (row.bookingDateTime ?? row.valueDateTime ?? new Date().toISOString()).slice(0, 10),
@@ -127,6 +135,11 @@ function mapTransaction(row: RawTransaction): YapilyTransaction {
     description: row.description ?? row.transactionInformation ?? "Bank transaction",
     merchantName: row.enrichment?.merchant?.merchantName ?? row.enrichment?.merchant?.name ?? null,
     category: row.enrichment?.transaction?.transactionCategory ?? row.proprietaryBankTransactionCode?.code ?? null,
+    merchantCategoryCode: row.enrichment?.merchant?.merchantCategoryCode ?? null,
+    transactionCategory: row.enrichment?.transaction?.transactionCategory ?? null,
+    location: location || null,
+    labels: row.enrichment?.labels ?? [],
+    enrichment: row.enrichment ?? null,
     transactionType: type,
   };
 }
