@@ -77,6 +77,14 @@ curl -s "http://localhost:3000/bookkeeping/itsa/summary?clientId=$CLIENT_ID&busi
 Seeded Amelia Hartley already has a Q1 VAT invoice/bill and Q1 2025-26 ITSA journals, plus bank account `88888888-8888-4888-8888-888888888888`. Unmatched Yapily lines `MATCH-INV-1001` (£7,200 credit) and `MATCH-BILL-88` (£1,200 debit) are ready for invoice/bill matching.
 
 ```bash
+curl -s -X POST http://localhost:3000/yapily/transactions/sync \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"clientId":"'"$CLIENT_ID"'","from":"2026-01-01","to":"2026-06-30","autoPost":true}'
+curl -s "http://localhost:3000/yapily/pipeline?clientId=$CLIENT_ID" -H "Authorization: Bearer $TOKEN"
+```
+
+```bash
 curl -s "http://localhost:3000/matching/suggestions?clientId=$CLIENT_ID" -H "Authorization: Bearer $TOKEN"
 curl -s -X POST http://localhost:3000/matching/apply \
   -H "Authorization: Bearer $TOKEN" \

@@ -21,8 +21,6 @@ describe("YapilyService", () => {
   const crypto = { encrypt: jest.fn((value: string) => `enc:${value}`), decrypt: jest.fn((value: string) => value.replace(/^enc:/, "")) };
   const audit = { record: jest.fn() };
   const config = { get: jest.fn((key: string) => (key === "yapily.mode" ? "mock" : key === "yapily.defaultInstitution" ? "modelo-sandbox" : "http://localhost:3000/yapily/consent/callback")) };
-  const books = { listInvoices: jest.fn(), listBills: jest.fn(), listLedgers: jest.fn() };
-  const journals = { post: jest.fn() };
   const bank = { transactions: jest.fn() };
   const gateway = {
     createAuthRequest: jest.fn(),
@@ -36,8 +34,6 @@ describe("YapilyService", () => {
     crypto as never,
     audit as never,
     config as never,
-    books as never,
-    journals as never,
     bank as never,
     gateway as never,
   );

@@ -80,6 +80,13 @@ export class YapilyRepository {
     });
   }
 
+  listClientBankAccounts(clientId: string) {
+    return this.prisma.bankAccount.findMany({
+      where: { clientId },
+      orderBy: { name: "asc" },
+    });
+  }
+
   findTransaction(bankAccountId: string, externalRef: string) {
     return this.prisma.bankTransaction.findFirst({ where: { bankAccountId, externalRef } });
   }

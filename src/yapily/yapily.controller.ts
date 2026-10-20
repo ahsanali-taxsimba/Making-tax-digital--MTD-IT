@@ -8,19 +8,25 @@ import { Roles } from "../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AuthUser } from "../common/types";
+import { BankFeedPipelineService } from "./bank-feed-pipeline.service";
 import {
   YapilyAccountsQueryDto,
   YapilyConsentCallbackQueryDto,
   YapilyConsentStartDto,
   YapilyConsentStatusQueryDto,
+  YapilyPipelineQueryDto,
   YapilyTransactionsQueryDto,
+  YapilyTransactionSyncDto,
 } from "./dto/yapily.dto";
 import { YapilyService } from "./yapily.service";
 
 @ApiTags("yapily")
 @Controller("yapily")
 export class YapilyController {
-  constructor(private readonly yapily: YapilyService) {}
+  constructor(
+    private readonly yapily: YapilyService,
+    private readonly pipeline: BankFeedPipelineService,
+  ) {}
 
   @Post("consent/start")
   @ApiBearerAuth()
@@ -68,13 +74,43 @@ export class YapilyController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT)
-  @ApiOperation({ summary: "Fetch Yapily transactions, enrich them, and optionally auto-post journals" })
+  @ApiOperation({ summary: "Fetch Yapily transactions and enrich them; autoPost runs the full bank-feed pipeline" })
   transactions(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Query() query: YapilyTransactionsQueryDto,
   ) {
+    if (query.autoPost) {
+      return this.pipeline.run(user, {
+        bankAccountId: id,
+        from: query.from,
+        to: query.to,
+        autoPost: true,
+        autoMatch: true,
+        autoCategorise: true,
+      });
+    }
     return this.yapily.syncTransactions(user, id, query);
+  }
+
+  @Post("transactions/sync")
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT)
+  @ApiOperation({
+    summary: "Run the end-to-end bank feed: sync, enrich, categorise, match, reconcile, and optionally post journals",
+  })
+  sync(@CurrentUser() user: AuthUser, @Body() dto: YapilyTransactionSyncDto) {
+    return this.pipeline.run(user, dto);
+  }
+
+  @Get("pipeline")
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT)
+  @ApiOperation({ summary: "Consent, accounts, and reconciliation status for the bank-feed workspace" })
+  pipelineStatus(@CurrentUser() user: AuthUser, @Query() query: YapilyPipelineQueryDto) {
+    return this.pipeline.status(user, query);
   }
 
   @Get("accounts/:id/balance")

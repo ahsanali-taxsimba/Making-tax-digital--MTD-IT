@@ -68,6 +68,57 @@ export class YapilyAccountsQueryDto {
   clientId!: string;
 }
 
+export class YapilyTransactionSyncDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  clientId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  bankAccountId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+
+  @ApiPropertyOptional({ description: "Persist categorisation suggestions (default true)" })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  autoCategorise?: boolean;
+
+  @ApiPropertyOptional({ description: "Persist invoice/bill match suggestions (default true)" })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  autoMatch?: boolean;
+
+  @ApiPropertyOptional({ description: "Apply high-confidence matches and categorisations, posting journals" })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  autoPost?: boolean;
+}
+
+export class YapilyPipelineQueryDto {
+  @ApiProperty()
+  @IsUUID()
+  clientId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  bankAccountId?: string;
+}
+
 export class YapilyTransactionsQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
