@@ -749,6 +749,7 @@ model SalesInvoice {
   date        DateTime
   dueDate     DateTime
   status      DocumentStatus @default(DRAFT)
+  invoiceNumber String?
   netTotal    Decimal        @db.Decimal(14, 2)
   vatTotal    Decimal        @db.Decimal(14, 2)
   grossTotal  Decimal        @db.Decimal(14, 2)
@@ -781,6 +782,7 @@ model PurchaseBill {
   date        DateTime
   dueDate     DateTime
   status      DocumentStatus @default(DRAFT)
+  invoiceNumber String?
   netTotal    Decimal        @db.Decimal(14, 2)
   vatTotal    Decimal        @db.Decimal(14, 2)
   grossTotal  Decimal        @db.Decimal(14, 2)
@@ -1172,6 +1174,10 @@ model DocumentFile {
   vatReturn          VatReturn?   @relation(fields: [vatReturnId], references: [id])
   itsaSubmissionId   String?
   itsaSubmission     ItsaUpdate?  @relation(fields: [itsaSubmissionId], references: [id])
+  extractedData         Json?
+  extractionStatus      ExtractionStatus @default(NOT_STARTED)
+  extractionConfidence  Decimal?         @db.Decimal(4, 3)
+  extractionLogs        InvoiceExtractionLog[]
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   tagLinks           DocumentFileOnTag[]
@@ -1184,4 +1190,24 @@ model DocumentFile {
   @@index([journalEntryId])
   @@index([vatReturnId])
   @@index([itsaSubmissionId])
+}
+
+enum ExtractionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model InvoiceExtractionLog {
+  id           String           @id @default(uuid())
+  documentId   String
+  document     DocumentFile     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  status       ExtractionStatus
+  confidence   Decimal?         @db.Decimal(4, 3)
+  extractedData Json
+  warnings     Json             @default("[]")
+  createdAt    DateTime         @default(now())
+
+  @@index([documentId, createdAt])
 }
