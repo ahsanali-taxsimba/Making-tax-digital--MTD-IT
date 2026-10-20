@@ -18,7 +18,7 @@ controllers  →  application services  →  repositories / Prisma
 
 - **Tenancy:** every user belongs to a firm. Accountants see firm clients; client-portal users only see their linked client.
 - **RBAC:** `ADMIN`, `ACCOUNTANT`, `CLIENT`.
-- **HMRC:** OAuth authorisation-code flow, automatic token refresh, fraud-prevention headers, correlation IDs stored on every interaction.
+- **HMRC OAuth:** dedicated `/hmrc/oauth/*` module for start, callback, status, disconnect, encrypted tokens, per-environment app config, and `getValidAccessToken()` for VAT/ITSA. Automatic refresh runs on demand and in the background.
 - **Envelope:** `{ data, error }` on every response.
 - **Charts of accounts:** landlord, sole trader, and company templates are provisioned when a client is created. Extra profiles can be applied later (for example a sole trader who also lets property).
 - **ITSA engine:** quarterly updates, EOPS, and Final Declaration go through a coded validator (period, category, capital exclusion, zero-update, missing EOPS/FD). Public routes live at `/itsa/*`; client-scoped aliases remain at `/clients/:id/itsa/*`.
@@ -64,19 +64,20 @@ npm run start:dev
 
 1. Create an application on the [HMRC Developer Hub](https://developer.service.hmrc.gov.uk/).
 2. Subscribe to **VAT (MTD)**, **Obligations (MTD)**, **Self Employment Business**, **Property Business**, **Individuals Business End of Period Statement**, and **Individual Calculations**.
-3. Add redirect URI `http://localhost:3000/mtd/callback` (or your staging URL).
+3. Add redirect URI `http://localhost:3000/hmrc/oauth/callback` (the legacy `/mtd/callback` alias still works).
 4. Put the client id/secret in `.env` and set:
 
 ```env
 HMRC_MODE=live
 HMRC_ENVIRONMENT=sandbox
-HMRC_CLIENT_ID=...
-HMRC_CLIENT_SECRET=...
-HMRC_REDIRECT_URI=http://localhost:3000/mtd/callback
+HMRC_SANDBOX_CLIENT_ID=...
+HMRC_SANDBOX_CLIENT_SECRET=...
+HMRC_SANDBOX_REDIRECT_URI=http://localhost:3000/hmrc/oauth/callback
+HMRC_SANDBOX_BASE_URL=https://test-api.service.hmrc.gov.uk
 ```
 
 5. Create a sandbox organisation (VAT) and individual (ITSA) test user.
-6. `POST /clients/:id/mtd/start-auth` and complete the HMRC grant screen.
+6. `GET /hmrc/oauth/start?clientId=&environment=sandbox` and complete the HMRC grant screen.
 7. Fetch obligations, then submit a VAT return or quarterly update.
 
 Fraud-prevention headers are attached on every live HMRC call. Production access still requires HMRC’s own approval process.

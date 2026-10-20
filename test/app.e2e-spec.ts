@@ -96,6 +96,7 @@ describe("MTD API (e2e)", () => {
     bankAccount: { findMany: jest.fn().mockResolvedValue([]) },
     oauthState: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
     mtdConnection: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    hmrcAppConfig: { upsert: jest.fn(), findUnique: jest.fn() },
     auditLog: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     webhookEvent: { create: jest.fn(), update: jest.fn() },
     webhookEndpoint: { findMany: jest.fn().mockResolvedValue([]) },
@@ -168,6 +169,20 @@ describe("MTD API (e2e)", () => {
       .set("Authorization", `Bearer ${token}`)
       .expect(201);
     expect(start.body.data.redirectUrl).toContain("oauth/authorize");
+
+    const oauthStart = await request(app.getHttpServer())
+      .get("/hmrc/oauth/start")
+      .query({ clientId: "22222222-2222-4222-8222-222222222222", environment: "sandbox" })
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(oauthStart.body.data.authorizationUrl).toContain("oauth/authorize");
+
+    const oauthStatus = await request(app.getHttpServer())
+      .get("/hmrc/oauth/status")
+      .query({ clientId: "22222222-2222-4222-8222-222222222222", environment: "sandbox" })
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(oauthStatus.body.data.connected).toBe(false);
 
     const vatMapping = await request(app.getHttpServer()).get("/vat/mapping").set("Authorization", `Bearer ${token}`).expect(200);
     expect(vatMapping.body.data.boxes.box_5.name).toContain("Net VAT");

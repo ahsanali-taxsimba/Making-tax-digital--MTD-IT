@@ -13,17 +13,48 @@ export default () => ({
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? "",
   hmrc: {
     mode: (process.env.HMRC_MODE ?? "mock") as "mock" | "live",
-    environment: (process.env.HMRC_ENVIRONMENT ?? "sandbox") as "sandbox" | "live",
-    clientId: process.env.HMRC_CLIENT_ID ?? "",
-    clientSecret: process.env.HMRC_CLIENT_SECRET ?? "",
-    redirectUri: process.env.HMRC_REDIRECT_URI ?? "http://localhost:3000/mtd/callback",
-    sandboxApiBase: process.env.HMRC_SANDBOX_API_BASE ?? "https://test-api.service.hmrc.gov.uk",
-    liveApiBase: process.env.HMRC_LIVE_API_BASE ?? "https://api.service.hmrc.gov.uk",
+    environment: (process.env.HMRC_ENVIRONMENT ?? "sandbox") as "sandbox" | "live" | "dev",
+    clientId: process.env.HMRC_SANDBOX_CLIENT_ID || process.env.HMRC_CLIENT_ID || "",
+    clientSecret: process.env.HMRC_SANDBOX_CLIENT_SECRET || process.env.HMRC_CLIENT_SECRET || "",
+    redirectUri:
+      process.env.HMRC_SANDBOX_REDIRECT_URI ||
+      process.env.HMRC_REDIRECT_URI ||
+      "http://localhost:3000/hmrc/oauth/callback",
+    sandboxApiBase:
+      process.env.HMRC_SANDBOX_BASE_URL ||
+      process.env.HMRC_SANDBOX_API_BASE ||
+      "https://test-api.service.hmrc.gov.uk",
+    liveApiBase: process.env.HMRC_LIVE_BASE_URL || process.env.HMRC_LIVE_API_BASE || "https://api.service.hmrc.gov.uk",
     sandboxAuthBase: process.env.HMRC_SANDBOX_AUTH_BASE ?? "https://test-www.tax.service.gov.uk",
     liveAuthBase: process.env.HMRC_LIVE_AUTH_BASE ?? "https://www.tax.service.gov.uk",
     scopes: (process.env.HMRC_SCOPES ?? "read:vat write:vat read:self-assessment write:self-assessment")
       .split(/\s+/)
       .filter(Boolean),
+    refreshSkewMs: parseInt(process.env.HMRC_TOKEN_REFRESH_SKEW_MS ?? "60000", 10),
+    refreshIntervalMs: parseInt(process.env.HMRC_TOKEN_REFRESH_INTERVAL_MS ?? "300000", 10),
+    sandbox: {
+      clientId: process.env.HMRC_SANDBOX_CLIENT_ID || process.env.HMRC_CLIENT_ID || "",
+      clientSecret: process.env.HMRC_SANDBOX_CLIENT_SECRET || process.env.HMRC_CLIENT_SECRET || "",
+      redirectUri:
+        process.env.HMRC_SANDBOX_REDIRECT_URI ||
+        process.env.HMRC_REDIRECT_URI ||
+        "http://localhost:3000/hmrc/oauth/callback",
+      baseUrl:
+        process.env.HMRC_SANDBOX_BASE_URL ||
+        process.env.HMRC_SANDBOX_API_BASE ||
+        "https://test-api.service.hmrc.gov.uk",
+      authBaseUrl: process.env.HMRC_SANDBOX_AUTH_BASE ?? "https://test-www.tax.service.gov.uk",
+    },
+    live: {
+      clientId: process.env.HMRC_LIVE_CLIENT_ID || process.env.HMRC_CLIENT_ID || "",
+      clientSecret: process.env.HMRC_LIVE_CLIENT_SECRET || process.env.HMRC_CLIENT_SECRET || "",
+      redirectUri:
+        process.env.HMRC_LIVE_REDIRECT_URI ||
+        process.env.HMRC_REDIRECT_URI ||
+        "http://localhost:3000/hmrc/oauth/callback",
+      baseUrl: process.env.HMRC_LIVE_BASE_URL || process.env.HMRC_LIVE_API_BASE || "https://api.service.hmrc.gov.uk",
+      authBaseUrl: process.env.HMRC_LIVE_AUTH_BASE ?? "https://www.tax.service.gov.uk",
+    },
   },
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL_SECONDS ?? "60", 10) * 1000,

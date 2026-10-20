@@ -100,22 +100,28 @@ curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/itsa/updates \
 ## 3. Connect HMRC
 
 ```bash
-curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/mtd/start-auth \
+curl -s "http://localhost:3000/hmrc/oauth/start?clientId=$CLIENT_ID&environment=sandbox" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Open `redirectUrl` in a browser. In `HMRC_MODE=mock` you can complete the grant by calling the callback yourself:
+Open `authorizationUrl` in a browser. In `HMRC_MODE=mock` you can complete the grant by calling the callback yourself:
 
 ```bash
-curl -s "http://localhost:3000/mtd/callback?code=sandbox-code&state=$STATE"
+curl -s "http://localhost:3000/hmrc/oauth/callback?code=sandbox-code&state=$STATE&environment=sandbox"
 ```
 
-Check status:
+Check status or disconnect:
 
 ```bash
-curl -s http://localhost:3000/clients/$CLIENT_ID/mtd/status \
+curl -s "http://localhost:3000/hmrc/oauth/status?clientId=$CLIENT_ID&environment=sandbox" \
   -H "Authorization: Bearer $TOKEN"
+curl -s -X POST http://localhost:3000/hmrc/oauth/disconnect \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"clientId":"'"$CLIENT_ID"'","environment":"sandbox"}'
 ```
+
+Legacy aliases `POST /clients/:id/mtd/start-auth`, `GET /mtd/callback`, and `GET /clients/:id/mtd/status` still work.
 
 ## 4. Fetch obligations and work the task list
 

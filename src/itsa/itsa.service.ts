@@ -5,7 +5,7 @@ import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
 import { HMRC_ITSA } from "../hmrc/hmrc.tokens";
 import { HmrcItsaGateway } from "../hmrc/hmrc.types";
-import { MtdConnectionService } from "../hmrc/mtd-connection.service";
+import { HmrcOAuthService } from "../hmrc/oauth/hmrc-oauth.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { TasksService } from "../tasks/tasks.service";
 import { WebhooksService } from "../webhooks/webhooks.service";
@@ -31,7 +31,7 @@ import { chartProfileForBusinessType, lookupItsaMapping, MTD_ITSA_MAPPING } from
 export class ItsaService {
   constructor(
     @Inject(HMRC_ITSA) private readonly itsa: HmrcItsaGateway,
-    private readonly connections: MtdConnectionService,
+    private readonly connections: HmrcOAuthService,
     private readonly clients: ClientsService,
     private readonly repo: ItsaRepository,
     private readonly audit: AuditService,

@@ -9,6 +9,7 @@ import {
 import { Response } from "express";
 import { BookkeepingError } from "../../bookkeeping/bookkeeping.errors";
 import { HmrcApiError } from "../../hmrc/hmrc.errors";
+import { HmrcOAuthError } from "../../hmrc/oauth/hmrc-oauth.errors";
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -16,6 +17,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+
+    if (exception instanceof HmrcOAuthError) {
+      const body = exception.getResponse();
+      const message =
+        typeof body === "object" && body && "message" in body
+          ? String((body as { message: string }).message)
+          : exception.message;
+      response.status(exception.getStatus()).json({
+        data: null,
+        error: {
+          code: exception.errorCode,
+          errorCode: exception.errorCode,
+          message,
+          details: typeof body === "object" ? body : undefined,
+        },
+      });
+      return;
+    }
 
     if (exception instanceof BookkeepingError) {
       const body = exception.getResponse();

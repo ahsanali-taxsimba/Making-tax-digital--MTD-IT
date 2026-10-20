@@ -3,7 +3,7 @@ import { ObligationStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
-import { MtdConnectionService } from "../hmrc/mtd-connection.service";
+import { HmrcOAuthService } from "../hmrc/oauth/hmrc-oauth.service";
 import { HMRC_VAT } from "../hmrc/hmrc.tokens";
 import { HmrcVatGateway, VatReturnBoxes } from "../hmrc/hmrc.types";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -37,7 +37,7 @@ import {
 export class VatService {
   constructor(
     @Inject(HMRC_VAT) private readonly vat: HmrcVatGateway,
-    private readonly connections: MtdConnectionService,
+    private readonly connections: HmrcOAuthService,
     private readonly clients: ClientsService,
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,

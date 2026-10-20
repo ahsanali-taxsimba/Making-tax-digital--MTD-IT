@@ -1,5 +1,5 @@
 import { Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -19,6 +19,7 @@ export class MtdController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: "Legacy alias for GET /hmrc/oauth/start" })
   startAuth(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.connections.startAuth(user, id);
   }

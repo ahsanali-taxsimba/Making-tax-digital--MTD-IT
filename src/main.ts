@@ -17,7 +17,7 @@ async function bootstrap() {
   const swagger = new DocumentBuilder()
     .setTitle("Making Tax Digital IT API")
     .setDescription(
-      "Multi-tenant MTD backend for VAT (Notice 700/12 boxes 1–9), Income Tax (ITSA), and double-entry bookkeeping",
+      "Multi-tenant MTD backend for VAT, Income Tax (ITSA), double-entry bookkeeping, and HMRC OAuth2 token management",
     )
     .setVersion("1.0.0")
     .addBearerAuth()

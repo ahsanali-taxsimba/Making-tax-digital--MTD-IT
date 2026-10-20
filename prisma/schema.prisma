@@ -212,6 +212,7 @@ model Business {
   itsaEops        ItsaEndOfPeriodStatement[]
 }
 
+/// HMRC OAuth connection. Access and refresh tokens are stored encrypted.
 model MtdConnection {
   id              String          @id @default(uuid())
   clientId        String
@@ -222,10 +223,24 @@ model MtdConnection {
   refreshTokenEnc String
   tokenExpiresAt  DateTime
   environment     HmrcEnvironment @default(SANDBOX)
+  disconnectedAt  DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
   @@unique([clientId, environment])
+}
+
+/// HMRC developer-app credentials per environment (sandbox / live).
+model HmrcAppConfig {
+  id              String          @id @default(uuid())
+  environment     HmrcEnvironment @unique
+  clientId        String
+  clientSecretEnc String
+  redirectUri     String
+  baseUrl         String
+  authBaseUrl     String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }
 
 model OauthState {

@@ -149,4 +149,8 @@ export class MockHmrcOAuthGateway implements HmrcOAuthGateway {
       expiresIn: 14400,
     };
   }
+
+  async revoke() {
+    return;
+  }
 }

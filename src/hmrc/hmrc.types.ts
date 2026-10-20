@@ -129,4 +129,5 @@ export interface HmrcOAuthGateway {
     expiresIn: number;
     scope?: string;
   }>;
+  revoke?(params: { token: string; environment: HmrcEnvironment }): Promise<void>;
 }

@@ -7,21 +7,30 @@ import { LiveHmrcItsaGateway, LiveHmrcOAuthGateway, LiveHmrcVatGateway } from ".
 import { MockHmrcItsaGateway, MockHmrcOAuthGateway, MockHmrcVatGateway } from "./hmrc.mock";
 import { MtdConnectionService } from "./mtd-connection.service";
 import { MtdController } from "./mtd.controller";
+import { HmrcAppConfigService } from "./oauth/hmrc-app-config.service";
+import { HmrcOAuthController } from "./oauth/hmrc-oauth.controller";
+import { HmrcOAuthRepository } from "./oauth/hmrc-oauth.repository";
+import { HmrcOAuthService } from "./oauth/hmrc-oauth.service";
+import { HmrcTokenRefreshService } from "./oauth/hmrc-token-refresh.service";
 import { HmrcItsaGateway, HmrcOAuthGateway, HmrcVatGateway } from "./hmrc.types";
 import { HMRC_ITSA, HMRC_OAUTH, HMRC_VAT } from "./hmrc.tokens";
 
 @Module({
   imports: [ClientsModule],
-  controllers: [MtdController],
+  controllers: [MtdController, HmrcOAuthController],
   providers: [
     TokenCryptoService,
     HmrcHttpClient,
+    HmrcAppConfigService,
+    HmrcOAuthRepository,
     MockHmrcVatGateway,
     MockHmrcItsaGateway,
     MockHmrcOAuthGateway,
     LiveHmrcVatGateway,
     LiveHmrcItsaGateway,
     LiveHmrcOAuthGateway,
+    HmrcOAuthService,
+    HmrcTokenRefreshService,
     MtdConnectionService,
     {
       provide: HMRC_VAT,
@@ -42,6 +51,6 @@ import { HMRC_ITSA, HMRC_OAUTH, HMRC_VAT } from "./hmrc.tokens";
         config.get("hmrc.mode") === "live" ? live : mock,
     },
   ],
-  exports: [MtdConnectionService, TokenCryptoService, HMRC_VAT, HMRC_ITSA, HMRC_OAUTH],
+  exports: [HmrcOAuthService, MtdConnectionService, TokenCryptoService, HMRC_VAT, HMRC_ITSA, HMRC_OAUTH],
 })
 export class HmrcModule {}

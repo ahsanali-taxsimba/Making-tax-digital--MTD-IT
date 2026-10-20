@@ -1,7 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { HmrcEnvironment } from "@prisma/client";
 import { HmrcHttpClient } from "./hmrc.http";
+import { HmrcAppConfigService } from "./oauth/hmrc-app-config.service";
+import { buildHmrcAuthorizeUrl } from "./oauth/hmrc-oauth.utils";
 import {
   EopsPayload,
   FinalDeclarationPayload,
@@ -20,26 +21,20 @@ import { mapHmrcError } from "./hmrc.errors";
 @Injectable()
 export class LiveHmrcOAuthGateway implements HmrcOAuthGateway {
   constructor(
-    private readonly config: ConfigService,
+    private readonly apps: HmrcAppConfigService,
     private readonly http: HmrcHttpClient,
   ) {}
 
   buildAuthorizeUrl(params: { state: string; scopes: string[]; environment: HmrcEnvironment }): string {
-    const authBase = this.http.authBase(params.environment);
-    const url = new URL("/oauth/authorize", authBase);
-    url.searchParams.set("response_type", "code");
-    url.searchParams.set("client_id", this.config.get<string>("hmrc.clientId") ?? "");
-    url.searchParams.set("scope", params.scopes.join(" "));
-    url.searchParams.set("state", params.state);
-    url.searchParams.set("redirect_uri", this.config.get<string>("hmrc.redirectUri") ?? "");
-    return url.toString();
+    return buildHmrcAuthorizeUrl(this.apps.requireSettings(params.environment, true), params.state, params.scopes);
   }
 
   async exchangeCode(params: { code: string; environment: HmrcEnvironment }) {
-    return this.token(params.environment, {
+    const app = this.apps.requireSettings(params.environment, true);
+    return this.token(app.environment, {
       grant_type: "authorization_code",
       code: params.code,
-      redirect_uri: this.config.get<string>("hmrc.redirectUri") ?? "",
+      redirect_uri: app.redirectUri,
     });
   }
 
@@ -50,14 +45,31 @@ export class LiveHmrcOAuthGateway implements HmrcOAuthGateway {
     });
   }
 
+  async revoke(params: { token: string; environment: HmrcEnvironment }) {
+    const app = this.apps.requireSettings(params.environment, true);
+    const payload = new URLSearchParams({
+      token: params.token,
+      client_id: app.clientId,
+      client_secret: app.clientSecret,
+    });
+    const response = await fetch(new URL("/oauth/revoke", app.baseUrl), {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: payload.toString(),
+    });
+    if (!response.ok && response.status !== 404) {
+      throw mapHmrcError(response.status, await response.json().catch(() => ({})));
+    }
+  }
+
   private async token(environment: HmrcEnvironment, body: Record<string, string>) {
-    const apiBase = this.http.apiBase(environment);
+    const app = this.apps.requireSettings(environment, true);
     const payload = new URLSearchParams({
       ...body,
-      client_id: this.config.get<string>("hmrc.clientId") ?? "",
-      client_secret: this.config.get<string>("hmrc.clientSecret") ?? "",
+      client_id: app.clientId,
+      client_secret: app.clientSecret,
     });
-    const response = await fetch(new URL("/oauth/token", apiBase), {
+    const response = await fetch(new URL("/oauth/token", app.baseUrl), {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: payload.toString(),
