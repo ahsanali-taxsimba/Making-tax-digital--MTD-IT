@@ -27,44 +27,80 @@ export class AuditService {
     const resourceType = input.resourceType ?? inferResourceType(action, metadata);
     const resourceId = input.resourceId ?? inferResourceId(metadata);
     const createdAt = new Date();
-    const previous = firmId
-      ? await this.prisma.auditLog.findFirst({
-          where: { firmId },
-          orderBy: { createdAt: "desc" },
-          select: { entryHash: true },
-        })
-      : null;
-    const prevHash = previous?.entryHash ?? null;
-    const entryHash = hashAuditEntry({
-      prevHash,
+    await this.appendHashedEntry({
+      actorUserId: input.actor?.id ?? null,
       firmId,
       clientId,
-      userId: input.actor?.id ?? null,
       action,
       resourceType,
       resourceId,
       beforeData: input.beforeData ?? null,
       afterData: input.afterData ?? null,
       metadata,
-      createdAt: createdAt.toISOString(),
+      createdAt,
     });
-    await this.prisma.auditLog.create({
-      data: {
-        actorUserId: input.actor?.id,
-        firmId,
-        clientId,
-        actionType: action,
-        action,
-        resourceType,
-        resourceId,
-        beforeData: (input.beforeData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-        afterData: (input.afterData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-        metadata: metadata as Prisma.InputJsonValue,
-        prevHash,
-        entryHash,
-        createdAt,
-      },
-    });
+  }
+
+  private async appendHashedEntry(row: {
+    actorUserId: string | null;
+    firmId: string | null;
+    clientId: string | null;
+    action: string;
+    resourceType: string | null;
+    resourceId: string | null;
+    beforeData: unknown;
+    afterData: unknown;
+    metadata: Record<string, unknown>;
+    createdAt: Date;
+  }, attempt = 0): Promise<void> {
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const previous = row.firmId
+          ? await tx.auditLog.findFirst({
+              where: { firmId: row.firmId },
+              orderBy: { createdAt: "desc" },
+              select: { entryHash: true },
+            })
+          : null;
+        const prevHash = previous?.entryHash ?? null;
+        const entryHash = hashAuditEntry({
+          prevHash,
+          firmId: row.firmId,
+          clientId: row.clientId,
+          userId: row.actorUserId,
+          action: row.action,
+          resourceType: row.resourceType,
+          resourceId: row.resourceId,
+          beforeData: row.beforeData,
+          afterData: row.afterData,
+          metadata: row.metadata,
+          createdAt: row.createdAt.toISOString(),
+        });
+        await tx.auditLog.create({
+          data: {
+            actorUserId: row.actorUserId ?? undefined,
+            firmId: row.firmId,
+            clientId: row.clientId,
+            actionType: row.action,
+            action: row.action,
+            resourceType: row.resourceType,
+            resourceId: row.resourceId,
+            beforeData: (row.beforeData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+            afterData: (row.afterData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+            metadata: row.metadata as Prisma.InputJsonValue,
+            prevHash,
+            entryHash,
+            createdAt: row.createdAt,
+          },
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (attempt < 3 && (isUniqueViolation(error) || isSerializationFailure(error))) {
+        await this.appendHashedEntry(row, attempt + 1);
+        return;
+      }
+      throw error;
+    }
   }
 
   async record(params: {
@@ -231,4 +267,12 @@ export class AuditService {
       throw new ForbiddenException("Clients can only see their own audit trail");
     }
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "P2002");
+}
+
+function isSerializationFailure(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "P2034");
 }

@@ -6,13 +6,18 @@ import { AuditService } from "./audit.service";
 import { hashAuditEntry } from "./domain/hash";
 
 describe("AuditService", () => {
-  const prisma = {
+  const prisma: {
+    auditLog: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock };
+    $transaction: jest.Mock;
+  } = {
     auditLog: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       create: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
+  prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma));
   const authz = {
     isPlatform: jest.fn(),
     assertCanAccessClientData: jest.fn(),

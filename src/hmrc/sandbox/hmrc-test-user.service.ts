@@ -55,6 +55,7 @@ export class HmrcTestUserService implements OnModuleInit {
       : this.mockUser(kind, services);
     const saved = await this.prisma.hmrcSandboxTestUser.create({
       data: {
+        firmId: user.firmId || null,
         kind,
         hmrcUserId: created.userId,
         passwordEnc: this.crypto.encrypt(created.password),
@@ -80,13 +81,18 @@ export class HmrcTestUserService implements OnModuleInit {
     return this.present(saved, created.password);
   }
 
-  async list() {
-    const rows = await this.prisma.hmrcSandboxTestUser.findMany({ orderBy: { createdAt: "desc" } });
+  async list(user?: AuthUser) {
+    const rows = await this.prisma.hmrcSandboxTestUser.findMany({
+      where: user?.firmId ? { firmId: user.firmId } : undefined,
+      orderBy: { createdAt: "desc" },
+    });
     return rows.map((row) => this.present(row));
   }
 
-  async get(id: string, revealPassword = false) {
-    const row = await this.prisma.hmrcSandboxTestUser.findUnique({ where: { id } });
+  async get(id: string, revealPassword = false, user?: AuthUser) {
+    const row = await this.prisma.hmrcSandboxTestUser.findFirst({
+      where: { id, ...(user?.firmId ? { firmId: user.firmId } : {}) },
+    });
     if (!row) {
       throw new NotFoundException("Sandbox test user not found");
     }
@@ -94,7 +100,7 @@ export class HmrcTestUserService implements OnModuleInit {
   }
 
   async loginHint(user: AuthUser, id: string, clientId?: string) {
-    const row = await this.get(id, true);
+    const row = await this.get(id, true, user);
     let authorizationUrl: string | undefined;
     if (clientId) {
       const started = await this.oauth.startAuth(user, clientId, "sandbox");

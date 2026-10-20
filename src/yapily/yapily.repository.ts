@@ -22,12 +22,17 @@ export class YapilyRepository {
     return this.prisma.yapilyConnection.findUnique({ where: { id } });
   }
 
+  findConnectionByState(state: string) {
+    return this.prisma.yapilyConnection.findUnique({ where: { callbackState: state } });
+  }
+
   upsertConnection(data: {
     clientId: string;
     institutionId: string;
     applicationUserId?: string;
     consentId?: string;
     consentTokenEnc?: string | null;
+    callbackState?: string | null;
     status: YapilyConsentStatus;
     expiresAt?: Date | null;
   }) {
@@ -38,6 +43,7 @@ export class YapilyRepository {
         applicationUserId: data.applicationUserId,
         consentId: data.consentId,
         consentTokenEnc: data.consentTokenEnc,
+        callbackState: data.callbackState,
         status: data.status,
         expiresAt: data.expiresAt,
       },

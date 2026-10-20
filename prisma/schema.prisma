@@ -206,6 +206,7 @@ model Firm {
   manualStatementUploads ManualStatementUpload[]
   receiptFiles ReceiptFile[]
   documentFiles DocumentFile[]
+  hmrcSandboxTestUsers HmrcSandboxTestUser[]
 }
 
 model User {
@@ -588,6 +589,7 @@ model AuditLog {
   entryHash    String?
   createdAt    DateTime @default(now())
 
+  @@unique([firmId, prevHash])
   @@index([firmId, createdAt])
   @@index([clientId, createdAt])
   @@index([actorUserId, createdAt])
@@ -1014,6 +1016,7 @@ model YapilyConnection {
   applicationUserId String?
   consentId         String?
   consentTokenEnc   String?
+  callbackState     String?              @unique
   status            YapilyConsentStatus  @default(PENDING)
   expiresAt         DateTime?
   createdAt         DateTime             @default(now())
@@ -1051,6 +1054,8 @@ model HmrcInteraction {
 /// HMRC Developer Hub sandbox test users (create-test-user API).
 model HmrcSandboxTestUser {
   id          String            @id @default(uuid())
+  firmId      String?
+  firm        Firm?             @relation(fields: [firmId], references: [id])
   kind        HmrcTestUserKind
   hmrcUserId  String
   passwordEnc String
@@ -1068,6 +1073,7 @@ model HmrcSandboxTestUser {
 
   @@index([kind])
   @@index([clientId])
+  @@index([firmId])
 }
 
 enum MatchingStatus {

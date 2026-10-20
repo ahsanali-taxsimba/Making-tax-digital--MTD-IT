@@ -39,11 +39,19 @@ export class MfaService {
     return PRIVILEGED_FIRM.includes(user.role);
   }
 
+  mfaSecret(): string {
+    return (
+      this.config.get<string>("jwt.mfaSecret") ||
+      this.config.get<string>("jwt.refreshSecret") ||
+      "dev-mfa-secret-change-me-please-32chars"
+    );
+  }
+
   async challengeToken(user: { id: string; principal: "platform" | "firm" }, purpose: "mfa" | "mfa-enroll") {
     return this.jwt.signAsync(
       { sub: user.id, principal: user.principal, purpose },
       {
-        secret: this.config.get<string>("jwt.accessSecret") ?? "dev-access-secret",
+        secret: this.mfaSecret(),
         expiresIn: "5m",
       },
     );
@@ -52,7 +60,7 @@ export class MfaService {
   async readChallenge(token: string, purpose: "mfa" | "mfa-enroll") {
     try {
       const payload = await this.jwt.verifyAsync<{ sub: string; principal: "platform" | "firm"; purpose: string }>(token, {
-        secret: this.config.get<string>("jwt.accessSecret") ?? "dev-access-secret",
+        secret: this.mfaSecret(),
       });
       if (payload.purpose !== purpose) {
         throw new UnauthorizedException("Invalid MFA challenge");

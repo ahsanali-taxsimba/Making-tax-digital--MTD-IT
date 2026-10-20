@@ -673,7 +673,7 @@ Tenant rule: a query that returns `BankTransaction`, `DocumentFile`, `Invoice`, 
 
 ## 5. Deployment (DigitalOcean Kubernetes)
 
-Today the API is a NestJS modular monolith and the UI is Next.js. The target production topology is a DigitalOcean Kubernetes cluster with one Deployment per logical service. Ingress still splits the three workspaces: `/admin`, `/practice`, `/client`.
+Today the API is a NestJS modular monolith (`mtd-api`, port 3000) and the UI is Next.js. Thirteen named modules share one process, one JWT, and one tenant interceptor. Manifests in `deploy/k8s/` ship that single Deployment; splitting into per-service pods is a later extract, not the current runtime. Ingress still splits the three workspaces: `/admin`, `/practice`, `/client`. `/metrics` is not on the public Ingress — scrape in-cluster with `METRICS_TOKEN`.
 
 ```
 +------------------------------------------------------------------+
@@ -762,7 +762,7 @@ Ingress paths stay aligned with `RoleRouter`: platform staff hit `/admin`, firm 
 livenessProbe:
   httpGet:
     path: /health/live
-    port: 8080
+    port: 3000
   initialDelaySeconds: 15
   periodSeconds: 20
   failureThreshold: 3
@@ -774,13 +774,13 @@ livenessProbe:
 readinessProbe:
   httpGet:
     path: /health/ready
-    port: 8080
+    port: 3000
   initialDelaySeconds: 5
   periodSeconds: 10
   failureThreshold: 3
 ```
 
-Map container port `8080` to the NestJS listen port (`PORT`, default 3000). A 200 means the process can take traffic. A 503 means the database is unreachable.
+The container listens on `PORT` (default 3000). A 200 means the process can take traffic. A 503 means the database is unreachable.
 
 ### Pre-stop grace
 
@@ -800,15 +800,10 @@ Pair this with `terminationGracePeriodSeconds` of at least 15 so NestJS can drai
 If a rollout is unhealthy (readiness failing, error rate up), revert the last Deployment revision. Kubernetes restores the previous ReplicaSet.
 
 ```bash
-kubectl rollout undo deployment <service-name>
+./deploy/k8s/rollback.sh mtd-api
 ```
 
-Service names match the logical pods: `auth`, `tenant-management`, `platform-admin`, `practice`, `client-portal`, `hmrc`, `bank-feeds`, `ocr`, `ai-extraction`, `documents`, `bookkeeping`.
-
-```bash
-kubectl rollout undo deployment practice
-kubectl rollout status deployment practice
-```
+There is one API Deployment (`mtd-api`). Logical service names in metrics and audit (`auth`, `mtd-vat`, `mtd-itsa`, …) are labels, not pods.
 
 `preStop` still runs on the outgoing pods. Confirm `/health/ready` is 200 on the restored revision before sending traffic.
 

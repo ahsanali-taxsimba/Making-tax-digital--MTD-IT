@@ -21,6 +21,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<AuthUser> {
+    if (payload.purpose && payload.purpose !== "access") {
+      throw new UnauthorizedException("Token is not an access token");
+    }
     if (payload.principal === "platform") {
       const user = await this.prisma.platformUser.findUnique({ where: { id: payload.sub } });
       if (!user || !user.isActive) {

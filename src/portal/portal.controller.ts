@@ -5,6 +5,7 @@ import { IsIn, IsInt, IsOptional, IsString, Min } from "class-validator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
+import { ClientAuthGuard } from "../authorization/client-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AuthUser } from "../common/types";
 import { DocumentsService } from "../documents/documents.service";
@@ -38,7 +39,7 @@ class PortalConfirmDto {
 
 @ApiTags("portal")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, ClientAuthGuard, RolesGuard)
 @Roles(UserRole.CLIENT)
 @Controller("portal")
 export class PortalController {

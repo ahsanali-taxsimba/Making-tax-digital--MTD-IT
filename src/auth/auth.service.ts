@@ -56,6 +56,7 @@ export class AuthService {
   async verifyMfa(mfaChallengeToken: string, code: string) {
     const challenge = await this.mfa.readChallenge(mfaChallengeToken, "mfa");
     const account = await this.loadAccount(challenge.sub, challenge.principal);
+    this.assertMfaNotLocked(account.mfaFailedCount);
     if (!account.mfaEnabled || !account.mfaSecretEnc) {
       await this.failMfa(account.id, challenge.principal);
     }
@@ -89,6 +90,7 @@ export class AuthService {
   async confirmMfa(mfaChallengeToken: string, code: string) {
     const challenge = await this.mfa.readChallenge(mfaChallengeToken, "mfa-enroll");
     const account = await this.loadAccount(challenge.sub, challenge.principal);
+    this.assertMfaNotLocked(account.mfaFailedCount);
     if (!account.mfaSecretEnc || !this.mfa.verifyCode(account.mfaSecretEnc, code)) {
       await this.failMfa(account.id, challenge.principal);
     }
@@ -135,7 +137,7 @@ export class AuthService {
       where: { tokenHash },
       include: { user: true },
     });
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+    if (!stored || stored.revokedAt || stored.expiresAt < new Date() || stored.user.status !== "ACTIVE") {
       throw new UnauthorizedException("Refresh token is invalid");
     }
     await this.prisma.refreshToken.update({
@@ -243,13 +245,35 @@ export class AuthService {
       if (!platform?.isActive) {
         throw new UnauthorizedException("Account is not active");
       }
-      return { id: platform.id, email: platform.email, mfaEnabled: platform.mfaEnabled, mfaSecretEnc: platform.mfaSecretEnc, platform, firm: null };
+      return {
+        id: platform.id,
+        email: platform.email,
+        mfaEnabled: platform.mfaEnabled,
+        mfaSecretEnc: platform.mfaSecretEnc,
+        mfaFailedCount: platform.mfaFailedCount ?? 0,
+        platform,
+        firm: null,
+      };
     }
     const firm = await this.prisma.user.findUnique({ where: { id } });
     if (!firm || firm.status !== "ACTIVE") {
       throw new UnauthorizedException("Account is not active");
     }
-    return { id: firm.id, email: firm.email, mfaEnabled: firm.mfaEnabled, mfaSecretEnc: firm.mfaSecretEnc, platform: null, firm };
+    return {
+      id: firm.id,
+      email: firm.email,
+      mfaEnabled: firm.mfaEnabled,
+      mfaSecretEnc: firm.mfaSecretEnc,
+      mfaFailedCount: firm.mfaFailedCount ?? 0,
+      platform: null,
+      firm,
+    };
+  }
+
+  private assertMfaNotLocked(failedCount: number) {
+    if (failedCount >= 5) {
+      throw new UnauthorizedException("MFA is locked after too many failed attempts");
+    }
   }
 
   private async issueTokens(user: FirmRow) {
@@ -261,6 +285,7 @@ export class AuthService {
       clientId: user.clientId,
       principal: "firm",
       firmRole: this.toAuthUser(user).firmRole,
+      purpose: "access",
     };
     const accessToken = await this.jwt.signAsync(payload, {
       secret: this.config.get<string>("jwt.accessSecret") ?? "dev-access-secret",
@@ -286,6 +311,7 @@ export class AuthService {
       clientId: null,
       principal: "platform",
       platformRole: publicPlatformRole(user.role),
+      purpose: "access",
     };
     const accessToken = await this.jwt.signAsync(payload, {
       secret: this.config.get<string>("jwt.accessSecret") ?? "dev-access-secret",
@@ -346,6 +372,7 @@ type FirmRow = {
   status: string;
   mfaEnabled?: boolean | null;
   mfaSecretEnc?: string | null;
+  mfaFailedCount?: number | null;
 };
 
 type PlatformRow = {
@@ -356,4 +383,5 @@ type PlatformRow = {
   isActive: boolean;
   mfaEnabled?: boolean | null;
   mfaSecretEnc?: string | null;
+  mfaFailedCount?: number | null;
 };

@@ -18,13 +18,17 @@ export interface AuthUser {
   isActive?: boolean;
 }
 
+export type JwtPurpose = "access" | "mfa" | "mfa-enroll";
+
 export interface JwtPayload {
   sub: string;
-  email: string;
+  email?: string;
   role?: UserRole;
-  firmId: string | null;
-  clientId: string | null;
+  firmId?: string | null;
+  clientId?: string | null;
   principal: PrincipalKind;
   platformRole?: PlatformRoleName;
   firmRole?: FirmRoleName;
+  /** Access tokens are `access`. MFA challenge tokens must never pass JwtStrategy. */
+  purpose: JwtPurpose;
 }

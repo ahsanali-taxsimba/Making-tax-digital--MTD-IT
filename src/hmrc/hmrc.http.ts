@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { mapHmrcError } from "./hmrc.errors";
 import { buildFraudPreventionHeaders } from "./fraud-prevention";
+import { currentHmrcScope } from "./sandbox/hmrc-request-context";
 import { HmrcCallContext, HmrcHttpResult } from "./hmrc.types";
 
 @Injectable()
@@ -46,12 +47,16 @@ export class HmrcHttpClient {
       if (value) url.searchParams.set(key, value);
     });
 
+    const scope = currentHmrcScope();
     const headers: Record<string, string> = {
       Accept: options?.accept ?? "application/vnd.hmrc.1.0+json",
       Authorization: `Bearer ${ctx.accessToken}`,
       "X-Correlation-ID": correlationId,
       ...buildFraudPreventionHeaders(ctx.fraud),
     };
+    if (scope?.govTestScenario && (this.config.get<string>("hmrc.mode") !== "live" || ctx.environment !== "LIVE")) {
+      headers["Gov-Test-Scenario"] = scope.govTestScenario;
+    }
     if (options?.body) {
       headers["Content-Type"] = "application/json";
     }

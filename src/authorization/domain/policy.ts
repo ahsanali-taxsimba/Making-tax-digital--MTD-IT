@@ -121,17 +121,20 @@ export function platformMayAccessPath(user: PlatformUserView, path: string): boo
   return path.startsWith("/admin") || path.startsWith("/health") || path.startsWith("/auth");
 }
 
+const CLIENT_ALLOWED_PREFIXES = ["/client", "/portal", "/notifications", "/auth", "/health", "/hmrc/oauth"];
+
 export function firmMayAccessPath(user: FirmUserView, path: string): boolean {
-  if (isAdminPath(path)) {
+  const normalised = path.split("?")[0] ?? path;
+  if (isAdminPath(normalised)) {
     return false;
   }
-  if (path.startsWith("/client")) {
-    return user.role === "firm_client";
+  if (user.role === "firm_client") {
+    return CLIENT_ALLOWED_PREFIXES.some((prefix) => normalised === prefix || normalised.startsWith(`${prefix}/`));
   }
-  if ((path.startsWith("/firm") || path.startsWith("/practice")) && user.role === "firm_client") {
+  if (normalised.startsWith("/client")) {
     return false;
   }
-  if (path.startsWith("/audit") || path.startsWith("/digital-links")) {
+  if (normalised.startsWith("/audit") || normalised.startsWith("/digital-links")) {
     return user.role === "firm_admin" || user.role === "firm_accountant";
   }
   return true;

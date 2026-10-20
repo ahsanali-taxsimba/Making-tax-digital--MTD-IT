@@ -52,7 +52,7 @@ describe("expandLiveCalls", () => {
       incomes: { turnover: 100 },
       expenses: { officeCosts: 10 },
     });
-    expect(calls?.[0].path).toBe("/individuals/business/self-employment/AA123456A/XAIS1/period/2025-26");
+    expect(calls?.[0].path).toBe("/individuals/business/self-employment/AA123456A/XAIS1/2025-26/p1");
     expect(calls?.[0].body).toEqual({
       periodDates: { periodStartDate: "2026-04-06", periodEndDate: "2026-07-05" },
       periodIncome: { turnover: 100 },
@@ -69,14 +69,20 @@ describe("expandLiveCalls", () => {
       accountingPeriodEnd: "2027-04-05",
       finalised: true,
     });
-    expect(eops?.[0].path).toBe("/individuals/business/end-of-period-statement/nino/AA123456A/XAIS1/2025-26");
+    expect(eops?.[0].path).toBe("/individuals/business/end-of-period-statement/AA123456A/XAIS1/2025-26");
 
     const final = expandLiveCalls("POST", "/income-tax/AA123456A/final-declaration", {
       taxYear: "2025-26",
       calculationId: "calc-1",
       finalised: true,
     });
-    expect(final?.[0].path).toBe("/individuals/calculations/AA123456A/self-assessment/2025-26/final-declaration");
+    expect(final?.[0].path).toBe("/individuals/calculations/AA123456A/self-assessment/2025-26/calc-1/final-declaration");
+  });
+
+  it("refuses a final declaration without calculationId", () => {
+    expect(() =>
+      expandLiveCalls("POST", "/income-tax/AA123456A/final-declaration", { taxYear: "2025-26", finalised: true }),
+    ).toThrow(/calculationId/);
   });
 });
 

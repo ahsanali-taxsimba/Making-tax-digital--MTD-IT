@@ -68,10 +68,11 @@ export function AttachReceiptModal({
     return null;
   }
 
+  const current = receipt;
   const loading = lines.isLoading || documents.invoices.isLoading || documents.bills.isLoading || documents.journals.isLoading;
 
   async function onAttach(target: AttachTarget) {
-    await attach.mutateAsync({ receiptId: receipt.id, target });
+    await attach.mutateAsync({ receiptId: current.id, target });
     onClose();
   }
 

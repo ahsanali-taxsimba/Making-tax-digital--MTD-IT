@@ -83,7 +83,13 @@ export class LiveHmrcOAuthGateway implements HmrcOAuthGateway {
       error?: string;
       error_description?: string;
     };
-    if (!response.ok || !json.access_token || !json.refresh_token) {
+    if (!response.ok || !json.access_token) {
+      throw mapHmrcError(response.status, json);
+    }
+    if (body.grant_type === "refresh_token" && !json.refresh_token) {
+      json.refresh_token = body.refresh_token;
+    }
+    if (!json.refresh_token) {
       throw mapHmrcError(response.status, json);
     }
     return {
@@ -163,7 +169,7 @@ export class LiveHmrcItsaGateway implements HmrcItsaGateway {
   submitQuarterlyUpdate(ctx: HmrcCallContext, nino: string, payload: QuarterlyUpdatePayload) {
     const calls = expandLiveCalls("PUT", `/income-tax/${nino}/${isPropertyBusiness(payload.typeOfBusiness) ? "uk-property/periodic" : "updates"}`, payload);
     const call = calls?.[0];
-    return this.http.request<{ periodId: string }>(ctx, call?.method ?? "PUT", call?.path ?? `/individuals/business/self-employment/${nino}/${payload.businessId}/period/${payload.taxYear}`, {
+    return this.http.request<{ periodId: string }>(ctx, call?.method ?? "PUT", call?.path ?? `/individuals/business/self-employment/${nino}/${payload.businessId}/${payload.taxYear}/${payload.periodId}`, {
       accept: call?.accept ?? "application/vnd.hmrc.5.0+json",
       body: call?.body ?? {
         periodDates: { periodStartDate: payload.periodStart, periodEndDate: payload.periodEnd },
@@ -183,7 +189,7 @@ export class LiveHmrcItsaGateway implements HmrcItsaGateway {
   }
 
   submitEops(ctx: HmrcCallContext, nino: string, payload: EopsPayload) {
-    const path = `/individuals/business/end-of-period-statement/nino/${nino}/${payload.businessId}/${payload.taxYear}`;
+    const path = `/individuals/business/end-of-period-statement/${nino}/${payload.businessId}/${payload.taxYear}`;
     return this.http.request<{ processingDate: string }>(ctx, "POST", path, {
       accept: "application/vnd.hmrc.3.0+json",
       body: {
@@ -195,10 +201,13 @@ export class LiveHmrcItsaGateway implements HmrcItsaGateway {
   }
 
   submitFinalDeclaration(ctx: HmrcCallContext, nino: string, payload: FinalDeclarationPayload) {
-    const path = `/individuals/calculations/${nino}/self-assessment/${payload.taxYear}/final-declaration`;
+    if (!payload.calculationId) {
+      throw new Error("HMRC final declaration requires calculationId");
+    }
+    const path = `/individuals/calculations/${nino}/self-assessment/${payload.taxYear}/${payload.calculationId}/final-declaration`;
     return this.http.request<{ calculationId: string }>(ctx, "POST", path, {
       accept: "application/vnd.hmrc.5.0+json",
-      body: { finalised: payload.finalised, calculationId: payload.calculationId },
+      body: { finalised: payload.finalised },
     });
   }
 

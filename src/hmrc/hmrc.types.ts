@@ -2,9 +2,18 @@ import { HmrcEnvironment } from "@prisma/client";
 
 export interface FraudPreventionContext {
   publicIp?: string;
+  publicPort?: string;
   timezone?: string;
   userIds?: string;
   deviceId?: string;
+  localIps?: string;
+  screens?: string;
+  windowSize?: string;
+  browserPlugins?: string;
+  userAgent?: string;
+  doNotTrack?: string;
+  multiFactor?: string;
+  vendorPublicIp?: string;
   vendorForwarded?: Record<string, string>;
 }
 

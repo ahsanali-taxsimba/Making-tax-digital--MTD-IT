@@ -13,11 +13,18 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
+    const user = context.switchToHttp().getRequest<{ user: AuthUser }>().user;
+    if (!user || user.principal === "platform") {
+      throw new ForbiddenException("Insufficient role for this resource");
+    }
+    const isClient = user.firmRole === "firm_client" || user.role === UserRole.CLIENT;
     if (!roles?.length) {
+      if (isClient) {
+        throw new ForbiddenException("Client portal users cannot access practice APIs");
+      }
       return true;
     }
-    const user = context.switchToHttp().getRequest<{ user: AuthUser }>().user;
-    if (!user || user.principal === "platform" || !roles.includes(user.role)) {
+    if (!roles.includes(user.role)) {
       throw new ForbiddenException("Insufficient role for this resource");
     }
     return true;

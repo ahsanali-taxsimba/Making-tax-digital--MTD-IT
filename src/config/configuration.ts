@@ -7,9 +7,13 @@ export default () => ({
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET ?? "dev-access-secret-change-me-please-32ch",
     refreshSecret: process.env.JWT_REFRESH_SECRET ?? "dev-refresh-secret-change-me-please-32",
+    mfaSecret: process.env.JWT_MFA_SECRET ?? process.env.JWT_REFRESH_SECRET ?? "dev-mfa-secret-change-me-please-32chars",
     accessTtl: process.env.JWT_ACCESS_TTL ?? "15m",
     refreshTtlDays: parseInt(process.env.JWT_REFRESH_TTL_DAYS ?? "7", 10),
   },
+  swaggerEnabled: process.env.SWAGGER_ENABLED === "true" || (process.env.NODE_ENV ?? "development") !== "production",
+  metricsToken: process.env.METRICS_TOKEN ?? "",
+  allowDbSeed: process.env.ALLOW_DB_SEED === "true",
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? "",
   tokenEncryptionKeyPrevious: process.env.TOKEN_ENCRYPTION_KEY_PREVIOUS ?? "",
   mfa: {

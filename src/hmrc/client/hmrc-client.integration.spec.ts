@@ -109,7 +109,7 @@ describe("HmrcClientService HMRC calls", () => {
       "client-1",
       "sandbox",
     );
-    expect(http.send.mock.calls[0][2]).toBe("/individuals/business/self-employment/AA123456A/XAIS1/period/2025-26");
+    expect(http.send.mock.calls[0][2]).toBe("/individuals/business/self-employment/AA123456A/XAIS1/2025-26/q1");
   });
 
   it("POST ITSA EOPS", async () => {
@@ -126,7 +126,7 @@ describe("HmrcClientService HMRC calls", () => {
       },
       "client-1",
     );
-    expect(http.send.mock.calls[0][2]).toContain("/individuals/business/end-of-period-statement/nino/AA123456A/XAIS1");
+    expect(http.send.mock.calls[0][2]).toBe("/individuals/business/end-of-period-statement/AA123456A/XAIS1/2025-26");
   });
 
   it("PUT ITSA UK property periodic update", async () => {
@@ -181,8 +181,8 @@ describe("HmrcClientService HMRC calls", () => {
 
   it("POST ITSA final declaration", async () => {
     http.send.mockResolvedValue({ ok: true, status: 200, body: { calculationId: "calc" }, correlationId: "fd" });
-    await service.post("/income-tax/AA123456A/final-declaration", { taxYear: "2025-26", finalised: true }, "client-1");
-    expect(http.send.mock.calls[0][2]).toBe("/individuals/calculations/AA123456A/self-assessment/2025-26/final-declaration");
+    await service.post("/income-tax/AA123456A/final-declaration", { taxYear: "2025-26", calculationId: "calc", finalised: true }, "client-1");
+    expect(http.send.mock.calls[0][2]).toBe("/individuals/calculations/AA123456A/self-assessment/2025-26/calc/final-declaration");
   });
 
   it("maps a live 500 to HMRC_ERR_SERVER", async () => {
