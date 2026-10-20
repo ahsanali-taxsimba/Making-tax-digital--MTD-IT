@@ -1,5 +1,10 @@
 import { apiFetch } from "./api";
-import type { VatObligation, VatValidation } from "./types";
+import type { VatObligation, VatReturnRecord, VatValidation } from "./types";
+
+export function listVatReturns(clientId: string) {
+  const query = new URLSearchParams({ clientId });
+  return apiFetch<VatReturnRecord[]>(`/vat/returns?${query.toString()}`);
+}
 
 export function listVatObligations(clientId: string) {
   const query = new URLSearchParams({ clientId });

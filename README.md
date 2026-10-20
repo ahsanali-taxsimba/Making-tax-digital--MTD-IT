@@ -57,7 +57,7 @@ npm run start:dev
 npm run web:dev
 ```
 
-VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callback`). The browser never sees HMRC tokens. One HMRC grant covers both regimes.
+VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callback`). Client portal: `/portal`. The browser never sees HMRC tokens. One HMRC grant covers both regimes.
 
 ### Seed users
 

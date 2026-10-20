@@ -17,6 +17,11 @@ Next.js app for accountants and clients to connect a client to HMRC, review toke
 | `/itsa/obligations` | `GET /itsa/obligations` |
 | `/itsa/quarterly-update` | Ledger preview and `POST /itsa/quarterly-update` |
 | `/vat/returns/prepare` | Ledger preview for the selected VAT period |
+| `/portal` | Client home: next VAT/ITSA due dates, tasks, approve actions |
+| `/portal/vat` | VAT periods, boxes 1–9, draft review |
+| `/portal/itsa` | Sole trade / property quarterly updates, EOPS, final declaration |
+| `/portal/documents` | Upload bank statements, invoices, receipts |
+| `/portal/messages` | Notes between the client and their accountant |
 
 HMRC access and refresh tokens never leave the API. The browser only keeps the practice JWT and a temporary OAuth `code`/`state` on the callback URL.
 

@@ -8,6 +8,9 @@ import {
   TaxCodeKind,
   PartyKind,
   DocumentStatus,
+  EvidenceStatus,
+  TaskType,
+  TaskStatus,
   BankTxnDirection,
   BankTxnStatus,
 } from "@prisma/client";
@@ -566,6 +569,88 @@ async function main() {
       locked: true,
     },
   });
+
+  await prisma.supportingDocument.upsert({
+    where: { id: "66666666-6666-4666-8666-666666666661" },
+    update: {},
+    create: {
+      id: "66666666-6666-4666-8666-666666666661",
+      clientId: soleTrader.id,
+      fileName: "q1-bank-statement.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 184320,
+      storageKey: `pending/${soleTrader.id}/q1-bank-statement.pdf`,
+      category: "bank_statement",
+      status: EvidenceStatus.PENDING,
+      uploadedBy: "tom.h@example.org",
+    },
+  });
+  await prisma.supportingDocument.upsert({
+    where: { id: "66666666-6666-4666-8666-666666666662" },
+    update: {},
+    create: {
+      id: "66666666-6666-4666-8666-666666666662",
+      clientId: soleTrader.id,
+      fileName: "studio-invoice-104.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 62480,
+      storageKey: `used/${soleTrader.id}/studio-invoice-104.pdf`,
+      category: "invoice",
+      status: EvidenceStatus.USED,
+      uploadedBy: "tom.h@example.org",
+    },
+  });
+
+  await prisma.task.upsert({
+    where: { id: "77777777-7777-4777-8777-777777777761" },
+    update: {},
+    create: {
+      id: "77777777-7777-4777-8777-777777777761",
+      firmId: firm.id,
+      clientId: soleTrader.id,
+      type: TaskType.PROVIDE_RECORDS,
+      status: TaskStatus.OPEN,
+      dueDate: new Date("2026-04-20"),
+      title: "Provide Q1 records",
+    },
+  });
+  await prisma.task.upsert({
+    where: { id: "77777777-7777-4777-8777-777777777762" },
+    update: {},
+    create: {
+      id: "77777777-7777-4777-8777-777777777762",
+      firmId: firm.id,
+      clientId: soleTrader.id,
+      type: TaskType.APPROVE_RETURN,
+      status: TaskStatus.OPEN,
+      dueDate: new Date("2026-05-07"),
+      title: "Approve draft VAT return 26A1",
+    },
+  });
+
+  const existingThread = await prisma.clientMessage.count({ where: { clientId: soleTrader.id } });
+  if (existingThread === 0) {
+    await prisma.clientMessage.createMany({
+      data: [
+        {
+          clientId: soleTrader.id,
+          authorId: "11111111-1111-4111-8111-111111111101",
+          authorRole: UserRole.ACCOUNTANT,
+          authorName: "Priya Shah",
+          body: "Hi Amelia — please upload your Q1 bank statement and confirm the draft VAT return when you have a moment.",
+          createdAt: new Date("2026-04-08T09:15:00Z"),
+        },
+        {
+          clientId: soleTrader.id,
+          authorId: "22222222-2222-4222-8222-222222222201",
+          authorRole: UserRole.CLIENT,
+          authorName: "Amelia Hartley",
+          body: "Thanks Priya. I will upload the statement this week and review the VAT boxes.",
+          createdAt: new Date("2026-04-08T11:40:00Z"),
+        },
+      ],
+    });
+  }
 
   // eslint-disable-next-line no-console
   console.log("Seeded Northbridge Accountants LLP");

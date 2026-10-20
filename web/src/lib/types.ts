@@ -109,3 +109,89 @@ export interface ItsaValidation {
   excluded?: Array<{ code?: number; category?: string; amount?: number; reason?: string }>;
   validation: { valid: boolean; errors: string[]; warnings: string[]; issues: string[] };
 }
+
+export interface VatReturnRecord {
+  id?: string;
+  clientId?: string;
+  periodKey: string;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  status?: string;
+  box1?: number;
+  box2?: number;
+  box3?: number;
+  box4?: number;
+  box5?: number;
+  box6?: number;
+  box7?: number;
+  box8?: number;
+  box9?: number;
+  vatDueSales?: number;
+  netVatDue?: number;
+  processingDate?: string | null;
+}
+
+export interface ItsaUpdateRecord {
+  id: string;
+  clientId: string;
+  businessId?: string | null;
+  business?: ItsaBusiness | null;
+  taxYear: string;
+  periodId: string;
+  periodStart: string;
+  periodEnd: string;
+  incomes: Record<string, number>;
+  expenses: Record<string, number>;
+  status: string;
+}
+
+export interface ItsaEopsRecord {
+  id: string;
+  businessId?: string | null;
+  business?: ItsaBusiness | null;
+  taxYear: string;
+  typeOfBusiness: string;
+  status: string;
+  finalised: boolean;
+}
+
+export interface ItsaFinalRecord {
+  id: string;
+  taxYear: string;
+  status: string;
+  finalised: boolean;
+}
+
+export interface PortalDocument {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  category?: string | null;
+  status: "PENDING" | "USED";
+  createdAt: string;
+}
+
+export interface PortalMessage {
+  id: string;
+  clientId: string;
+  authorId: string;
+  authorRole: UserRole;
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface PortalTask {
+  id: string;
+  type: string;
+  status: string;
+  title: string;
+  dueDate?: string | null;
+}
+
+export interface BookkeepingItsaSummary {
+  incomes?: Record<string, number>;
+  expenses?: Record<string, number>;
+  totals?: Record<string, number>;
+}

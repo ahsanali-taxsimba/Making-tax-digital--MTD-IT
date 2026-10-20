@@ -1,28 +1,32 @@
-import { ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
-import { AuthUser } from "./types";
-import { assertClientScope, assertFirmAccess } from "./tenancy";
+import { resolveScopedClientId } from "./tenancy";
 
-const accountant = (firmId: string): AuthUser => ({
-  id: "u1",
-  email: "a@example.com",
-  role: UserRole.ACCOUNTANT,
-  firmId,
-  clientId: null,
-  name: "Alex",
-});
-
-describe("tenancy", () => {
-  it("blocks cross-firm access", () => {
-    expect(() => assertFirmAccess(accountant("firm-a"), "firm-b")).toThrow(ForbiddenException);
+describe("resolveScopedClientId", () => {
+  it("uses the linked client for portal users", () => {
+    expect(
+      resolveScopedClientId(
+        { id: "u", email: "a", role: UserRole.CLIENT, firmId: "f", clientId: "c1", name: "Amelia" },
+        undefined,
+      ),
+    ).toBe("c1");
   });
 
-  it("stops a client viewing another client", () => {
-    const user: AuthUser = { ...accountant("firm-a"), role: UserRole.CLIENT, clientId: "c1" };
-    expect(() => assertClientScope(user, { id: "c2", firmId: "firm-a" })).toThrow(ForbiddenException);
+  it("blocks a client from asking for another client", () => {
+    expect(() =>
+      resolveScopedClientId(
+        { id: "u", email: "a", role: UserRole.CLIENT, firmId: "f", clientId: "c1", name: "Amelia" },
+        "c2",
+      ),
+    ).toThrow(ForbiddenException);
   });
 
-  it("allows an accountant to view a firm client", () => {
-    expect(() => assertClientScope(accountant("firm-a"), { id: "c1", firmId: "firm-a" })).not.toThrow();
+  it("requires staff to pass a client id", () => {
+    expect(() =>
+      resolveScopedClientId(
+        { id: "u", email: "a", role: UserRole.ACCOUNTANT, firmId: "f", clientId: null, name: "Priya" },
+        undefined,
+      ),
+    ).toThrow(BadRequestException);
   });
 });
