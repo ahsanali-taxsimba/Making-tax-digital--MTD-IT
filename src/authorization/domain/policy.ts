@@ -131,5 +131,8 @@ export function firmMayAccessPath(user: FirmUserView, path: string): boolean {
   if ((path.startsWith("/firm") || path.startsWith("/practice")) && user.role === "firm_client") {
     return false;
   }
+  if (path.startsWith("/audit") || path.startsWith("/digital-links")) {
+    return user.role === "firm_admin" || user.role === "firm_accountant";
+  }
   return true;
 }

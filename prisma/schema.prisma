@@ -557,20 +557,29 @@ model Transaction {
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  actorUserId String?
-  actor       User?    @relation(fields: [actorUserId], references: [id])
-  firmId      String?
-  firm        Firm?    @relation(fields: [firmId], references: [id])
-  clientId    String?
-  client      Client?  @relation(fields: [clientId], references: [id])
-  actionType  String
-  metadata    Json
-  createdAt   DateTime @default(now())
+  id           String   @id @default(uuid())
+  actorUserId  String?
+  actor        User?    @relation(fields: [actorUserId], references: [id])
+  firmId       String?
+  firm         Firm?    @relation(fields: [firmId], references: [id])
+  clientId     String?
+  client       Client?  @relation(fields: [clientId], references: [id])
+  actionType   String
+  action       String   @default("")
+  resourceType String?
+  resourceId   String?
+  beforeData   Json?
+  afterData    Json?
+  metadata     Json
+  prevHash     String?
+  entryHash    String?
+  createdAt    DateTime @default(now())
 
   @@index([firmId, createdAt])
   @@index([clientId, createdAt])
   @@index([actorUserId, createdAt])
+  @@index([resourceType, resourceId])
+  @@index([actionType, createdAt])
 }
 
 model Task {

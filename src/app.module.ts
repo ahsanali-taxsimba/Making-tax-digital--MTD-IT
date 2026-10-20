@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AdminModule } from "./admin/admin.module";
 import { AuthorizationModule } from "./authorization/authorization.module";
 import { TenantIsolationInterceptor } from "./authorization/tenant-isolation.interceptor";
+import { AuditInterceptor } from "./audit/audit.interceptor";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { BookkeepingModule } from "./bookkeeping/bookkeeping.module";
@@ -81,6 +82,7 @@ import { YapilyModule } from "./yapily/yapily.module";
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TenantIsolationInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
