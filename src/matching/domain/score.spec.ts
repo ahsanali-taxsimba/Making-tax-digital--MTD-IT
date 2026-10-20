@@ -120,4 +120,13 @@ describe("invoice/bill matching score", () => {
     );
     expect(best?.documentId).toBe("inv-1");
   });
+
+  it("uses an OCR invoice number when the bank description has no reference", () => {
+    expect(
+      hasInvoiceReference(
+        { date: "2026-01-16", amount: 7200, type: "CREDIT", description: "Brighton Gallery Ltd", ocrInvoiceNumber: "INV-1001" },
+        invoice,
+      ),
+    ).toBe(true);
+  });
 });

@@ -20,6 +20,7 @@ type LoadedTxn = {
   description: string;
   merchantName?: string | null;
   merchantCategoryCode?: string | null;
+  enrichment?: { receiptOcr?: { invoiceNumber?: string | null; merchantName?: string | null } } | null;
   status: BankTxnStatus;
   bankAccount: { id: string; clientId: string; ledgerId?: string | null };
   matching?: { id: string; status: MatchingStatus; journalEntryId?: string | null } | null;
@@ -315,6 +316,7 @@ export class MatchingService {
       description: txn.description,
       merchantName: txn.merchantName,
       merchantCategoryCode: txn.merchantCategoryCode,
+      ocrInvoiceNumber: txn.enrichment?.receiptOcr?.invoiceNumber ?? null,
     };
   }
 

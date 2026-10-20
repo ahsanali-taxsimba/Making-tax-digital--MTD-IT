@@ -1,21 +1,11 @@
-import { money } from "../../bookkeeping/domain/money";
+import { InvoiceDetectionService } from "../ocr/invoice-detection.service";
+import { MerchantDetectionService } from "../ocr/merchant-detection.service";
+import { OCRParserService } from "../ocr/ocr-parser.service";
+import { OcrExtraction } from "../ocr/ocr.types";
+import { VATDetectionService } from "../ocr/vat-detection.service";
+import { cleanOcrText } from "../ocr/clean-text";
 
-const MERCHANTS: Array<{ match: RegExp; name: string }> = [
-  { match: /\bbp\b|bp fuel/i, name: "BP" },
-  { match: /tesco/i, name: "Tesco" },
-  { match: /sainsbury/i, name: "Sainsbury's" },
-  { match: /shell/i, name: "Shell" },
-  { match: /amazon/i, name: "Amazon" },
-  { match: /uber/i, name: "Uber" },
-  { match: /trainline|tfl/i, name: "Trainline" },
-];
-
-export interface OcrExtraction {
-  text: string;
-  merchantName: string | null;
-  amount: number | null;
-  date: string | null;
-}
+export type { OcrExtraction } from "../ocr/ocr.types";
 
 export function extractPdfText(buffer: Buffer): string {
   const latin = buffer.toString("latin1");
@@ -27,18 +17,41 @@ export function extractPdfText(buffer: Buffer): string {
   return [...fromParens, printable].filter((part) => part.length > 3).join("\n");
 }
 
-export function parseReceiptText(text: string): OcrExtraction {
-  const cleaned = text.replace(/\u0000/g, " ").replace(/[ \t]+/g, " ").trim();
+export function parseReceiptText(
+  text: string,
+  deps?: {
+    parser?: OCRParserService;
+    merchants?: MerchantDetectionService;
+    vat?: VATDetectionService;
+    invoices?: InvoiceDetectionService;
+  },
+): OcrExtraction {
+  const parser = deps?.parser ?? new OCRParserService();
+  const merchants = deps?.merchants ?? new MerchantDetectionService(parser);
+  const vat = deps?.vat ?? new VATDetectionService(parser);
+  const invoices = deps?.invoices ?? new InvoiceDetectionService();
+  const cleaned = cleanOcrText(text);
+  const merchant = merchants.detect(cleaned);
+  const amounts = vat.detect(cleaned);
+  const document = invoices.detect(cleaned);
+  const fields = [merchant?.name, amounts.total, parser.extractDate(cleaned), document.invoiceNumber].filter(Boolean).length;
   return {
     text: cleaned || "",
-    merchantName: extractMerchant(cleaned),
-    amount: extractAmount(cleaned),
-    date: extractDate(cleaned),
+    merchantName: merchant?.name ?? null,
+    supplierName: document.supplierName ?? (looksLikeCompany(merchant?.name) ? merchant?.name ?? null : null),
+    amount: amounts.total,
+    netAmount: amounts.net,
+    vatAmount: amounts.vat,
+    vatRate: amounts.vatRate,
+    date: parser.extractDate(cleaned),
+    invoiceNumber: document.invoiceNumber,
+    source: "hint",
+    confidence: Math.min(1, 0.2 + fields * 0.2 + (merchant?.source === "dictionary" ? 0.15 : 0)),
   };
 }
 
 export function scoreReceiptAgainstTxn(
-  ocr: { merchantName?: string | null; amount?: number | null; date?: string | null },
+  ocr: { merchantName?: string | null; amount?: number | null; date?: string | null; invoiceNumber?: string | null },
   txn: { merchantName?: string | null; description: string; amount: number; date: Date | string },
 ): { score: number; reasons: string[] } {
   const reasons: string[] = [];
@@ -60,43 +73,16 @@ export function scoreReceiptAgainstTxn(
     score += 0.25;
     reasons.push("ocr_merchant");
   }
+  const invoice = (ocr.invoiceNumber ?? "").replace(/[^A-Z0-9]/gi, "");
+  if (invoice && haystack.replace(/[^a-z0-9]/gi, "").includes(invoice.toLowerCase())) {
+    score += 0.2;
+    reasons.push("ocr_invoice_number");
+  }
   return { score: Math.min(1, Number(score.toFixed(3))), reasons };
 }
 
-function extractMerchant(text: string): string | null {
-  const known = MERCHANTS.find((rule) => rule.match.test(text));
-  if (known) {
-    return known.name;
-  }
-  const line = text
-    .split(/\n/)
-    .map((row) => row.trim())
-    .find((row) => row.length > 3 && !/^\d/.test(row) && !/total|vat|amount|date/i.test(row));
-  return line ? line.slice(0, 80) : null;
-}
-
-function extractAmount(text: string): number | null {
-  const total = /(?:total|amount|gbp)\s*[:-]?\s*£?\s*([\d,]+(?:\.\d{2})?)/i.exec(text);
-  const sterling = /£\s*([\d,]+(?:\.\d{2})?)/.exec(text);
-  const raw = total?.[1] ?? sterling?.[1];
-  if (!raw) {
-    return null;
-  }
-  const parsed = Number(raw.replace(/,/g, ""));
-  return Number.isFinite(parsed) ? money(parsed) : null;
-}
-
-function extractDate(text: string): string | null {
-  const iso = /(\d{4})-(\d{2})-(\d{2})/.exec(text);
-  if (iso) {
-    return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  }
-  const uk = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/.exec(text);
-  if (!uk) {
-    return null;
-  }
-  const year = uk[3].length === 2 ? (Number(uk[3]) >= 70 ? `19${uk[3]}` : `20${uk[3]}`) : uk[3];
-  return `${year}-${uk[2].padStart(2, "0")}-${uk[1].padStart(2, "0")}`;
+function looksLikeCompany(name?: string | null): boolean {
+  return Boolean(name && /\b(ltd|limited|plc|llp)\b/i.test(name));
 }
 
 function decodePdfString(value: string): string {

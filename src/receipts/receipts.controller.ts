@@ -79,6 +79,19 @@ export class ReceiptsController {
     response.send(file.buffer);
   }
 
+  @Get("receipts/:id/ocr")
+  @ApiOperation({ summary: "Get structured OCR fields extracted from a receipt" })
+  getOcr(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.receipts.getOcr(user, id);
+  }
+
+  @Post("receipts/:id/ocr/reprocess")
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @ApiOperation({ summary: "Re-run OCR extraction and feed categorisation and matching" })
+  reprocessOcr(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.receipts.reprocessOcr(user, id);
+  }
+
   @Get("receipts/:id/suggestions")
   @ApiOperation({ summary: "Suggest bank transactions from OCR merchant, amount, and date" })
   suggestions(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {

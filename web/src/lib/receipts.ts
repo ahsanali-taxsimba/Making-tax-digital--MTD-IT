@@ -23,10 +23,30 @@ export interface ReceiptRecord {
   tags: string[];
   ocrText?: string | null;
   ocrMerchant?: string | null;
+  ocrSupplierName?: string | null;
   ocrAmount?: number | null;
+  ocrNetAmount?: number | null;
+  ocrVatAmount?: number | null;
+  ocrVatRate?: number | null;
+  ocrInvoiceNumber?: string | null;
   ocrDate?: string | null;
   status: "uploaded" | "processed";
   proofAvailable: boolean;
+}
+
+export interface ReceiptOcrResult {
+  receiptId: string;
+  text: string | null;
+  merchantName: string | null;
+  supplierName: string | null;
+  amount: number | null;
+  netAmount: number | null;
+  vatAmount: number | null;
+  vatRate: number | null;
+  date: string | null;
+  invoiceNumber: string | null;
+  source: string;
+  confidence: number;
 }
 
 export interface ReceiptEvidence {
@@ -148,6 +168,14 @@ export function listReceipts(clientId: string) {
 
 export function getReceipt(id: string) {
   return apiFetch<ReceiptRecord>(`/receipts/${id}`);
+}
+
+export function getReceiptOcr(id: string) {
+  return apiFetch<ReceiptOcrResult>(`/receipts/${id}/ocr`);
+}
+
+export function reprocessReceiptOcr(id: string) {
+  return apiFetch<ReceiptOcrResult>(`/receipts/${id}/ocr/reprocess`, { method: "POST" });
 }
 
 export function listBankTransactionReceipts(id: string) {

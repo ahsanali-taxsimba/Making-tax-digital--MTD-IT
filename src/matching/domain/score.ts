@@ -31,7 +31,7 @@ export function hasInvoiceReference(txn: BankMatchTxn, document: MatchableDocume
   if (!document.reference) {
     return false;
   }
-  const hay = `${txn.description} ${txn.merchantName ?? ""}`;
+  const hay = `${txn.description} ${txn.merchantName ?? ""} ${txn.ocrInvoiceNumber ?? ""} ${txn.ocrText ?? ""}`;
   const compact = normalizeRef(hay);
   const ref = normalizeRef(document.reference);
   if (ref.length >= 3 && compact.includes(ref)) {

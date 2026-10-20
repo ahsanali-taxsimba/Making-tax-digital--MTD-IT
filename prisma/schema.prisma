@@ -1083,7 +1083,12 @@ model ReceiptFile {
   tags              Json          @default("[]")
   ocrText           String?       @db.Text
   ocrMerchant       String?
+  ocrSupplierName   String?
   ocrAmount         Decimal?      @db.Decimal(14, 2)
+  ocrNetAmount      Decimal?      @db.Decimal(14, 2)
+  ocrVatAmount      Decimal?      @db.Decimal(14, 2)
+  ocrVatRate        Decimal?      @db.Decimal(5, 2)
+  ocrInvoiceNumber  String?
   ocrDate           DateTime?
   status            ReceiptStatus @default(UPLOADED)
   createdAt         DateTime      @default(now())
