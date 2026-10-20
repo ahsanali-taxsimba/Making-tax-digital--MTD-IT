@@ -15,12 +15,17 @@ import {
   CreateInvoiceDto,
   CreateJournalDto,
   CreatePeriodDto,
+  BankSplitDto,
   ImportBankDto,
   ItsaSummaryQueryDto,
   ListJournalsQueryDto,
   PatchChartAccountDto,
   PeriodQueryDto,
   ReconcileBankDto,
+  ReconciliationIgnoreDto,
+  ReconciliationMatchDto,
+  ReconciliationQueryDto,
+  ReconciliationSummaryQueryDto,
   VatSummaryQueryDto,
 } from "./dto/bookkeeping.dto";
 
@@ -119,6 +124,39 @@ export class BookkeepingController {
   @ApiOperation({ summary: "Match, split, ignore, and reconcile bank transactions" })
   reconcile(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ReconcileBankDto) {
     return this.bookkeeping.reconcile(user, id, dto);
+  }
+
+  @Get("reconciliation/suggestions")
+  @ApiOperation({ summary: "Suggested journal matches for unmatched bank transactions" })
+  reconciliationSuggestions(@CurrentUser() user: AuthUser, @Query() query: ReconciliationQueryDto) {
+    return this.bookkeeping.reconciliationSuggestions(user, query);
+  }
+
+  @Get("reconciliation/summary")
+  @ApiOperation({ summary: "Reconciliation totals, remaining lines, and variance" })
+  reconciliationSummary(@CurrentUser() user: AuthUser, @Query() query: ReconciliationSummaryQueryDto) {
+    return this.bookkeeping.reconciliationSummary(user, query);
+  }
+
+  @Post("reconciliation/match")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT)
+  @ApiOperation({ summary: "Match a bank transaction to an existing journal" })
+  matchBank(@CurrentUser() user: AuthUser, @Body() dto: ReconciliationMatchDto) {
+    return this.bookkeeping.matchBankTransaction(user, dto);
+  }
+
+  @Post("reconciliation/split")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT)
+  @ApiOperation({ summary: "Split a bank transaction across ledger accounts and post a journal" })
+  splitBank(@CurrentUser() user: AuthUser, @Body() dto: BankSplitDto) {
+    return this.bookkeeping.splitBankTransaction(user, dto);
+  }
+
+  @Post("reconciliation/ignore")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.ASSISTANT)
+  @ApiOperation({ summary: "Ignore a bank transaction in reconciliation" })
+  ignoreBank(@CurrentUser() user: AuthUser, @Body() dto: ReconciliationIgnoreDto) {
+    return this.bookkeeping.ignoreBankTransaction(user, dto);
   }
 
   @Get("vat/summary")

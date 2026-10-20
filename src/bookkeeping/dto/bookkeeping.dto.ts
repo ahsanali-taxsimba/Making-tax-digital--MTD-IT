@@ -249,6 +249,56 @@ export class BankSplitDto {
   allocations!: BankSplitAllocationDto[];
 }
 
+export class ReconciliationQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  clientId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  bankAccountId?: string;
+}
+
+export class ReconciliationSummaryQueryDto {
+  @ApiProperty()
+  @IsUUID()
+  bankAccountId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  periodStart?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  periodEnd?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  statementBalance?: number;
+}
+
+export class ReconciliationMatchDto {
+  @ApiProperty()
+  @IsUUID()
+  bankTransactionId!: string;
+
+  @ApiProperty()
+  @IsUUID()
+  journalEntryId!: string;
+}
+
+export class ReconciliationIgnoreDto {
+  @ApiProperty()
+  @IsUUID()
+  bankTransactionId!: string;
+}
+
 export class ReconcileBankDto {
   @ApiProperty()
   @IsDateString()

@@ -15,6 +15,11 @@ import {
   PatchChartAccountDto,
   PeriodQueryDto,
   ReconcileBankDto,
+  ReconciliationIgnoreDto,
+  ReconciliationMatchDto,
+  ReconciliationQueryDto,
+  ReconciliationSummaryQueryDto,
+  BankSplitDto,
   VatSummaryQueryDto,
 } from "./dto/bookkeeping.dto";
 import { InvoiceService } from "./invoice.service";
@@ -85,6 +90,26 @@ export class BookkeepingService {
 
   reconcile(user: AuthUser, id: string, dto: ReconcileBankDto) {
     return this.bank.reconcile(user, id, dto);
+  }
+
+  reconciliationSuggestions(user: AuthUser, query: ReconciliationQueryDto) {
+    return this.bank.suggestions(user, query);
+  }
+
+  matchBankTransaction(user: AuthUser, dto: ReconciliationMatchDto) {
+    return this.bank.matchOne(user, dto);
+  }
+
+  ignoreBankTransaction(user: AuthUser, dto: ReconciliationIgnoreDto) {
+    return this.bank.ignoreOne(user, dto);
+  }
+
+  splitBankTransaction(user: AuthUser, dto: BankSplitDto) {
+    return this.bank.splitOne(user, dto);
+  }
+
+  reconciliationSummary(user: AuthUser, query: ReconciliationSummaryQueryDto) {
+    return this.bank.summary(user, query);
   }
 
   vatSummary(user: AuthUser, query: VatSummaryQueryDto) {
