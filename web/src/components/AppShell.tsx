@@ -1,10 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { logout } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
 import { ClientPicker } from "./ClientPicker";
+
+function NavLink({ href, label }: { href: string; label: string }) {
+  const pathname = usePathname();
+  const active = pathname === href || pathname.startsWith(`${href}/`);
+  return (
+    <Link
+      href={href}
+      className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
+        active ? "bg-teal text-white" : "text-ink-muted hover:bg-paper hover:text-ink"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useSession();
@@ -14,15 +29,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       <header className="border-b border-line bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <Link href="/vat" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal text-sm font-bold text-white">
-              MT
-            </span>
-            <span>
-              <span className="block text-sm font-semibold text-ink">Making Tax Digital</span>
-              <span className="block text-xs text-ink-muted">HMRC VAT connection</span>
-            </span>
-          </Link>
+          <div className="flex flex-wrap items-center gap-6">
+            <Link href="/" className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal text-sm font-bold text-white">
+                MT
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-ink">Making Tax Digital</span>
+                <span className="block text-xs text-ink-muted">HMRC VAT &amp; ITSA</span>
+              </span>
+            </Link>
+            {user ? (
+              <nav className="flex items-center gap-1" aria-label="Regimes">
+                <NavLink href="/vat" label="VAT" />
+                <NavLink href="/itsa" label="ITSA" />
+              </nav>
+            ) : null}
+          </div>
           <div className="flex flex-wrap items-center gap-4">
             <ClientPicker />
             {user ? (

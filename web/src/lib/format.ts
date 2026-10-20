@@ -42,3 +42,44 @@ export function obligationStatus(value?: string | null): "open" | "fulfilled" {
   const normalised = String(value ?? "").toUpperCase();
   return normalised === "FULFILLED" || normalised === "F" ? "fulfilled" : "open";
 }
+
+export function businessTypeLabel(value?: string | null): string {
+  const normalised = String(value ?? "").toLowerCase().replace(/[_-]+/g, " ");
+  if (normalised.includes("property") || normalised.includes("landlord")) {
+    return "Property";
+  }
+  if (normalised.includes("self") || normalised.includes("sole")) {
+    return "Sole trade";
+  }
+  return value ? value.replace(/[_-]+/g, " ") : "Unassigned";
+}
+
+export function obligationTypeLabel(value?: string | null): string {
+  switch (String(value ?? "").toUpperCase()) {
+    case "EOPS":
+      return "EOPS";
+    case "FINAL_DECLARATION":
+      return "Final declaration";
+    default:
+      return "Quarterly update";
+  }
+}
+
+export function formatMoney(value?: number | null): string {
+  if (value === undefined || value === null || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(Number(value));
+}
+
+export function categoryLabel(value?: string | null): string {
+  const spaced = String(value ?? "")
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!spaced) {
+    return "—";
+  }
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}

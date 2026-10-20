@@ -51,6 +51,7 @@ export default function VatDashboardPage() {
             message={hmrcUserMessage(
               refresh.error instanceof ApiError ? refresh.error.errorCode : undefined,
               "Unable to refresh HMRC token.",
+              "vat",
             )}
           />
         ) : null}
