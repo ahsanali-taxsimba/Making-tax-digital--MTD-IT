@@ -27,6 +27,7 @@ describe("practice helpers", () => {
   it("titles the three role workspaces", () => {
     expect(pageTitle("/admin/overview")).toBe("Platform dashboard");
     expect(pageTitle("/practice/dashboard")).toBe("Dashboard");
+    expect(pageTitle("/practice/audit")).toBe("Audit");
     expect(pageTitle("/client/home")).toBe("Home");
     expect(roleLabel("admin_owner")).toBe("Platform owner");
     expect(roleLabel("firm_accountant")).toBe("Accountant");

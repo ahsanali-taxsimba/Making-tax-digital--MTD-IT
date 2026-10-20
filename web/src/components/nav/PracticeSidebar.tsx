@@ -1,8 +1,16 @@
 "use client";
 
-import { PRACTICE_NAV } from "@/lib/roles";
+import { useSession } from "@/hooks/useSession";
+import { canonicalRole, practiceNavFor } from "@/lib/roles";
 import { WorkspaceSidebar } from "./WorkspaceSidebar";
 
 export function PracticeSidebar() {
-  return <WorkspaceSidebar brand="Northbridge" eyebrow="Practice workspace" items={PRACTICE_NAV} />;
+  const { user } = useSession();
+  return (
+    <WorkspaceSidebar
+      brand="Northbridge"
+      eyebrow="Practice workspace"
+      items={practiceNavFor(canonicalRole(user) ?? user?.role)}
+    />
+  );
 }

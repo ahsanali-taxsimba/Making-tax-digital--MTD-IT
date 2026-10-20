@@ -167,6 +167,7 @@ export function pageTitle(pathname: string): string {
   if (pathname.startsWith("/practice/bank-feeds")) return "Bank feeds";
   if (pathname.startsWith("/practice/reconciliation")) return "Reconciliation";
   if (pathname.startsWith("/practice/documents")) return "Documents";
+  if (pathname.startsWith("/practice/audit")) return "Audit";
   if (pathname.startsWith("/practice/dashboard")) return "Dashboard";
   if (pathname.startsWith("/practice")) return "Practice";
   if (pathname.startsWith("/client/vat")) return "VAT";
