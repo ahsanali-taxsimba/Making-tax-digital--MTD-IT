@@ -31,6 +31,7 @@ export const PRACTICE_NAV: NavItem[] = [
   { href: "/practice/reconciliation", label: "Reconciliation", match: "/practice/reconciliation" },
   { href: "/practice/documents", label: "Documents", match: "/practice/documents" },
   { href: "/practice/audit", label: "Audit", match: "/practice/audit" },
+  { href: "/practice/digital-links", label: "Digital links", match: "/practice/digital-links" },
   { href: "/practice/tasks", label: "Tasks", match: "/practice/tasks" },
 ];
 
@@ -91,7 +92,7 @@ export function practiceNavFor(role?: string | null): NavItem[] {
   if (canViewAudit(role)) {
     return PRACTICE_NAV;
   }
-  return PRACTICE_NAV.filter((item) => item.href !== "/practice/audit");
+  return PRACTICE_NAV.filter((item) => item.href !== "/practice/audit" && item.href !== "/practice/digital-links");
 }
 
 export function isFirmClientRole(role?: string | null): boolean {
@@ -153,7 +154,12 @@ export function canAccessPath(user: AuthUser | null | undefined, pathname: strin
     return isPlatformRole(role);
   }
   if (workspace === "practice") {
-    if (pathname === "/practice/audit" || pathname.startsWith("/practice/audit/")) {
+    if (
+      pathname === "/practice/audit" ||
+      pathname.startsWith("/practice/audit/") ||
+      pathname === "/practice/digital-links" ||
+      pathname.startsWith("/practice/digital-links/")
+    ) {
       return canViewAudit(role);
     }
     return isFirmStaffRole(role);

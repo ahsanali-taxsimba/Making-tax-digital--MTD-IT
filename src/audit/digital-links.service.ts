@@ -98,15 +98,7 @@ export class DigitalLinksService {
         vat?.id,
         vat ? vat.periodKey : "VAT return",
         vat,
-        vat
-          ? {
-              periodKey: vat.periodKey,
-              status: vat.status,
-              hmrcSubmissionId: vat.formBundleNumber ?? vat.correlationId,
-              periodStart: vat.periodStart,
-              periodEnd: vat.periodEnd,
-            }
-          : null,
+        vat ? presentVat(vat) : null,
       ),
       quarterlyUpdate: node(
         "itsa_submission",
@@ -203,8 +195,38 @@ export class DigitalLinksService {
     });
   }
 
+  async getBankTransaction(user: AuthUser, id: string) {
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId });
+    const row = await this.findBank(user.firmId, id);
+    if (!row) {
+      throw new NotFoundException("Bank transaction not found");
+    }
+    return row;
+  }
+
+  async getJournalEntry(user: AuthUser, id: string) {
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId });
+    const row = await this.findJournal(user.firmId, id);
+    if (!row) {
+      throw new NotFoundException("Journal entry not found");
+    }
+    return row;
+  }
+
+  async getVatReturn(user: AuthUser, id: string) {
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId });
+    const row = await this.findVat(user.firmId, id);
+    if (!row) {
+      throw new NotFoundException("VAT return not found");
+    }
+    return presentVat(row);
+  }
+
   private findJournal(firmId: string, id: string) {
-    return this.prisma.journalEntry.findFirst({ where: { id, firmId } });
+    return this.prisma.journalEntry.findFirst({
+      where: { id, firmId },
+      include: { lines: { include: { ledger: true } } },
+    });
   }
 
   private findInvoice(firmId: string, id: string) {
@@ -258,6 +280,45 @@ export class DigitalLinksService {
   private findFinalById(firmId: string, id: string) {
     return this.prisma.itsaFinalDeclaration.findFirst({ where: { id, client: { firmId } } });
   }
+}
+
+function presentVat(vat: {
+  id: string;
+  periodKey: string;
+  status: string;
+  formBundleNumber?: string | null;
+  correlationId?: string | null;
+  periodStart?: Date | null;
+  periodEnd?: Date | null;
+  vatDueSales?: unknown;
+  vatDueAcquisitions?: unknown;
+  totalVatDue?: unknown;
+  vatReclaimedCurrPeriod?: unknown;
+  netVatDue?: unknown;
+  totalValueSalesExVAT?: unknown;
+  totalValuePurchasesExVAT?: unknown;
+  totalValueGoodsSuppliedExVAT?: unknown;
+  totalAcquisitionsExVAT?: unknown;
+}) {
+  return {
+    id: vat.id,
+    periodKey: vat.periodKey,
+    status: vat.status,
+    hmrcSubmissionId: vat.formBundleNumber ?? vat.correlationId,
+    formBundleNumber: vat.formBundleNumber ?? null,
+    correlationId: vat.correlationId ?? null,
+    periodStart: vat.periodStart,
+    periodEnd: vat.periodEnd,
+    box1: Number(vat.vatDueSales ?? 0),
+    box2: Number(vat.vatDueAcquisitions ?? 0),
+    box3: Number(vat.totalVatDue ?? 0),
+    box4: Number(vat.vatReclaimedCurrPeriod ?? 0),
+    box5: Number(vat.netVatDue ?? 0),
+    box6: Number(vat.totalValueSalesExVAT ?? 0),
+    box7: Number(vat.totalValuePurchasesExVAT ?? 0),
+    box8: Number(vat.totalValueGoodsSuppliedExVAT ?? 0),
+    box9: Number(vat.totalAcquisitionsExVAT ?? 0),
+  };
 }
 
 function node(

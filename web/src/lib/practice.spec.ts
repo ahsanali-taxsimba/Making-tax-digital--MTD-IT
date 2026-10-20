@@ -28,6 +28,7 @@ describe("practice helpers", () => {
     expect(pageTitle("/admin/overview")).toBe("Platform dashboard");
     expect(pageTitle("/practice/dashboard")).toBe("Dashboard");
     expect(pageTitle("/practice/audit")).toBe("Audit");
+    expect(pageTitle("/practice/digital-links/doc-1")).toBe("Digital links");
     expect(pageTitle("/client/home")).toBe("Home");
     expect(roleLabel("admin_owner")).toBe("Platform owner");
     expect(roleLabel("firm_accountant")).toBe("Accountant");
