@@ -277,6 +277,7 @@ Every module below is tenant-scoped except Platform Admin, which sees aggregated
 |  - Ledger posting                                                |
 |  - Trial balance                                                 |
 |  - VAT / ITSA mapping                                            |
+|  - Bookkeeping agent (confirmable actions)                       |
 +-------------------------------+----------------------------------+
                                 |
                                 v
@@ -381,6 +382,7 @@ These are logical services. Today they ship as NestJS modules in one API process
 +----------------------------------------------------------------------+
 | BOOKKEEPING SERVICE                                                  |
 |  Chart of accounts · journals · ledger · trial balance · VAT/ITSA    |
+|  Bookkeeping agent (firm-scoped tools, queued writes)                |
 +----------------------------------+-----------------------------------+
                                    |
               +--------------------+--------------------+
@@ -394,6 +396,7 @@ These are logical services. Today they ship as NestJS modules in one API process
 |  - Approve returns             |     |  - Bank feeds and recon        |
 |  - View documents              |     |  - Document review             |
 |  - Messages with accountant    |     |  - Invoice extraction review   |
+|                                |     |  - Bookkeeping agent           |
 |                                |     |  - Tasks / workflows           |
 +--------------------------------+     +--------------------------------+
 ```

@@ -100,6 +100,7 @@ const FEATURE_LABELS: Record<string, string> = {
   cashflow_dashboard: "Cashflow dashboard",
   multi_user: "Multi-user access",
   priority_support: "Priority support",
+  bookkeeping_agent: "Bookkeeping agent",
   practice_clients: "Practice clients",
 };
 

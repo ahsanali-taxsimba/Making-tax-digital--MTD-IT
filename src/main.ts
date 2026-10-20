@@ -30,7 +30,7 @@ async function bootstrap() {
       .setTitle("Making Tax Digital IT API")
       .setDescription(
         [
-          "Multi-tenant MTD backend for VAT, Income Tax (ITSA), double-entry bookkeeping, HMRC OAuth2, Stripe subscription billing (Checkout, Customer Portal, UK VAT invoices, usage-based accountant plans), and a Yapily bank-feed pipeline (consent, sync, enrichment, categorisation, invoice/bill matching, reconciliation, journals, VAT/ITSA).",
+          "Multi-tenant MTD backend for VAT, Income Tax (ITSA), double-entry bookkeeping, an in-product bookkeeping agent (confirmable categorisation, matching and VAT/ITSA briefing), HMRC OAuth2, Stripe subscription billing (Checkout, Customer Portal, UK VAT invoices, usage-based accountant plans), and a Yapily bank-feed pipeline (consent, sync, enrichment, categorisation, invoice/bill matching, reconciliation, journals, VAT/ITSA).",
           "",
           "VAT and ITSA never call HMRC directly. All HMRC HTTP goes through HmrcClientService (`get`, `post`, `getValidAccessToken`, `handleTokenRefresh`, `handleHMRCError`), which refreshes user-restricted tokens before they expire and retries once after a 401.",
           "",

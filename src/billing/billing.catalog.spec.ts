@@ -13,6 +13,8 @@ describe("billing catalog", () => {
     expect(lite.unitAmountPence).toBe(600);
     expect(growth.unitAmountPence).toBe(400);
     expect(growth.minQuantity).toBe(26);
+    expect(lite.features).not.toContain("bookkeeping_agent");
+    expect(DEFAULT_BILLING_PLANS[1].features).toContain("bookkeeping_agent");
     expect(vatPence(600, 20, false)).toEqual({ netPence: 600, taxPence: 120, totalPence: 720 });
     expect(vatPence(1000, 20, true).totalPence).toBe(1000);
   });

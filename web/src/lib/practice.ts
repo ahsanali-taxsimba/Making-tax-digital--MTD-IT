@@ -160,6 +160,7 @@ export function pageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/system-health")) return "System health";
   if (pathname.startsWith("/admin")) return "Platform dashboard";
   if (pathname.startsWith("/practice/staff")) return "Staff";
+  if (pathname.startsWith("/practice/agent")) return "Bookkeeping agent";
   if (pathname.startsWith("/practice/clients")) return "Clients";
   if (pathname.startsWith("/practice/tasks")) return "Tasks";
   if (pathname.startsWith("/practice/hmrc")) return "HMRC connections";

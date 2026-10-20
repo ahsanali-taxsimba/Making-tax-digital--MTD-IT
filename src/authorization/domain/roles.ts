@@ -158,4 +158,5 @@ export const CLIENT_DATA_PATHS = [
   "/audit",
   "/digital-links",
   "/billing",
+  "/agent",
 ];

@@ -11,6 +11,7 @@ export const BILLING_FEATURES = [
   "cashflow_dashboard",
   "multi_user",
   "priority_support",
+  "bookkeeping_agent",
   "practice_clients",
 ] as const;
 
@@ -33,6 +34,7 @@ const PRO_FEATURES: BillingFeature[] = [
   "cashflow_dashboard",
   "multi_user",
   "priority_support",
+  "bookkeeping_agent",
 ];
 
 const PRACTICE_FEATURES: BillingFeature[] = [...PRO_FEATURES, "practice_clients"];
@@ -71,7 +73,7 @@ export const DEFAULT_BILLING_PLANS: BillingPlanSeed[] = [
   {
     slug: "ledger-pro",
     name: "Ledger Pro",
-    description: "Everything in Lite, plus unlimited transactions, AI categorisation, advanced reports and multi-user access.",
+    description: "Everything in Lite, plus unlimited transactions, AI categorisation, the bookkeeping agent, advanced reports and multi-user access.",
     audience: "BUSINESS",
     billingModel: "FLAT",
     unitAmountPence: 1000,

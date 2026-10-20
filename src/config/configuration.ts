@@ -85,6 +85,12 @@ export default () => ({
     vatTaxRateId: process.env.STRIPE_VAT_TAX_RATE_ID ?? "",
     usageSyncMs: parseInt(process.env.STRIPE_USAGE_SYNC_MS ?? "3600000", 10),
   },
+  agent: {
+    mode: (process.env.AGENT_LLM_MODE ?? "mock") as "mock" | "live",
+    apiKey: process.env.AGENT_LLM_API_KEY ?? "",
+    baseUrl: process.env.AGENT_LLM_BASE_URL ?? "https://api.openai.com/v1",
+    model: process.env.AGENT_LLM_MODEL ?? "gpt-4.1-mini",
+  },
   yapily: {
     mode: (process.env.YAPILY_MODE ?? "mock") as "mock" | "live",
     baseUrl: process.env.YAPILY_BASE_URL ?? "https://api.yapily.com",

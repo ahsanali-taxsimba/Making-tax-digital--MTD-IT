@@ -271,3 +271,22 @@ curl -s http://localhost:3000/billing/invoices -H "Authorization: Bearer $TOKEN"
 ```
 
 `STRIPE_MODE=mock` returns a success URL with `session_id`. `POST /billing/checkout/complete` `{ "sessionId": "..." }` activates the subscription and writes a 20% VAT invoice. Accountant quantity is the active client count; past 25 clients the firm is moved to Practice Growth. Platform owners read MRR at `GET /admin/billing/metrics`.
+
+## 9. Ask the bookkeeping agent
+
+The copilot reads this firm's unmatched bank, invoices, VAT and ITSA. It never posts until you apply a card.
+
+```bash
+curl -s -X POST http://localhost:3000/agent/messages \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"What needs my attention?"}'
+curl -s -X POST http://localhost:3000/agent/conversations/$CONV_ID/messages \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"Categorise unmatched bank lines"}'
+curl -s -X POST http://localhost:3000/agent/actions/$ACTION_ID/apply \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+`AGENT_LLM_MODE=mock` answers from live Prisma tools without an LLM key. Trial and Pro/Practice plans include `bookkeeping_agent`; Lite returns `BILLING_FEATURE_REQUIRED`. The same thread is at `/practice/agent`.
