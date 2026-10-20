@@ -28,4 +28,5 @@ export const BANK_WORKSPACE_TABS = [
   { href: "/reconciliation", label: "Reconciliation", match: "/reconciliation" },
   { href: "/categorisation", label: "Auto-categorisation", match: "/categorisation" },
   { href: "/matching", label: "Invoice & bill matching", match: "/matching" },
+  { href: "/receipts", label: "Receipts", match: "/receipts" },
 ] as const;

@@ -186,6 +186,7 @@ export interface VatValidation {
   vatReturn?: Record<string, number>;
   totals?: Record<string, number>;
   validation: { valid: boolean; errors: string[]; warnings: string[]; issues: string[] };
+  proof?: { box4?: { items: number; withProof: number; proofAttached: boolean } };
 }
 
 export interface ItsaBusiness {

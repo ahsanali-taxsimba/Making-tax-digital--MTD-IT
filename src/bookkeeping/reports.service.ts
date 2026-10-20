@@ -9,6 +9,7 @@ import { itsaSummaryFromJournals } from "./domain/itsa-summary";
 import { balanceSheet, profitAndLoss, trialBalance } from "./domain/reports";
 import { vatSummaryFromJournals } from "./domain/vat-summary";
 import { JournalService } from "./journal.service";
+import { ReceiptsService } from "../receipts/receipts.service";
 
 @Injectable()
 export class ReportsService {
@@ -16,6 +17,7 @@ export class ReportsService {
     private readonly repo: BookkeepingRepository,
     private readonly clients: ClientsService,
     private readonly journals: JournalService,
+    private readonly receipts: ReceiptsService,
   ) {}
 
   async trialBalance(user: AuthUser, query: PeriodQueryDto) {
@@ -52,7 +54,8 @@ export class ReportsService {
         })),
       ),
     );
-    return { period, ...summary };
+    const proof = await this.receipts.evidenceForClient(query.clientId);
+    return { period, ...summary, proof: proof.vat, receipts: proof.itsa };
   }
 
   async itsaSummary(user: AuthUser, query: PeriodQueryDto & { businessType?: string }) {
@@ -67,7 +70,8 @@ export class ReportsService {
       ),
       query.businessType,
     );
-    return { period, ...summary };
+    const proof = await this.receipts.evidenceForClient(query.clientId);
+    return { period, ...summary, receipts: proof.itsa };
   }
 
   private async load(user: AuthUser, query: PeriodQueryDto) {

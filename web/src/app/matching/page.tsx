@@ -6,6 +6,7 @@ import { ConfidenceBadge } from "@/components/ConfidenceBadge";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { FirmStatsCard } from "@/components/FirmStatsCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { AttachReceiptButton } from "@/components/AttachReceiptButton";
 import { MatchingSuggestionCard } from "@/components/MatchingSuggestionCard";
 import { ReasonChips } from "@/components/ReasonChips";
 import { RequireStaff } from "@/components/RequireStaff";
@@ -104,6 +105,7 @@ export default function MatchingWorkspacePage() {
                 {selected ? (
                   <MatchingDetail
                     suggestion={selected}
+                    clientId={clientId}
                     applyPending={apply.isPending}
                     rejectPending={reject.isPending}
                     error={apply.error?.message ?? reject.error?.message}
@@ -126,6 +128,7 @@ export default function MatchingWorkspacePage() {
 
 function MatchingDetail({
   suggestion,
+  clientId,
   applyPending,
   rejectPending,
   error,
@@ -133,6 +136,7 @@ function MatchingDetail({
   onReject,
 }: {
   suggestion: MatchingSuggestion;
+  clientId?: string | null;
   applyPending: boolean;
   rejectPending: boolean;
   error?: string;
@@ -190,6 +194,12 @@ function MatchingDetail({
           </li>
         ))}
       </ul>
+      <AttachReceiptButton
+        clientId={clientId}
+        invoiceId={suggestion.documentKind === "invoice" ? suggestion.documentId : undefined}
+        billId={suggestion.documentKind === "bill" ? suggestion.documentId : undefined}
+        bankTransactionId={suggestion.bankTransactionId}
+      />
       {error ? <ErrorBanner title="Matching action failed" message={error} /> : null}
       <div className="flex flex-wrap gap-2">
         <button

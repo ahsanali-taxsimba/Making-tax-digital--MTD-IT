@@ -86,10 +86,22 @@ function PrepareFlow() {
             {Object.entries(preview.data.vatReturn).map(([key, value]) => (
               <div key={key}>
                 <dt className="text-xs uppercase text-ink-muted">{key}</dt>
-                <dd className="mt-1 text-sm font-medium">{Number(value).toLocaleString("en-GB")}</dd>
+                <dd className="mt-1 text-sm font-medium">
+                  {Number(value).toLocaleString("en-GB")}
+                  {key === "box4" && preview.data.proof?.box4?.proofAttached ? (
+                    <span className="ml-2 rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">
+                      Proof attached
+                    </span>
+                  ) : null}
+                </dd>
               </div>
             ))}
           </dl>
+          {preview.data.proof?.box4 ? (
+            <p className="mt-4 text-sm text-ink-muted">
+              Box 4 expenses with receipts: {preview.data.proof.box4.withProof} of {preview.data.proof.box4.items}.
+            </p>
+          ) : null}
         </section>
       ) : null}
 

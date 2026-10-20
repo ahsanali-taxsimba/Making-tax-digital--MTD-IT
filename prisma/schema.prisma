@@ -141,6 +141,7 @@ model Firm {
   categorisationSuggestions CategorisationSuggestion[]
   matchingSuggestions MatchingSuggestion[]
   manualStatementUploads ManualStatementUpload[]
+  receiptFiles ReceiptFile[]
 }
 
 model User {
@@ -165,6 +166,7 @@ model User {
   assignedClients Client[] @relation("ClientAssignee")
   assignedTasks   Task[]   @relation("TaskAssignee")
   manualStatementUploads ManualStatementUpload[]
+  receiptFiles ReceiptFile[]
 }
 
 model RefreshToken {
@@ -222,6 +224,7 @@ model Client {
   categorisationSuggestions CategorisationSuggestion[]
   matchingSuggestions MatchingSuggestion[]
   manualStatementUploads ManualStatementUpload[]
+  receiptFiles ReceiptFile[]
 
   @@index([firmId])
   @@index([assignedUserId])
@@ -702,6 +705,7 @@ model JournalEntry {
   bankMatches     BankTransaction[]
   invoice         SalesInvoice?
   bill            PurchaseBill?
+  receipts        ReceiptFile[]
 
   @@index([clientId, date])
 }
@@ -745,6 +749,7 @@ model SalesInvoice {
   journalId   String?        @unique
   journal     JournalEntry?  @relation(fields: [journalId], references: [id])
   lines       SalesInvoiceLine[]
+  receipts    ReceiptFile[]
   createdAt   DateTime       @default(now())
 }
 
@@ -775,6 +780,7 @@ model PurchaseBill {
   journalId   String?        @unique
   journal     JournalEntry?  @relation(fields: [journalId], references: [id])
   lines       PurchaseBillLine[]
+  receipts    ReceiptFile[]
   createdAt   DateTime       @default(now())
 }
 
@@ -837,6 +843,7 @@ model BankTransaction {
   updatedAt             DateTime         @updatedAt
   categorisation        CategorisationSuggestion?
   matching              MatchingSuggestion?
+  receipts              ReceiptFile[]
 
   @@index([bankAccountId, externalRef])
 }
@@ -1026,4 +1033,66 @@ model ManualStatementUpload {
 
   @@index([clientId, uploadedAt])
   @@index([bankAccountId, status])
+}
+
+enum ReceiptStatus {
+  UPLOADED
+  PROCESSED
+}
+
+model ReceiptTag {
+  id          String             @id @default(uuid())
+  name        String             @unique
+  description String?
+  createdAt   DateTime           @default(now())
+  files       ReceiptFileOnTag[]
+}
+
+model ReceiptFileOnTag {
+  receiptId String
+  receipt   ReceiptFile @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       ReceiptTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([receiptId, tagId])
+}
+
+/// Image or PDF receipt stored for HMRC digital record-keeping.
+model ReceiptFile {
+  id                String        @id @default(uuid())
+  firmId            String
+  firm              Firm          @relation(fields: [firmId], references: [id])
+  clientId          String
+  client            Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  bankTransactionId String?
+  bankTransaction   BankTransaction? @relation(fields: [bankTransactionId], references: [id])
+  invoiceId         String?
+  invoice           SalesInvoice? @relation(fields: [invoiceId], references: [id])
+  billId            String?
+  bill              PurchaseBill? @relation(fields: [billId], references: [id])
+  journalEntryId    String?
+  journal           JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  fileName          String
+  fileType          String
+  fileSize          Int
+  storageKey        String
+  storageUrl        String
+  uploadedByUserId  String
+  uploadedBy        User          @relation(fields: [uploadedByUserId], references: [id])
+  uploadedAt        DateTime      @default(now())
+  tags              Json          @default("[]")
+  ocrText           String?       @db.Text
+  ocrMerchant       String?
+  ocrAmount         Decimal?      @db.Decimal(14, 2)
+  ocrDate           DateTime?
+  status            ReceiptStatus @default(UPLOADED)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  tagLinks          ReceiptFileOnTag[]
+
+  @@index([clientId, uploadedAt])
+  @@index([bankTransactionId])
+  @@index([invoiceId])
+  @@index([billId])
+  @@index([journalEntryId])
 }

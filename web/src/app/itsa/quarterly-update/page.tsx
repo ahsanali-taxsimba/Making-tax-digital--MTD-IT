@@ -6,12 +6,26 @@ import { Suspense } from "react";
 import { ApiError } from "@/lib/api";
 import { hmrcUserMessage } from "@/lib/errors";
 import { businessTypeLabel, categoryLabel, formatDate, formatMoney, obligationStatus } from "@/lib/format";
+import { useReceiptEvidence } from "@/hooks/useReceipts";
 import { useItsaObligations, useItsaValidation, useSubmitItsaQuarterly } from "@/hooks/useItsaObligations";
 import { useSession } from "@/hooks/useSession";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { SuccessBanner } from "@/components/SuccessBanner";
+
+function ReceiptProofNote({ clientId }: { clientId?: string | null }) {
+  const evidence = useReceiptEvidence(clientId);
+  if (!evidence.data) {
+    return null;
+  }
+  return (
+    <p className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink-muted">
+      Receipt attached on {evidence.data.itsa.allowableExpensesWithReceipt} of {evidence.data.itsa.allowableExpenses}{" "}
+      allowable expense journals · {evidence.data.receiptsAttached} receipts on file.
+    </p>
+  );
+}
 
 function TotalsTable({ title, values }: { title: string; values?: Record<string, number> }) {
   const entries = Object.entries(values ?? {});
@@ -135,7 +149,8 @@ function QuarterlyFlow() {
       {preview.data ? (
         <>
           <TotalsTable title="Income" values={preview.data.incomes} />
-          <TotalsTable title="Expenses" values={preview.data.expenses} />
+          <TotalsTable title="Allowable expenses" values={preview.data.expenses} />
+          <ReceiptProofNote clientId={clientId} />
           {preview.data.excluded?.length ? (
             <section className="rounded-2xl border border-line bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold">Excluded from this update</h2>

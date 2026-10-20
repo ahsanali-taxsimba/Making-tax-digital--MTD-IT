@@ -14,6 +14,7 @@ import { HmrcApiError } from "../../hmrc/hmrc.errors";
 import { HmrcOAuthError } from "../../hmrc/oauth/hmrc-oauth.errors";
 import { MatchingError } from "../../matching/matching.errors";
 import { ManualStatementError } from "../../manual-statements/manual-statements.errors";
+import { ReceiptError } from "../../receipts/receipts.errors";
 import { YapilyError } from "../../yapily/yapily.errors";
 
 @Catch()
@@ -29,7 +30,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       exception instanceof YapilyError ||
       exception instanceof CategorisationError ||
       exception instanceof MatchingError ||
-      exception instanceof ManualStatementError
+      exception instanceof ManualStatementError ||
+      exception instanceof ReceiptError
     ) {
       const body = exception.getResponse();
       const message =
