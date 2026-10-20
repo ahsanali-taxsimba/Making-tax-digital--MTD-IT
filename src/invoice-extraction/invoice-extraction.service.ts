@@ -59,7 +59,7 @@ export class InvoiceExtractionService {
         actionType: "invoice.extraction.completed",
         metadata: { documentId: document.id, confidence: extracted.confidence, invoiceNumber: extracted.invoiceNumber },
       });
-      return this.publicExtraction(document.id, extracted, ExtractionStatus.COMPLETED);
+      return this.present(document, extracted, ExtractionStatus.COMPLETED);
     } catch (error) {
       await this.repo.writeExtraction(document.id, {
         extractedData: { error: error instanceof Error ? error.message : "extraction_failed" } as Prisma.InputJsonValue,
@@ -78,10 +78,108 @@ export class InvoiceExtractionService {
 
   async getExtraction(user: AuthUser, documentId: string) {
     const document = await this.requireDocument(user, documentId);
-    if (!document.extractedData) {
-      throw new InvoiceExtractionError(EXTRACT_ERR.NOT_READY, "No extraction has been run for this document", undefined, 404);
+    const extracted = document.extractedData
+      ? (document.extractedData as unknown as ExtractedInvoice)
+      : emptyExtracted();
+    return this.present(
+      document,
+      extracted,
+      document.extractionStatus,
+      Number(document.extractionConfidence ?? extracted.confidence ?? 0),
+    );
+  }
+
+  async listExtractions(user: AuthUser, clientId?: string) {
+    const client = await this.clients.get(user, clientId ?? user.clientId ?? "");
+    const rows = await this.repo.listForClient(client.id);
+    return {
+      clientId: client.id,
+      count: rows.length,
+      documents: rows.map((row) => ({
+        documentId: row.id,
+        clientId: row.clientId,
+        fileName: row.fileName,
+        fileType: row.fileType,
+        previewUrl: `/documents/${row.id}/file`,
+        type: row.type,
+        invoiceNumber: row.ocrInvoiceNumber,
+        supplierName: (row.extractedData as { supplierName?: string } | null)?.supplierName ?? row.ocrMerchant,
+        status: this.publicStatus(row.extractionStatus),
+        reviewStatus: this.reviewStatus(row),
+        confidence: Number(row.extractionConfidence ?? 0),
+        invoiceId: row.invoiceId,
+        billId: row.billId,
+        uploadedAt: row.uploadedAt,
+      })),
+    };
+  }
+
+  async listAudit(user: AuthUser, documentId: string) {
+    const document = await this.requireDocument(user, documentId);
+    const client = await this.clients.get(user, document.clientId);
+    const [audit, logs] = await Promise.all([
+      this.repo.listAudit({
+        firmId: client.firmId,
+        clientId: document.clientId,
+        documentId: document.id,
+        invoiceId: document.invoiceId ?? undefined,
+        billId: document.billId ?? undefined,
+      }),
+      this.repo.listLogs(document.id),
+    ]);
+    return this.mergeAudit(audit, logs);
+  }
+
+  async saveDraft(user: AuthUser, documentId: string, dto: ConfirmExtractionDto) {
+    const document = await this.requireDocument(user, documentId);
+    const current = (document.extractedData as ExtractedInvoice | null) ?? emptyExtracted();
+    const merged = { ...current, ...this.overrides(dto), confidence: current.confidence ?? 0 };
+    await this.repo.writeExtraction(document.id, {
+      extractedData: merged as unknown as Prisma.InputJsonValue,
+      extractionConfidence: merged.confidence ?? Number(document.extractionConfidence ?? 0),
+      status: ExtractionStatus.COMPLETED,
+    });
+    await this.repo.log({
+      document: { connect: { id: document.id } },
+      status: ExtractionStatus.COMPLETED,
+      confidence: merged.confidence,
+      extractedData: merged as unknown as Prisma.InputJsonValue,
+      warnings: (merged.issues ?? []) as unknown as Prisma.InputJsonValue,
+    });
+    await this.audit.record({
+      actor: user,
+      clientId: document.clientId,
+      actionType: "invoice.extraction.draft_saved",
+      metadata: { documentId: document.id, invoiceNumber: merged.invoiceNumber },
+    });
+    return this.present({ ...document, extractionStatus: ExtractionStatus.COMPLETED }, merged, ExtractionStatus.COMPLETED);
+  }
+
+  async reject(user: AuthUser, documentId: string, reason?: string) {
+    const document = await this.requireDocument(user, documentId);
+    if (document.invoiceId || document.billId) {
+      throw new InvoiceExtractionError(EXTRACT_ERR.ALREADY_CONFIRMED, "Document is already attached to an invoice or bill");
     }
-    return this.publicExtraction(document.id, document.extractedData as unknown as ExtractedInvoice, document.extractionStatus, Number(document.extractionConfidence ?? 0));
+    await this.repo.markStatus(document.id, ExtractionStatus.REJECTED);
+    await this.repo.log({
+      document: { connect: { id: document.id } },
+      status: ExtractionStatus.REJECTED,
+      confidence: Number(document.extractionConfidence ?? 0),
+      extractedData: (document.extractedData ?? {}) as Prisma.InputJsonValue,
+      warnings: [reason ?? "Extraction rejected"] as unknown as Prisma.InputJsonValue,
+    });
+    await this.audit.record({
+      actor: user,
+      clientId: document.clientId,
+      actionType: "invoice.extraction.rejected",
+      metadata: { documentId: document.id, reason: reason ?? "rejected" },
+    });
+    const extracted = (document.extractedData as ExtractedInvoice | null) ?? emptyExtracted();
+    return this.present({ ...document, extractionStatus: ExtractionStatus.REJECTED }, extracted, ExtractionStatus.REJECTED);
+  }
+
+  reprocess(user: AuthUser, documentId: string, direction?: InvoiceDirection) {
+    return this.extractFromDocument(user, documentId, direction);
   }
 
   async confirm(user: AuthUser, documentId: string, dto: ConfirmExtractionDto) {
@@ -132,6 +230,7 @@ export class InvoiceExtractionService {
         },
       });
       await this.repo.attachInvoice(document.id, invoice.id);
+      await this.attachSupporting(document, "sales", invoice.id);
       await this.audit.record({
         actor: user,
         clientId: client.id,
@@ -165,6 +264,7 @@ export class InvoiceExtractionService {
       },
     });
     await this.repo.attachBill(document.id, bill.id);
+    await this.attachSupporting(document, "purchase", bill.id);
     await this.audit.record({
       actor: user,
       clientId: client.id,
@@ -237,14 +337,150 @@ export class InvoiceExtractionService {
     return [{ description: extracted.invoiceNumber ? `Invoice ${extracted.invoiceNumber}` : "Extracted invoice", net, vat }];
   }
 
+  private async attachSupporting(document: { id: string; clientId: string }, direction: InvoiceDirection, targetId: string) {
+    const extras = this.repo.listSupporting ? await this.repo.listSupporting(document.clientId, document.id) : [];
+    const ids = extras.map((row) => row.id);
+    if (direction === "sales") {
+      await this.repo.attachManyToInvoice?.(ids, targetId);
+    } else {
+      await this.repo.attachManyToBill?.(ids, targetId);
+    }
+  }
+
+  private async present(
+    document: {
+      id: string;
+      clientId: string;
+      fileName?: string;
+      fileType?: string;
+      invoiceId?: string | null;
+      billId?: string | null;
+      extractionStatus?: ExtractionStatus;
+      firmId?: string;
+    },
+    extracted: ExtractedInvoice,
+    status: ExtractionStatus,
+    confidence = extracted.confidence,
+  ) {
+    const audit = this.repo.listAudit
+      ? await this.repo.listAudit({
+          firmId: document.firmId ?? "",
+          clientId: document.clientId,
+          documentId: document.id,
+          invoiceId: document.invoiceId ?? undefined,
+          billId: document.billId ?? undefined,
+        }).catch(() => [])
+      : [];
+    const logs = this.repo.listLogs ? await this.repo.listLogs(document.id).catch(() => []) : [];
+    return {
+      documentId: document.id,
+      clientId: document.clientId,
+      fileName: document.fileName ?? "invoice",
+      fileType: document.fileType ?? "pdf",
+      previewUrl: `/documents/${document.id}/file`,
+      invoiceId: document.invoiceId ?? null,
+      billId: document.billId ?? null,
+      status: this.publicStatus(status),
+      reviewStatus: this.reviewStatus({ ...document, extractionStatus: status }),
+      confidence,
+      extracted,
+      audit: this.mergeAudit(audit, logs),
+    };
+  }
+
+  private publicStatus(status: ExtractionStatus) {
+    if (status === ExtractionStatus.COMPLETED) {
+      return "completed";
+    }
+    if (status === ExtractionStatus.FAILED) {
+      return "failed";
+    }
+    if (status === ExtractionStatus.IN_PROGRESS) {
+      return "in_progress";
+    }
+    if (status === ExtractionStatus.REJECTED) {
+      return "rejected";
+    }
+    return "not_started";
+  }
+
+  private reviewStatus(document: { invoiceId?: string | null; billId?: string | null; extractionStatus?: ExtractionStatus | null }) {
+    if (document.invoiceId || document.billId) {
+      return "approved";
+    }
+    return this.publicStatus(document.extractionStatus ?? ExtractionStatus.NOT_STARTED);
+  }
+
+  private mergeAudit(
+    audit: Array<{
+      id: string;
+      actionType: string;
+      createdAt: Date;
+      actor?: { name?: string | null; email?: string | null } | null;
+      metadata?: unknown;
+    }>,
+    logs: Array<{ id: string; status: ExtractionStatus; createdAt: Date; warnings?: unknown; confidence?: unknown }>,
+  ) {
+    const fromAudit = audit.map((row) => ({
+      id: row.id,
+      action: row.actionType,
+      userName: row.actor?.name || row.actor?.email || "System",
+      createdAt: row.createdAt,
+      metadata: row.metadata ?? {},
+    }));
+    const fromLogs = logs.map((row) => ({
+      id: `log-${row.id}`,
+      action: `invoice.extraction.${this.publicStatus(row.status)}`,
+      userName: "Extraction engine",
+      createdAt: row.createdAt,
+      metadata: { confidence: row.confidence != null ? Number(row.confidence) : null, warnings: row.warnings },
+    }));
+    return [...fromAudit, ...fromLogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
   private publicExtraction(documentId: string, extracted: ExtractedInvoice, status: ExtractionStatus, confidence = extracted.confidence) {
     return {
       documentId,
-      status: status === ExtractionStatus.COMPLETED ? "completed" : status === ExtractionStatus.FAILED ? "failed" : status === ExtractionStatus.IN_PROGRESS ? "in_progress" : "not_started",
+      status: this.publicStatus(status),
       confidence,
       extracted,
     };
   }
+}
+
+function emptyExtracted(): ExtractedInvoice {
+  return {
+    supplierName: null,
+    supplierAddress: null,
+    supplierId: null,
+    customerName: null,
+    invoiceNumber: null,
+    invoiceDate: null,
+    dueDate: null,
+    currency: "GBP",
+    lineItems: [],
+    subtotal: null,
+    vatTotal: null,
+    grandTotal: null,
+    direction: "purchase",
+    vatBoxes: [],
+    itsaCategory: null,
+    itsaBucket: null,
+    issues: [],
+    fieldConfidence: {
+      supplierName: 0,
+      supplierAddress: 0,
+      invoiceNumber: 0,
+      invoiceDate: 0,
+      dueDate: 0,
+      lineItems: 0,
+      subtotal: 0,
+      vatTotal: 0,
+      grandTotal: 0,
+    },
+    confidence: 0,
+    source: "ocr",
+  };
 }
 
 function addDays(iso: string, days: number): string {

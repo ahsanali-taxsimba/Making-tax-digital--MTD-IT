@@ -34,6 +34,20 @@ export class ExtractedLineOverrideDto {
   vat?: number;
 }
 
+export class ListExtractionsQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  clientId?: string;
+}
+
+export class RejectExtractionDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
 export class ConfirmExtractionDto {
   @ApiPropertyOptional({ enum: ["sales", "purchase"] })
   @IsOptional()

@@ -134,9 +134,14 @@ export class DocumentsService {
   }
 
   async listLibrary(user: AuthUser, query: DocumentsQueryDto) {
-    const client = await this.clients.get(user, query.clientId ?? user.clientId ?? "");
+    const clientId = await this.resolveLibraryClientId(user, query);
     const kind = parseDocumentKind(query.type);
-    const rows = await this.repo.list(client.id, { type: kind ?? undefined, tag: query.tag });
+    const rows = await this.repo.list(clientId, {
+      type: kind ?? undefined,
+      tag: query.tag,
+      invoiceId: query.invoiceId,
+      billId: query.billId,
+    });
     return { documents: rows.map((row) => this.publicDocument(row)), count: rows.length };
   }
 
@@ -263,6 +268,27 @@ export class DocumentsService {
       uploadedByUserId: row.uploadedByUserId,
       uploadedAt: row.uploadedAt,
     };
+  }
+
+  private async resolveLibraryClientId(user: AuthUser, query: DocumentsQueryDto) {
+    if (query.invoiceId) {
+      const invoice = await this.repo.findInvoice(query.invoiceId);
+      if (!invoice) {
+        throw new DocumentError(DOC_ERR.NOT_FOUND, "Invoice not found", undefined, 404);
+      }
+      await this.clients.get(user, invoice.clientId);
+      return invoice.clientId;
+    }
+    if (query.billId) {
+      const bill = await this.repo.findBill(query.billId);
+      if (!bill) {
+        throw new DocumentError(DOC_ERR.NOT_FOUND, "Bill not found", undefined, 404);
+      }
+      await this.clients.get(user, bill.clientId);
+      return bill.clientId;
+    }
+    const client = await this.clients.get(user, query.clientId ?? user.clientId ?? "");
+    return client.id;
   }
 
   private async require(user: AuthUser, id: string) {

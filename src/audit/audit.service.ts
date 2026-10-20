@@ -25,13 +25,29 @@ export class AuditService {
     });
   }
 
-  async list(query: { firmId: string; clientId?: string; actorUserId?: string }) {
+  async list(query: {
+    firmId: string;
+    clientId?: string;
+    actorUserId?: string;
+    actionPrefix?: string;
+    documentId?: string;
+    invoiceId?: string;
+    billId?: string;
+  }) {
+    const metadataFilters = [
+      query.documentId ? { metadata: { path: ["documentId"], equals: query.documentId } } : null,
+      query.invoiceId ? { metadata: { path: ["invoiceId"], equals: query.invoiceId } } : null,
+      query.billId ? { metadata: { path: ["billId"], equals: query.billId } } : null,
+    ].filter(Boolean) as Prisma.AuditLogWhereInput[];
     return this.prisma.auditLog.findMany({
       where: {
         firmId: query.firmId,
         ...(query.clientId ? { clientId: query.clientId } : {}),
         ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
+        ...(query.actionPrefix ? { actionType: { startsWith: query.actionPrefix } } : {}),
+        ...(metadataFilters.length ? { OR: metadataFilters } : {}),
       },
+      include: { actor: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: "desc" },
       take: 200,
     });

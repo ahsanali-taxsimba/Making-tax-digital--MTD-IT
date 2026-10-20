@@ -48,6 +48,11 @@ describe("invoice extraction integration", () => {
       log: jest.fn(),
       attachInvoice: jest.fn(),
       attachBill: jest.fn(),
+      listSupporting: jest.fn().mockResolvedValue([]),
+      attachManyToInvoice: jest.fn(),
+      attachManyToBill: jest.fn(),
+      listLogs: jest.fn().mockResolvedValue([]),
+      listAudit: jest.fn().mockResolvedValue([]),
     };
     const books = {
       listParties: jest.fn().mockResolvedValue([]),

@@ -1197,6 +1197,7 @@ enum ExtractionStatus {
   IN_PROGRESS
   COMPLETED
   FAILED
+  REJECTED
 }
 
 model InvoiceExtractionLog {
