@@ -794,3 +794,20 @@ lifecycle:
 ```
 
 Pair this with `terminationGracePeriodSeconds` of at least 15 so NestJS can drain after the sleep.
+
+### Rollback
+
+If a rollout is unhealthy (readiness failing, error rate up), revert the last Deployment revision. Kubernetes restores the previous ReplicaSet.
+
+```bash
+kubectl rollout undo deployment <service-name>
+```
+
+Service names match the logical pods: `auth`, `tenant-management`, `platform-admin`, `practice`, `client-portal`, `hmrc`, `bank-feeds`, `ocr`, `ai-extraction`, `documents`, `bookkeeping`.
+
+```bash
+kubectl rollout undo deployment practice
+kubectl rollout status deployment practice
+```
+
+`preStop` still runs on the outgoing pods. Confirm `/health/ready` is 200 on the restored revision before sending traffic.
