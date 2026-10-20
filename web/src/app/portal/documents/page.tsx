@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { categoryLabel, formatDate } from "@/lib/format";
 import { useClient } from "@/hooks/useClient";
 import { useDocuments } from "@/hooks/useDocuments";
@@ -20,7 +21,13 @@ export default function PortalDocumentsPage() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">Records</p>
           <h1 className="mt-1 text-3xl font-semibold">Documents</h1>
-          <p className="mt-2 text-sm text-ink-muted">Upload bank statements, invoices, and receipts for your accountant.</p>
+          <p className="mt-2 text-sm text-ink-muted">
+            Upload bank statements and invoices here, or send JPG, PNG, and PDF receipts from{" "}
+            <Link href="/portal/receipts" className="font-semibold text-teal underline-offset-2 hover:underline">
+              Receipts
+            </Link>
+            .
+          </p>
         </div>
         <DocumentUpload clientId={resolvedId} />
         <section className="overflow-hidden rounded-2xl border border-line bg-white">

@@ -14,6 +14,7 @@ describe("ReceiptsService", () => {
     evidence: jest.fn(),
     findBankTransaction: jest.fn(),
     listClientBankTransactions: jest.fn(),
+    update: jest.fn(),
   };
   const clients = { get: jest.fn() };
   const attachments = {
@@ -140,5 +141,27 @@ describe("ReceiptsService", () => {
     expect(evidence.vat.box4.withProof).toBeGreaterThan(0);
     expect(evidence.itsa.allowableExpensesWithReceipt).toBe(1);
     expect(evidence.receiptsAttached).toBe(1);
+  });
+
+  it("replaces receipt tags and records an audit event", async () => {
+    const tagged = {
+      id: "r1",
+      clientId: "c1",
+      fileName: "bp.pdf",
+      fileType: "pdf",
+      fileSize: 20,
+      storageUrl: "/x",
+      uploadedByUserId: "u1",
+      uploadedAt: new Date(),
+      tags: ["VAT"],
+      status: "PROCESSED",
+    };
+    repo.find.mockResolvedValueOnce({ ...tagged, tags: ["Fuel"] }).mockResolvedValueOnce(tagged);
+    repo.ensureTags.mockResolvedValue([{ id: "tag-vat", name: "VAT" }]);
+    repo.update.mockResolvedValue(tagged);
+    const result = await service.updateTags(actor, "r1", { tags: ["VAT", ""] });
+    expect(repo.setTagLinks).toHaveBeenCalledWith("r1", ["tag-vat"]);
+    expect(result.tags).toEqual(["VAT"]);
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "receipt.tagged" }));
   });
 });

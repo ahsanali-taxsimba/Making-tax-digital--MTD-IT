@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/portal/vat", label: "VAT", match: (path: string) => path.startsWith("/portal/vat") },
   { href: "/portal/itsa", label: "ITSA", match: (path: string) => path.startsWith("/portal/itsa") },
   { href: "/portal/documents", label: "Documents", match: (path: string) => path.startsWith("/portal/documents") },
+  { href: "/portal/receipts", label: "Receipts", match: (path: string) => path.startsWith("/portal/receipts") },
   { href: "/portal/messages", label: "Messages", match: (path: string) => path.startsWith("/portal/messages") },
 ];
 

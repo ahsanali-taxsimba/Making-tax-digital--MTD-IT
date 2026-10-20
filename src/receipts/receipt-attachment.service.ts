@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { AuditService } from "../audit/audit.service";
 import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
 import { RECEIPT_ERR, ReceiptError } from "./receipts.errors";
@@ -9,6 +10,7 @@ export class ReceiptAttachmentService {
   constructor(
     private readonly repo: ReceiptsRepository,
     private readonly clients: ClientsService,
+    private readonly audit: AuditService,
   ) {}
 
   attachToBankTransaction(user: AuthUser, receiptId: string, bankTransactionId: string) {
@@ -29,12 +31,19 @@ export class ReceiptAttachmentService {
 
   async detach(user: AuthUser, receiptId: string) {
     const receipt = await this.requireReceipt(user, receiptId);
-    return this.repo.update(receipt.id, {
+    const saved = await this.repo.update(receipt.id, {
       bankTransaction: { disconnect: true },
       invoice: { disconnect: true },
       bill: { disconnect: true },
       journal: { disconnect: true },
     });
+    await this.audit.record({
+      actor: user,
+      clientId: receipt.clientId,
+      actionType: "receipt.detached",
+      metadata: { receiptId: receipt.id },
+    });
+    return saved;
   }
 
   private async attach(
@@ -81,7 +90,14 @@ export class ReceiptAttachmentService {
       }
       data.journal = { connect: { id: journal.id } };
     }
-    return this.repo.update(receipt.id, data);
+    const saved = await this.repo.update(receipt.id, data);
+    await this.audit.record({
+      actor: user,
+      clientId: receipt.clientId,
+      actionType: "receipt.attached",
+      metadata: { receiptId: receipt.id, ...target },
+    });
+    return saved;
   }
 
   private async requireReceipt(user: AuthUser, id: string) {

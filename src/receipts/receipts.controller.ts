@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { Throttle } from "@nestjs/throttler";
@@ -8,7 +8,7 @@ import { Roles } from "../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AuthUser } from "../common/types";
-import { ReceiptEvidenceQueryDto, ReceiptsQueryDto, UploadReceiptDto } from "./dto/receipts.dto";
+import { ReceiptEvidenceQueryDto, ReceiptsQueryDto, UpdateReceiptTagsDto, UploadReceiptDto } from "./dto/receipts.dto";
 import { ReceiptAttachmentService } from "./receipt-attachment.service";
 import { ReceiptsService } from "./receipts.service";
 
@@ -54,6 +54,16 @@ export class ReceiptsController {
   @ApiOperation({ summary: "Get a receipt and its OCR fields" })
   get(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.receipts.get(user, id);
+  }
+
+  @Patch("receipts/:id/tags")
+  @ApiOperation({ summary: "Replace receipt tags" })
+  updateTags(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateReceiptTagsDto,
+  ) {
+    return this.receipts.updateTags(user, id, dto);
   }
 
   @Get("receipts/:id/file")

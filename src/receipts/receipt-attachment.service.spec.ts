@@ -12,7 +12,8 @@ describe("ReceiptAttachmentService", () => {
     updateBankTransaction: jest.fn(),
   };
   const clients = { get: jest.fn() };
-  const service = new ReceiptAttachmentService(repo as never, clients as never);
+  const audit = { record: jest.fn() };
+  const service = new ReceiptAttachmentService(repo as never, clients as never, audit as never);
   const actor = { id: "u1", role: "ADMIN", firmId: "f1", clientId: null } as never;
 
   beforeEach(() => {
@@ -41,6 +42,7 @@ describe("ReceiptAttachmentService", () => {
       expect.objectContaining({ merchantName: "BP" }),
     );
     expect(repo.update).toHaveBeenCalledWith("r1", expect.objectContaining({ bankTransaction: { connect: { id: "t1" } } }));
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "receipt.attached" }));
   });
 
   it("attaches to invoices, bills and journals in the same client", async () => {
@@ -71,5 +73,6 @@ describe("ReceiptAttachmentService", () => {
         journal: { disconnect: true },
       }),
     );
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "receipt.detached" }));
   });
 });

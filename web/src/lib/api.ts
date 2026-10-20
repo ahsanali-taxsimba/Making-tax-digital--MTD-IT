@@ -52,12 +52,9 @@ async function refreshAccessToken(): Promise<string | null> {
   return data.accessToken;
 }
 
-export async function apiFetch<T>(
-  path: string,
-  init: RequestInit & { auth?: boolean } = {},
-): Promise<T> {
+async function authorizedFetch(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  if (init.body && !headers.has("Content-Type")) {
+  if (init.body && !headers.has("Content-Type") && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (init.auth !== false) {
@@ -77,7 +74,29 @@ export async function apiFetch<T>(
       clearSession();
     }
   }
-  return parseEnvelope<T>(response);
+  return response;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  init: RequestInit & { auth?: boolean } = {},
+): Promise<T> {
+  return parseEnvelope<T>(await authorizedFetch(path, init));
+}
+
+export async function apiFetchBlob(path: string): Promise<{ blob: Blob; contentType: string; fileName: string }> {
+  const response = await authorizedFetch(path);
+  const contentType = response.headers.get("content-type") ?? "application/octet-stream";
+  if (!response.ok || contentType.includes("application/json")) {
+    await parseEnvelope<unknown>(response);
+  }
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const match = /filename="([^"]+)"/.exec(disposition);
+  return {
+    blob: await response.blob(),
+    contentType,
+    fileName: match?.[1] ?? "receipt",
+  };
 }
 
 export function assertHttpsRedirect(url: string): void {

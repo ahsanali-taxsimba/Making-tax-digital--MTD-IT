@@ -75,6 +75,13 @@ export class ReceiptEvidenceQueryDto {
   periodEnd?: string;
 }
 
+export class UpdateReceiptTagsDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  tags!: string[];
+}
+
 export class OptionalClientQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
