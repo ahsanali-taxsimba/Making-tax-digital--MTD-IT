@@ -81,6 +81,12 @@ export interface TaskWorkloadRow {
   completed: number;
 }
 
+export interface DashboardDueItem {
+  due: string;
+  label: string;
+  clientName: string;
+}
+
 export interface FirmDashboard {
   firm: FirmRecord;
   staffCount: number;
@@ -88,6 +94,18 @@ export interface FirmDashboard {
   openVatObligations: number;
   openItsaObligations: number;
   openObligations: number;
+  unmatchedBank: number;
+  overdueInvoices: number;
+  openTasks: number;
+  documents: number;
+  receipts: number;
+  unattachedReceipts: number;
+  suggestedCategories: number;
+  suggestedMatches: number;
+  extractionReview: number;
+  hmrcConnected: number;
+  nextVatDue?: DashboardDueItem | null;
+  nextItsaDue?: DashboardDueItem | null;
   taskWorkload: TaskWorkloadRow[];
 }
 

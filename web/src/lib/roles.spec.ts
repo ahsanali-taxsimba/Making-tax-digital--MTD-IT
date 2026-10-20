@@ -106,6 +106,9 @@ describe("role routing", () => {
     expect(canViewAudit("firm_accountant")).toBe(true);
     expect(canViewAudit("firm_staff")).toBe(false);
     expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/agent")).toBe(true);
+    expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/staff")).toBe(true);
+    expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/hmrc")).toBe(true);
+    expect(practiceNavFor("firm_accountant").some((item) => item.href === "/receipts")).toBe(true);
     expect(practiceNavFor("firm_staff").some((item) => item.href === "/practice/agent")).toBe(true);
     expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/audit")).toBe(true);
     expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/digital-links")).toBe(true);
