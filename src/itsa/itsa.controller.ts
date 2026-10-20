@@ -49,7 +49,8 @@ export class ItsaEngineController {
   }
 
   @Post("quarterly-update")
-  @ApiOperation({ summary: "Validate quarterly categories and submit via HmrcClientService POST /income-tax/{nino}/updates" })
+  @Put("quarterly-update")
+  @ApiOperation({ summary: "Submit a quarterly update via PUT /income-tax/{nino}/updates or /uk-property/periodic" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   submitUpdate(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineQuarterlyDto) {
@@ -65,7 +66,8 @@ export class ItsaEngineController {
   }
 
   @Post("eops")
-  @ApiOperation({ summary: "Validate EOPS completeness and submit via HmrcClientService POST /income-tax/{nino}/eops" })
+  @Put("eops")
+  @ApiOperation({ summary: "Submit EOPS via PUT /income-tax/{nino}/eops or /uk-property/eops" })
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   submitEops(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineEopsDto) {
     return this.itsa.submitEops(user, dto.clientId, dto);

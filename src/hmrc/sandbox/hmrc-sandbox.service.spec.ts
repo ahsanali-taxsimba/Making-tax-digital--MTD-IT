@@ -8,6 +8,7 @@ describe("HmrcSandboxService", () => {
     defaultEnvironment: jest.fn().mockReturnValue(HmrcEnvironment.SANDBOX),
     sandboxFlag: jest.fn().mockReturnValue(true),
     callsHmrc: jest.fn().mockReturnValue(true),
+    switchEnvironment: jest.fn().mockReturnValue("SANDBOX"),
     settings: jest.fn().mockReturnValue({
       clientId: "abcd1234",
       redirectUri: "http://localhost:2327/hmrc/callback",
@@ -28,5 +29,10 @@ describe("HmrcSandboxService", () => {
     expect(status.urls.sandbox.quarterlyUpdates).toContain("/uk-property/periodic");
     expect(status.urls.sandbox.finalDeclaration).toContain("/calculations/final-declaration");
     expect(status.app.sandbox.configured).toBe(true);
+  });
+
+  it("switches to sandbox when sandbox=true", () => {
+    service.switchTo({ sandbox: true });
+    expect(apps.switchEnvironment).toHaveBeenCalledWith({ sandbox: true });
   });
 });

@@ -46,11 +46,25 @@ export class HmrcAppConfigService implements OnModuleInit {
     return app;
   }
 
+  private environmentOverride: HmrcEnvironment | null = null;
+
   defaultEnvironment(): HmrcEnvironment {
     if (this.forceSandbox()) {
       return HmrcEnvironment.SANDBOX;
     }
+    if (this.environmentOverride) {
+      return this.environmentOverride;
+    }
     return parseHmrcEnvironment(this.config.get<string>("hmrc.environment"));
+  }
+
+  switchEnvironment(input: { sandbox?: boolean; environment?: string }): HmrcEnvironment {
+    if (this.mode() === "sandbox" || input.sandbox === true || String(input.environment).toLowerCase() === "sandbox") {
+      this.environmentOverride = HmrcEnvironment.SANDBOX;
+    } else if (input.sandbox === false || String(input.environment).toLowerCase() === "live") {
+      this.environmentOverride = HmrcEnvironment.LIVE;
+    }
+    return this.defaultEnvironment();
   }
 
   scopes(): string[] {
@@ -82,7 +96,7 @@ export class HmrcAppConfigService implements OnModuleInit {
   }
 
   forceSandbox(): boolean {
-    return this.mode() === "sandbox";
+    return this.mode() === "sandbox" || this.config.get<boolean>("hmrc.sandboxFlag") === true;
   }
 
   usesSandboxHost(environment?: HmrcEnvironment | string): boolean {

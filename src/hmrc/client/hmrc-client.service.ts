@@ -10,6 +10,7 @@ import { parseHmrcEnvironment } from "../oauth/hmrc-oauth.utils";
 import { HMRC_ERR, handleHMRCError, HmrcClientError } from "./hmrc-client.errors";
 import { mockHmrcResponse } from "./hmrc-client.mock";
 import { expandLiveCalls, mergeItsaObligations } from "./hmrc-client.routes";
+import { currentHmrcScope } from "../sandbox/hmrc-request-context";
 import { validateHmrcBody } from "../sandbox/hmrc-payload.schema";
 
 export interface HmrcConnectionRef {
@@ -89,10 +90,12 @@ export class HmrcClientService {
     body?: unknown,
     options?: { query?: Record<string, string | undefined>; accept?: string },
   ): Promise<HmrcHttpResult<T>> {
-    const env = this.apps.forceSandbox()
-      ? parseHmrcEnvironment("sandbox")
-      : parseHmrcEnvironment(String(environment));
-    const sandbox = this.apps.usesSandboxHost(env);
+    const scoped = currentHmrcScope();
+    const env =
+      this.apps.forceSandbox() || scoped?.sandbox
+        ? parseHmrcEnvironment("sandbox")
+        : parseHmrcEnvironment(String(scoped?.environment ?? environment));
+    const sandbox = scoped?.sandbox ?? this.apps.usesSandboxHost(env);
     if (this.apps.isMockMode()) {
       const mocked = mockHmrcResponse(method, url, body);
       if (mocked) {

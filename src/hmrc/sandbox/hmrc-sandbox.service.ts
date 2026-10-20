@@ -7,6 +7,11 @@ import { liveUrlCatalog, sandboxUrlCatalog } from "./hmrc-sandbox.urls";
 export class HmrcSandboxService {
   constructor(private readonly apps: HmrcAppConfigService) {}
 
+  switchTo(input: { sandbox?: boolean; environment?: string }) {
+    this.apps.switchEnvironment(input);
+    return this.status();
+  }
+
   status() {
     const mode = this.apps.mode();
     const environment = this.apps.defaultEnvironment();

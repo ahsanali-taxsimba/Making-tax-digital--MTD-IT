@@ -1,6 +1,7 @@
 import { HmrcEnvironment } from "@prisma/client";
 import { HMRC_OAUTH_ERR, HmrcOAuthError } from "../oauth/hmrc-oauth.errors";
 import { HMRC_ERR, HmrcClientError } from "./hmrc-client.errors";
+import { runHmrcScope } from "../sandbox/hmrc-request-context";
 import { HmrcClientService } from "./hmrc-client.service";
 
 describe("HmrcClientService", () => {
@@ -155,6 +156,27 @@ describe("HmrcClientService", () => {
     await expect(service.handleTokenRefresh({ clientId: "client-1", environment: "sandbox" })).rejects.toMatchObject({
       errorCode: HMRC_ERR.TOKEN_REFRESH_FAILED,
     });
+  });
+
+  it("routes every HMRC call to sandbox when sandbox=true on the request scope", async () => {
+    apps.isLiveMode.mockReturnValue(true);
+    apps.isMockMode.mockReturnValue(false);
+    apps.callsHmrc.mockReturnValue(true);
+    apps.forceSandbox.mockReturnValue(false);
+    apps.mode.mockReturnValue("live");
+    http.send.mockResolvedValue({ ok: true, status: 200, body: { payments: [] }, correlationId: "s" });
+    await runHmrcScope({ sandbox: true, environment: "sandbox" }, () =>
+      service.get("/organisations/vat/888888888/payments", "client-1", "live"),
+    );
+    expect(http.send).toHaveBeenCalledWith(
+      expect.objectContaining({ environment: HmrcEnvironment.SANDBOX }),
+      "GET",
+      "/organisations/vat/888888888/payments",
+      expect.any(Object),
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ sandbox: true, environment: HmrcEnvironment.SANDBOX }) }),
+    );
   });
 
   it("exposes handleHMRCError as a structured HmrcClientError", () => {

@@ -19,8 +19,11 @@ export default () => ({
     minVersion: process.env.TLS_MIN_VERSION ?? "TLSv1.3",
   },
   hmrc: {
-    mode: (process.env.HMRC_MODE ?? "mock") as "mock" | "sandbox" | "live",
+    mode: (process.env.HMRC_SANDBOX === "true" && !process.env.HMRC_MODE
+      ? "sandbox"
+      : (process.env.HMRC_MODE ?? "mock")) as "mock" | "sandbox" | "live",
     environment: (process.env.HMRC_ENVIRONMENT ?? "sandbox") as "sandbox" | "live" | "dev",
+    sandboxFlag: process.env.HMRC_SANDBOX === "true",
     clientId: process.env.HMRC_SANDBOX_CLIENT_ID || process.env.HMRC_CLIENT_ID || "",
     clientSecret: process.env.HMRC_SANDBOX_CLIENT_SECRET || process.env.HMRC_CLIENT_SECRET || "",
     redirectUri:

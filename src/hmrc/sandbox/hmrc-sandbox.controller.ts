@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
-import { IsArray, IsIn, IsOptional, IsString, IsUUID } from "class-validator";
+import { IsArray, IsBoolean, IsIn, IsOptional, IsString, IsUUID } from "class-validator";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -10,6 +10,16 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { AuthUser } from "../../common/types";
 import { HmrcSandboxService } from "./hmrc-sandbox.service";
 import { HmrcTestUserService } from "./hmrc-test-user.service";
+
+class SwitchHmrcEnvironmentDto {
+  @IsOptional()
+  @IsBoolean()
+  sandbox?: boolean;
+
+  @IsOptional()
+  @IsIn(["sandbox", "live", "SANDBOX", "LIVE"])
+  environment?: string;
+}
 
 class CreateSandboxTestUserDto {
   @IsIn(["organisation", "individual"])
@@ -39,6 +49,15 @@ export class HmrcSandboxController {
   @ApiOperation({ summary: "HMRC sandbox vs live environment switcher and URL catalog" })
   environment() {
     return this.sandbox.status();
+  }
+
+  @Post("environment")
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @ApiOperation({ summary: "Switch HMRC calls between sandbox and live (`sandbox=true` forces test-api URLs)" })
+  switchEnvironment(@Body() dto: SwitchHmrcEnvironmentDto) {
+    return this.sandbox.switchTo(dto);
   }
 
   @Get("sandbox/status")

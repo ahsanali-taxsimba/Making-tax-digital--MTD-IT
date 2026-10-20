@@ -68,6 +68,7 @@ describe("ItsaService", () => {
       end: new Date("2026-07-05T00:00:00.000Z"),
     });
     hmrc.post.mockResolvedValue({ correlationId: "c1", data: { periodId: "p1" } });
+    hmrc.put.mockResolvedValue({ correlationId: "c1", data: { periodId: "p1" } });
     repo.createUpdate.mockResolvedValue({ id: "upd-1" });
   });
 
@@ -107,7 +108,7 @@ describe("ItsaService", () => {
       fromLedger: true,
     });
     expect(saved.id).toBe("upd-1");
-    expect(hmrc.post).toHaveBeenCalledWith(
+    expect(hmrc.put).toHaveBeenCalledWith(
       "/income-tax/AA123456A/updates",
       expect.objectContaining({ incomes: { turnover: 5000 }, businessId: "XAIS1" }),
       "client-1",
@@ -127,10 +128,11 @@ describe("ItsaService", () => {
       }),
     ).rejects.toThrow("ITSA submission failed validation");
     expect(hmrc.post).not.toHaveBeenCalled();
+    expect(hmrc.put).not.toHaveBeenCalled();
   });
 
-  it("submits EOPS through HmrcClientService.post after completeness checks", async () => {
-    hmrc.post.mockResolvedValue({ correlationId: "e1", data: { processingDate: "2026-04-01T00:00:00Z" } });
+  it("submits EOPS through HmrcClientService.put after completeness checks", async () => {
+    hmrc.put.mockResolvedValue({ correlationId: "e1", data: { processingDate: "2026-04-01T00:00:00Z" } });
     const saved = await service.submitEops(user, client.id, {
       businessId: business.id,
       taxYear: "2025-26",
@@ -140,7 +142,7 @@ describe("ItsaService", () => {
       finalised: true,
     });
     expect(saved.id).toBe("eops-1");
-    expect(hmrc.post).toHaveBeenCalledWith(
+    expect(hmrc.put).toHaveBeenCalledWith(
       "/income-tax/AA123456A/eops",
       expect.objectContaining({ businessId: "XAIS1", finalised: true }),
       "client-1",

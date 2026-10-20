@@ -1,4 +1,4 @@
-import { clearSession, getAccessToken, getRefreshToken, setSession, getUser } from "./session";
+import { clearSession, getAccessToken, getEnvironment, getRefreshToken, setSession, getUser } from "./session";
 import { withTenantQuery } from "./roles";
 import type { ApiEnvelope } from "./types";
 import { errorCodeOf } from "./errors";
@@ -71,6 +71,9 @@ async function authorizedFetch(path: string, init: RequestInit & { auth?: boolea
       headers.set("Authorization", `Bearer ${token}`);
     }
   }
+  const environment = getEnvironment();
+  headers.set("x-mtd-hmrc-environment", environment);
+  headers.set("x-mtd-hmrc-sandbox", environment === "sandbox" ? "true" : "false");
 
   const scoped = tenantScopedPath(path, init.auth);
   let response = await fetch(`${apiBase()}${scoped}`, { ...init, headers });

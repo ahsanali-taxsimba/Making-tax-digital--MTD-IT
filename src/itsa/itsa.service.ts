@@ -246,9 +246,11 @@ export class ItsaService {
       typeOfBusiness: business.type,
     };
     const property = isPropertyBusiness(business.type);
-    const result = property
-      ? await this.hmrc.put<{ periodId: string }>(itsaUkPropertyPeriodicPath(client.nino), payload, client.id)
-      : await this.hmrc.post<{ periodId: string }>(`/income-tax/${client.nino}/updates`, payload, client.id);
+    const result = await this.hmrc.put<{ periodId: string }>(
+      property ? itsaUkPropertyPeriodicPath(client.nino) : `/income-tax/${client.nino}/updates`,
+      payload,
+      client.id,
+    );
     const saved = await this.repo.createUpdate({
       clientId: client.id,
       businessId: business.id,
@@ -299,9 +301,11 @@ export class ItsaService {
       accountingPeriodEnd: dto.accountingPeriodEnd,
       finalised: dto.finalised,
     };
-    const result = isPropertyBusiness(dto.typeOfBusiness)
-      ? await this.hmrc.put<{ processingDate: string }>(itsaUkPropertyEopsPath(client.nino), payload, client.id)
-      : await this.hmrc.post<{ processingDate: string }>(`/income-tax/${client.nino}/eops`, payload, client.id);
+    const result = await this.hmrc.put<{ processingDate: string }>(
+      isPropertyBusiness(dto.typeOfBusiness) ? itsaUkPropertyEopsPath(client.nino) : `/income-tax/${client.nino}/eops`,
+      payload,
+      client.id,
+    );
     const saved = await this.repo.createEops({
       clientId: client.id,
       businessId: business.id,
