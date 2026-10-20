@@ -210,6 +210,7 @@ model Client {
   auditLogs       AuditLog[]
   journalEntries  JournalEntry[]
   bankAccounts    BankAccount[]
+  yapilyConnections YapilyConnection[]
   invoices        SalesInvoice[]
   bills           PurchaseBill[]
   customers       TradingParty[]
@@ -793,10 +794,15 @@ model BankAccount {
   accountNumber String?
   provider      String?
   externalId    String?
+  currency      String            @default("GBP")
+  balance       Decimal           @default(0) @db.Decimal(14, 2)
   ledgerId      String?
   createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
   transactions  BankTransaction[]
   sessions      ReconciliationSession[]
+
+  @@index([clientId, provider])
 }
 
 model BankTransaction {
@@ -808,10 +814,40 @@ model BankTransaction {
   type                  BankTxnDirection
   description           String
   externalRef           String?
+  merchantName          String?
+  category              String?
   matchedJournalEntryId String?
   matchedJournal        JournalEntry?    @relation(fields: [matchedJournalEntryId], references: [id])
   status                BankTxnStatus    @default(UNMATCHED)
   createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@index([bankAccountId, externalRef])
+}
+
+enum YapilyConsentStatus {
+  PENDING
+  AUTHORISED
+  EXPIRED
+  REVOKED
+}
+
+/// Open Banking consent. The Yapily consent token is stored encrypted.
+model YapilyConnection {
+  id                String               @id @default(uuid())
+  clientId          String
+  client            Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  institutionId     String
+  applicationUserId String?
+  consentId         String?
+  consentTokenEnc   String?
+  status            YapilyConsentStatus  @default(PENDING)
+  expiresAt         DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([clientId, institutionId])
+  @@index([clientId])
 }
 
 model ReconciliationSession {

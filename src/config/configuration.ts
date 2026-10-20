@@ -56,6 +56,14 @@ export default () => ({
       authBaseUrl: process.env.HMRC_LIVE_AUTH_BASE ?? "https://www.tax.service.gov.uk",
     },
   },
+  yapily: {
+    mode: (process.env.YAPILY_MODE ?? "mock") as "mock" | "live",
+    baseUrl: process.env.YAPILY_BASE_URL ?? "https://api.yapily.com",
+    applicationKey: process.env.YAPILY_APPLICATION_KEY ?? "",
+    applicationSecret: process.env.YAPILY_APPLICATION_SECRET ?? "",
+    callbackUrl: process.env.YAPILY_CALLBACK_URL ?? "http://localhost:3000/yapily/consent/callback",
+    defaultInstitution: process.env.YAPILY_DEFAULT_INSTITUTION ?? "modelo-sandbox",
+  },
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL_SECONDS ?? "60", 10) * 1000,
     limit: parseInt(process.env.THROTTLE_LIMIT ?? "60", 10),
