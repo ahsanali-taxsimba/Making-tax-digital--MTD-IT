@@ -127,27 +127,28 @@ Platform owners sit above tenants and never enter a firm workspace. Each firm is
 ### Role routing into modules
 
 ```
-AUTH --> TENANT CONTEXT (principal, firmId, clientId)
+AUTH --> TENANT MANAGEMENT --> (Firm or Platform)
               |
-              |-- Platform staff
+              |-- If Platform Staff
               |       --> PLATFORM ADMIN MODULE
-              |           (no client data, aggregated stats only)
+              |           (no client data, only aggregated stats)
               |
-              |-- Firm admin / accountant / staff
+              |-- If Firm Admin / Accountant / Staff
               |       --> PRACTICE MODULES
-              |             HMRC
-              |             Bank Feeds
-              |             Reconciliation
-              |             Documents
-              |             AI Extraction
-              |             Bookkeeping
+              |             - HMRC
+              |             - Bank Feeds
+              |             - Reconciliation
+              |             - Documents
+              |             - AI Extraction
+              |             - Bookkeeping
               |
-              +-- Firm client
+              +-- If Firm Client
                       --> CLIENT PORTAL MODULE
-                            receipts
-                            VAT / ITSA
-                            documents
-                            messages
+                            - Upload receipts
+                            - View VAT / ITSA
+                            - View documents
+                            - Approve returns
+                            - Messages
 ```
 
 ### Module boundaries
