@@ -140,6 +140,7 @@ model Firm {
   accountingPeriods AccountingPeriod[]
   categorisationSuggestions CategorisationSuggestion[]
   matchingSuggestions MatchingSuggestion[]
+  manualStatementUploads ManualStatementUpload[]
 }
 
 model User {
@@ -163,6 +164,7 @@ model User {
   journalEntries JournalEntry[]
   assignedClients Client[] @relation("ClientAssignee")
   assignedTasks   Task[]   @relation("TaskAssignee")
+  manualStatementUploads ManualStatementUpload[]
 }
 
 model RefreshToken {
@@ -219,6 +221,7 @@ model Client {
   accountingPeriods AccountingPeriod[]
   categorisationSuggestions CategorisationSuggestion[]
   matchingSuggestions MatchingSuggestion[]
+  manualStatementUploads ManualStatementUpload[]
 
   @@index([firmId])
   @@index([assignedUserId])
@@ -806,6 +809,7 @@ model BankAccount {
   updatedAt     DateTime          @updatedAt
   transactions  BankTransaction[]
   sessions      ReconciliationSession[]
+  manualUploads ManualStatementUpload[]
 
   @@index([clientId, provider])
 }
@@ -986,4 +990,40 @@ model MatchingSuggestion {
 
   @@index([clientId, status])
   @@index([documentKind, documentId])
+}
+
+enum ManualStatementStatus {
+  UPLOADED
+  PARSED
+  FAILED
+}
+
+/// Accountant or client uploaded .CSV bank statement (never PDF/XLSX/images).
+model ManualStatementUpload {
+  id               String                 @id @default(uuid())
+  firmId           String
+  firm             Firm                   @relation(fields: [firmId], references: [id])
+  clientId         String
+  client           Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  bankAccountId    String
+  bankAccount      BankAccount            @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  fileName         String
+  fileType         String                 @default("csv")
+  content          String                 @db.Text
+  uploadedByUserId String
+  uploadedBy       User                   @relation(fields: [uploadedByUserId], references: [id])
+  uploadedAt       DateTime               @default(now())
+  parsedAt         DateTime?
+  status           ManualStatementStatus  @default(UPLOADED)
+  profile          String?
+  rowCount         Int                    @default(0)
+  importedCount    Int                    @default(0)
+  duplicateCount   Int                    @default(0)
+  health           Json?
+  errorMessage     String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([clientId, uploadedAt])
+  @@index([bankAccountId, status])
 }

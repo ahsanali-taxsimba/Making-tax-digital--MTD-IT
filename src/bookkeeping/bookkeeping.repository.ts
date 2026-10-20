@@ -188,7 +188,18 @@ export class BookkeepingRepository {
 
   createBankTransactions(
     bankAccountId: string,
-    rows: Array<{ date: Date; amount: number; type: "CREDIT" | "DEBIT"; description: string; externalRef?: string }>,
+    rows: Array<{
+      date: Date;
+      amount: number;
+      type: "CREDIT" | "DEBIT";
+      description: string;
+      externalRef?: string;
+      merchantName?: string | null;
+      category?: string | null;
+      merchantCategoryCode?: string | null;
+      transactionCategory?: string | null;
+      enrichment?: Prisma.InputJsonValue;
+    }>,
   ) {
     return this.prisma.bankTransaction.createMany({
       data: rows.map((row) => ({
@@ -198,7 +209,19 @@ export class BookkeepingRepository {
         type: row.type,
         description: row.description,
         externalRef: row.externalRef,
+        merchantName: row.merchantName ?? undefined,
+        category: row.category ?? undefined,
+        merchantCategoryCode: row.merchantCategoryCode ?? undefined,
+        transactionCategory: row.transactionCategory ?? undefined,
+        enrichment: row.enrichment ?? undefined,
       })),
+    });
+  }
+
+  listExternalRefs(bankAccountId: string) {
+    return this.prisma.bankTransaction.findMany({
+      where: { bankAccountId, externalRef: { not: null } },
+      select: { externalRef: true },
     });
   }
 
