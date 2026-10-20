@@ -21,7 +21,7 @@ controllers  →  application services  →  repositories / Prisma
 - **HMRC:** OAuth authorisation-code flow, automatic token refresh, fraud-prevention headers, correlation IDs stored on every interaction.
 - **Envelope:** `{ data, error }` on every response.
 - **Charts of accounts:** landlord, sole trader, and company templates are provisioned when a client is created. Extra profiles can be applied later (for example a sole trader who also lets property).
-- **ITSA mapping:** numbered ledger codes roll into HMRC quarterly-update boxes. Capital items and disallowable expenses are excluded from those submissions.
+- **ITSA engine:** quarterly updates, EOPS, and Final Declaration go through a coded validator (period, category, capital exclusion, zero-update, missing EOPS/FD). Public routes live at `/itsa/*`; client-scoped aliases remain at `/clients/:id/itsa/*`.
 - **VAT engine:** HMRC obligations, returns, payments, and OAuth sit behind a Notice 700/12 validator. Boxes 1–9 are rolled from the ledger, checked with coded errors (`VAT_ERR_ARITHMETIC`, `VAT_ERR_PERIOD_MISMATCH`, …), and submitted only when valid. Public routes live at `/vat/*`; client-scoped aliases remain at `/clients/:id/vat/*`.
 
 ## Local development

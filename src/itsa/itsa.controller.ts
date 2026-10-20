@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -7,19 +7,71 @@ import { Roles } from "../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AuthUser } from "../common/types";
-import { CreateBusinessDto, PreviewItsaUpdateDto, SubmitEopsDto, SubmitFinalDeclarationDto, SubmitItsaUpdateDto } from "./dto/itsa.dto";
+import {
+  CreateBusinessDto,
+  ItsaClientQueryDto,
+  ItsaEngineEopsDto,
+  ItsaEngineFinalDto,
+  ItsaEngineQuarterlyDto,
+  ItsaValidateQueryDto,
+  PreviewItsaUpdateDto,
+  SubmitEopsDto,
+  SubmitFinalDeclarationDto,
+  SubmitItsaUpdateDto,
+} from "./dto/itsa.dto";
 import { ItsaService } from "./itsa.service";
 
 @ApiTags("mtd-itsa")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("itsa")
-export class ItsaMappingController {
+export class ItsaEngineController {
   constructor(private readonly itsa: ItsaService) {}
 
   @Get("mapping")
+  @ApiOperation({ summary: "ITSA chart-of-accounts to HMRC category catalog" })
   mapping() {
     return this.itsa.mapping();
+  }
+
+  @Get("obligations")
+  @ApiOperation({ summary: "Fetch HMRC ITSA obligations for a client" })
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  obligations(@CurrentUser() user: AuthUser, @Query() query: ItsaClientQueryDto) {
+    return this.itsa.obligations(user, query.clientId);
+  }
+
+  @Post("quarterly-update")
+  @ApiOperation({ summary: "Validate and submit an ITSA quarterly update" })
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  submitUpdate(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineQuarterlyDto) {
+    return this.itsa.submitUpdate(user, dto.clientId, dto);
+  }
+
+  @Post("eops")
+  @ApiOperation({ summary: "Validate and submit an End of Period Statement" })
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  submitEops(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineEopsDto) {
+    return this.itsa.submitEops(user, dto.clientId, dto);
+  }
+
+  @Post("final-declaration")
+  @ApiOperation({ summary: "Validate and submit the tax-year Final Declaration" })
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  submitFinal(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineFinalDto) {
+    return this.itsa.submitFinal(user, dto.clientId, dto);
+  }
+
+  @Get("validate")
+  @ApiOperation({ summary: "Pre-submission ITSA validation for quarterly, EOPS, or year-end" })
+  validate(@CurrentUser() user: AuthUser, @Query() query: ItsaValidateQueryDto) {
+    return this.itsa.validate(user, query.clientId, query);
+  }
+
+  @Get("businesses")
+  listBusinesses(@CurrentUser() user: AuthUser, @Query() query: ItsaClientQueryDto) {
+    return this.itsa.listBusinesses(user, query.clientId);
   }
 }
 

@@ -386,6 +386,21 @@ model ItsaFinalDeclaration {
   updatedAt     DateTime         @updatedAt
 }
 
+model ItsaAccountMapping {
+  id                         String       @id @default(uuid())
+  profile                    ChartProfile
+  code                       Int
+  bucket                     String
+  category                   String
+  hmrcKey                    String
+  includedInQuarterlyUpdate  Boolean
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
+
+  @@unique([profile, code])
+  @@index([profile])
+}
+
 model Ledger {
   id           String            @id @default(uuid())
   clientId     String

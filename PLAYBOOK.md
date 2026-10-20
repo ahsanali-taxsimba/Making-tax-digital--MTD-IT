@@ -64,6 +64,8 @@ Ledger codes roll into HMRC ITSA boxes. Capital spend and disallowable entertain
 
 ```bash
 curl -s http://localhost:3000/itsa/mapping -H "Authorization: Bearer $TOKEN"
+curl -s "http://localhost:3000/itsa/validate?clientId=$CLIENT_ID&businessId=44444444-4444-4444-8444-444444444444&fromLedger=true&periodStart=2026-04-06&periodEnd=2026-07-05" \
+  -H "Authorization: Bearer $TOKEN"
 curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/itsa/updates/preview \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
@@ -160,6 +162,8 @@ curl -s "http://localhost:3000/audit/logs?clientId=$CLIENT_ID" -H "Authorization
 
 ## 6. Submit ITSA
 
+The ITSA engine validates period dates, HMRC categories, capital exclusion, zero updates, and EOPS/Final Declaration completeness. Use `POST /itsa/quarterly-update`, `POST /itsa/eops`, and `POST /itsa/final-declaration` with a `clientId`, or the client-scoped aliases below.
+
 Quarterly update (one per business — sole trader and property are separate):
 
 ```bash
@@ -173,7 +177,7 @@ curl -s -X POST http://localhost:3000/clients/$CLIENT_ID/itsa/updates \
     "periodStart":"2026-04-06",
     "periodEnd":"2026-07-05",
     "incomes":{"turnover":12500},
-    "expenses":{"adminCosts":800}
+    "expenses":{"officeCosts":800}
   }'
 ```
 

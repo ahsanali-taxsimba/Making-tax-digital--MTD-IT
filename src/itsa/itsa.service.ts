@@ -7,10 +7,24 @@ import { HMRC_ITSA } from "../hmrc/hmrc.tokens";
 import { HmrcItsaGateway } from "../hmrc/hmrc.types";
 import { MtdConnectionService } from "../hmrc/mtd-connection.service";
 import { NotificationsService } from "../notifications/notifications.service";
-import { PrismaService } from "../prisma/prisma.service";
 import { TasksService } from "../tasks/tasks.service";
 import { WebhooksService } from "../webhooks/webhooks.service";
-import { CreateBusinessDto, PreviewItsaUpdateDto, SubmitEopsDto, SubmitFinalDeclarationDto, SubmitItsaUpdateDto } from "./dto/itsa.dto";
+import {
+  CreateBusinessDto,
+  PreviewItsaUpdateDto,
+  SubmitEopsDto,
+  SubmitFinalDeclarationDto,
+  SubmitItsaUpdateDto,
+  ValidateItsaDto,
+} from "./dto/itsa.dto";
+import {
+  validateItsaEops,
+  validateItsaFinalDeclaration,
+  validateItsaQuarterlyUpdate,
+  validateItsaYear,
+  ItsaValidationResult,
+} from "./itsa-return.validator";
+import { ItsaRepository } from "./itsa.repository";
 import { chartProfileForBusinessType, lookupItsaMapping, MTD_ITSA_MAPPING } from "./mtd-itsa.mapping";
 
 @Injectable()
@@ -19,37 +33,70 @@ export class ItsaService {
     @Inject(HMRC_ITSA) private readonly itsa: HmrcItsaGateway,
     private readonly connections: MtdConnectionService,
     private readonly clients: ClientsService,
-    private readonly prisma: PrismaService,
+    private readonly repo: ItsaRepository,
     private readonly audit: AuditService,
     private readonly tasks: TasksService,
     private readonly notifications: NotificationsService,
     private readonly webhooks: WebhooksService,
   ) {}
 
+  mapping() {
+    return {
+      buckets: MTD_ITSA_MAPPING,
+      rules: {
+        quarterlyExcludes: ["capital_items", "business_expenses_disallowable"],
+        propertyUsesSa105: true,
+      },
+    };
+  }
+
+  async clientMapping(user: AuthUser, clientId: string) {
+    const client = await this.requireItsaClient(user, clientId);
+    const accounts = await this.repo.listLedgers(client.id);
+    const persisted = await this.repo.listMappings();
+    return {
+      mapping: MTD_ITSA_MAPPING,
+      catalog: persisted,
+      accounts: accounts.map((account) => ({
+        ...account,
+        itsa: lookupItsaMapping(account.profile, account.code) ?? null,
+      })),
+    };
+  }
+
+  async listBusinesses(user: AuthUser, clientId: string) {
+    await this.requireItsaClient(user, clientId);
+    return this.repo.listBusinesses(clientId);
+  }
+
   async obligations(user: AuthUser, clientId: string) {
     const client = await this.requireItsaClient(user, clientId);
     const ctx = await this.connections.getCallContext(client.id);
     const result = await this.itsa.getObligations(ctx, client.nino!);
     for (const item of result.data.obligations) {
-      const business = item.businessId
-        ? await this.prisma.business.findFirst({ where: { clientId: client.id, hmrcBusinessId: item.businessId } })
-        : null;
-      await this.prisma.itsaObligation.create({
-        data: {
+      const business = item.businessId ? await this.repo.findBusinessByHmrcId(client.id, item.businessId) : null;
+      const existing = await this.repo.findObligation(client.id, item.type, item.taxYear, item.periodId, business?.id);
+      const data = {
+        start: new Date(item.start),
+        end: new Date(item.end),
+        due: new Date(item.due),
+        status: item.status === "Fulfilled" ? ObligationStatus.FULFILLED : ObligationStatus.OPEN,
+        received: item.received ? new Date(item.received) : null,
+        correlationId: result.correlationId,
+        rawPayload: { ...item },
+        businessId: business?.id,
+      };
+      if (existing) {
+        await this.repo.updateObligation(existing.id, data);
+      } else {
+        await this.repo.upsertObligation({
           clientId: client.id,
-          businessId: business?.id,
           type: item.type,
           taxYear: item.taxYear,
           periodId: item.periodId,
-          start: new Date(item.start),
-          end: new Date(item.end),
-          due: new Date(item.due),
-          status: item.status === "Fulfilled" ? ObligationStatus.FULFILLED : ObligationStatus.OPEN,
-          received: item.received ? new Date(item.received) : null,
-          correlationId: result.correlationId,
-          rawPayload: { ...item },
-        },
-      });
+          ...data,
+        });
+      }
       if (item.status === "Open") {
         const taskType =
           item.type === "EOPS"
@@ -73,45 +120,60 @@ export class ItsaService {
       body: `Income Tax obligations synced for ${client.name}.`,
       metadata: { clientId: client.id },
     });
-    return this.prisma.itsaObligation.findMany({
-      where: { clientId: client.id },
-      include: { business: true },
-      orderBy: { due: "asc" },
-    });
-  }
-
-  mapping() {
-    return MTD_ITSA_MAPPING;
-  }
-
-  async clientMapping(user: AuthUser, clientId: string) {
-    const client = await this.requireItsaClient(user, clientId);
-    const accounts = await this.prisma.ledger.findMany({
-      where: { clientId: client.id },
-      orderBy: [{ profile: "asc" }, { code: "asc" }],
-    });
-    return {
-      mapping: MTD_ITSA_MAPPING,
-      accounts: accounts.map((account) => ({
-        ...account,
-        itsa: lookupItsaMapping(account.profile, account.code) ?? null,
-      })),
-    };
+    return this.repo.listObligations(client.id);
   }
 
   async previewUpdate(user: AuthUser, clientId: string, dto: PreviewItsaUpdateDto) {
-    const client = await this.requireItsaClient(user, clientId);
-    const business = await this.requireBusiness(client.id, dto.businessId);
-    return this.rollUpFromLedger(client.id, business.type, dto.periodStart, dto.periodEnd);
+    await this.requireItsaClient(user, clientId);
+    const business = await this.requireBusiness(clientId, dto.businessId);
+    const rolled = await this.rollUpFromLedger(clientId, business.type, dto.periodStart, dto.periodEnd);
+    const validation = await this.validateQuarterly(clientId, business.id, business.type, {
+      ...dto,
+      incomes: rolled.incomes,
+      expenses: rolled.expenses,
+    }, rolled.transactionCount);
+    return { ...rolled, validation };
+  }
+
+  async validate(user: AuthUser, clientId: string, dto: ValidateItsaDto) {
+    await this.requireItsaClient(user, clientId);
+    const kind = dto.kind ?? "quarterly";
+    if (kind === "eops") {
+      return this.validateEops(clientId, dto);
+    }
+    if (kind === "final" || kind === "year") {
+      return this.validateYear(clientId, dto, kind);
+    }
+    const business = await this.requireBusiness(clientId, dto.businessId ?? "");
+    const rolled = dto.fromLedger !== false
+      ? await this.rollUpFromLedger(clientId, business.type, dto.periodStart!, dto.periodEnd!)
+      : null;
+    const incomes = rolled?.incomes ?? dto.incomes ?? {};
+    const expenses = rolled?.expenses ?? dto.expenses ?? {};
+    const transactionCount = rolled?.transactionCount ?? 0;
+    const validation = await this.validateQuarterly(
+      clientId,
+      business.id,
+      business.type,
+      { ...dto, incomes, expenses },
+      transactionCount,
+    );
+    return { kind: "quarterly", incomes, expenses, excluded: rolled?.excluded ?? [], validation };
   }
 
   async listUpdates(user: AuthUser, clientId: string) {
     await this.requireItsaClient(user, clientId);
-    return this.prisma.itsaUpdate.findMany({
-      where: { clientId },
-      include: { business: true },
-      orderBy: { createdAt: "desc" },
-    });
+    return this.repo.listUpdates(clientId);
+  }
+
+  async listEops(user: AuthUser, clientId: string, taxYear?: string) {
+    await this.requireItsaClient(user, clientId);
+    return this.repo.listEops(clientId, taxYear);
+  }
+
+  async listFinals(user: AuthUser, clientId: string, taxYear?: string) {
+    await this.requireItsaClient(user, clientId);
+    return this.repo.listFinals(clientId, taxYear);
   }
 
   async submitUpdate(user: AuthUser, clientId: string, dto: SubmitItsaUpdateDto) {
@@ -125,6 +187,14 @@ export class ItsaService {
     if (!incomes || !expenses) {
       throw new BadRequestException("incomes and expenses are required unless fromLedger is true");
     }
+    const validation = await this.validateQuarterly(
+      client.id,
+      business.id,
+      business.type,
+      { ...dto, incomes, expenses },
+      rolled?.transactionCount ?? 0,
+    );
+    this.assertValid(validation);
     const ctx = await this.connections.getCallContext(client.id);
     const result = await this.itsa.submitQuarterlyUpdate(ctx, client.nino!, {
       businessId: business.hmrcBusinessId ?? business.id,
@@ -135,35 +205,33 @@ export class ItsaService {
       incomes,
       expenses,
     });
-    const saved = await this.prisma.itsaUpdate.create({
-      data: {
-        clientId: client.id,
-        businessId: business.id,
-        taxYear: dto.taxYear,
-        periodId: dto.periodId,
-        periodStart: new Date(dto.periodStart),
-        periodEnd: new Date(dto.periodEnd),
-        incomes,
-        expenses,
-        status: "SUBMITTED",
-        hmrcPeriodId: result.data.periodId,
-        correlationId: result.correlationId,
-        rawPayload: result.data,
-      },
+    const saved = await this.repo.createUpdate({
+      clientId: client.id,
+      businessId: business.id,
+      taxYear: dto.taxYear,
+      periodId: dto.periodId,
+      periodStart: new Date(dto.periodStart),
+      periodEnd: new Date(dto.periodEnd),
+      incomes,
+      expenses,
+      status: "SUBMITTED",
+      hmrcPeriodId: result.data.periodId,
+      correlationId: result.correlationId,
+      rawPayload: result.data,
     });
     await this.tasks.complete(client.firmId, client.id, "MTD_ITSA_UPDATE");
     await this.audit.record({
       actor: user,
       clientId: client.id,
       actionType: "itsa.update.submitted",
-      metadata: { correlationId: result.correlationId, businessId: business.id },
+      metadata: { correlationId: result.correlationId, businessId: business.id, issues: validation.issues },
     });
     await this.webhooks.emit(client.firmId, "ITSA_UPDATE_SUBMITTED", {
       clientId: client.id,
       taxYear: dto.taxYear,
       periodId: dto.periodId,
     });
-    return saved;
+    return { ...saved, validation };
   }
 
   async submitEops(user: AuthUser, clientId: string, dto: SubmitEopsDto) {
@@ -172,6 +240,13 @@ export class ItsaService {
     }
     const client = await this.requireItsaClient(user, clientId);
     const business = await this.requireBusiness(client.id, dto.businessId);
+    const updates = await this.repo.listUpdates(client.id, { businessId: business.id, taxYear: dto.taxYear });
+    const validation = validateItsaEops({
+      businessId: business.id,
+      taxYear: dto.taxYear,
+      quarterlyUpdateCount: updates.length,
+    });
+    this.assertValid(validation);
     const ctx = await this.connections.getCallContext(client.id);
     const result = await this.itsa.submitEops(ctx, client.nino!, {
       businessId: business.hmrcBusinessId ?? business.id,
@@ -181,28 +256,26 @@ export class ItsaService {
       accountingPeriodEnd: dto.accountingPeriodEnd,
       finalised: dto.finalised,
     });
-    const saved = await this.prisma.itsaEndOfPeriodStatement.create({
-      data: {
-        clientId: client.id,
-        businessId: business.id,
-        taxYear: dto.taxYear,
-        typeOfBusiness: dto.typeOfBusiness,
-        accountingPeriodStart: new Date(dto.accountingPeriodStart),
-        accountingPeriodEnd: new Date(dto.accountingPeriodEnd),
-        finalised: dto.finalised,
-        status: "SUBMITTED",
-        correlationId: result.correlationId,
-        rawPayload: result.data,
-      },
+    const saved = await this.repo.createEops({
+      clientId: client.id,
+      businessId: business.id,
+      taxYear: dto.taxYear,
+      typeOfBusiness: dto.typeOfBusiness,
+      accountingPeriodStart: new Date(dto.accountingPeriodStart),
+      accountingPeriodEnd: new Date(dto.accountingPeriodEnd),
+      finalised: dto.finalised,
+      status: "SUBMITTED",
+      correlationId: result.correlationId,
+      rawPayload: result.data,
     });
     await this.tasks.complete(client.firmId, client.id, "MTD_ITSA_EOPS");
     await this.audit.record({
       actor: user,
       clientId: client.id,
       actionType: "itsa.eops.submitted",
-      metadata: { correlationId: result.correlationId },
+      metadata: { correlationId: result.correlationId, issues: validation.issues },
     });
-    return saved;
+    return { ...saved, validation };
   }
 
   async submitFinal(user: AuthUser, clientId: string, dto: SubmitFinalDeclarationDto) {
@@ -210,51 +283,106 @@ export class ItsaService {
       throw new BadRequestException("Final declaration must be finalised");
     }
     const client = await this.requireItsaClient(user, clientId);
+    const validation = await this.finalValidation(client.id, dto.taxYear);
+    this.assertValid(validation);
     const ctx = await this.connections.getCallContext(client.id);
     const result = await this.itsa.submitFinalDeclaration(ctx, client.nino!, dto);
-    const saved = await this.prisma.itsaFinalDeclaration.create({
-      data: {
-        clientId: client.id,
-        taxYear: dto.taxYear,
-        calculationId: result.data.calculationId,
-        finalised: dto.finalised,
-        status: "SUBMITTED",
-        correlationId: result.correlationId,
-        rawPayload: result.data,
-      },
+    const saved = await this.repo.createFinal({
+      clientId: client.id,
+      taxYear: dto.taxYear,
+      calculationId: result.data.calculationId,
+      finalised: dto.finalised,
+      status: "SUBMITTED",
+      correlationId: result.correlationId,
+      rawPayload: result.data,
     });
     await this.tasks.complete(client.firmId, client.id, "MTD_ITSA_FINAL_DECLARATION");
     await this.audit.record({
       actor: user,
       clientId: client.id,
       actionType: "itsa.final_declaration.submitted",
-      metadata: { correlationId: result.correlationId, taxYear: dto.taxYear },
+      metadata: { correlationId: result.correlationId, taxYear: dto.taxYear, issues: validation.issues },
     });
-    return saved;
+    return { ...saved, validation };
   }
 
   async addBusiness(user: AuthUser, clientId: string, dto: CreateBusinessDto) {
     const client = await this.requireItsaClient(user, clientId);
-    return this.prisma.business.create({
-      data: {
-        clientId: client.id,
-        type: dto.type,
-        tradingName: dto.tradingName,
-        hmrcBusinessId: dto.hmrcBusinessId,
-      },
+    return this.repo.createBusiness({
+      clientId: client.id,
+      type: dto.type,
+      tradingName: dto.tradingName,
+      hmrcBusinessId: dto.hmrcBusinessId,
     });
+  }
+
+  private async validateQuarterly(
+    clientId: string,
+    businessId: string,
+    businessType: string,
+    dto: { taxYear?: string; periodId?: string; periodStart?: string; periodEnd?: string; incomes?: Record<string, number>; expenses?: Record<string, number> },
+    transactionCount: number,
+  ): Promise<ItsaValidationResult> {
+    const profile = chartProfileForBusinessType(businessType);
+    const obligation = dto.taxYear
+      ? await this.repo.findObligation(clientId, "QUARTERLY_UPDATE", dto.taxYear, dto.periodId, businessId)
+      : dto.periodId
+        ? await this.repo.findObligation(clientId, "QUARTERLY_UPDATE", dto.taxYear ?? "", dto.periodId, businessId)
+        : null;
+    return validateItsaQuarterlyUpdate(
+      {
+        incomes: dto.incomes ?? {},
+        expenses: dto.expenses ?? {},
+        transactionCount,
+      },
+      profile,
+      {
+        obligation: obligation
+          ? { periodId: obligation.periodId, start: toIsoDate(obligation.start), end: toIsoDate(obligation.end) }
+          : null,
+        submitted: { periodId: dto.periodId, periodStart: dto.periodStart, periodEnd: dto.periodEnd },
+      },
+    );
+  }
+
+  private async validateEops(clientId: string, dto: ValidateItsaDto) {
+    const business = await this.requireBusiness(clientId, dto.businessId ?? "");
+    const taxYear = dto.taxYear ?? "";
+    const updates = await this.repo.listUpdates(clientId, { businessId: business.id, taxYear });
+    return {
+      kind: "eops",
+      businessId: business.id,
+      taxYear,
+      quarterlyUpdateCount: updates.length,
+      validation: validateItsaEops({ businessId: business.id, taxYear, quarterlyUpdateCount: updates.length }),
+    };
+  }
+
+  private async validateYear(clientId: string, dto: ValidateItsaDto, kind: "final" | "year") {
+    const taxYear = dto.taxYear ?? "";
+    const validation = await this.finalValidation(clientId, taxYear, kind === "year");
+    return { kind, taxYear, validation };
+  }
+
+  private async finalValidation(clientId: string, taxYear: string, includeMissingFinal = false) {
+    const businesses = await this.repo.listBusinesses(clientId);
+    const eops = await this.repo.listEops(clientId, taxYear);
+    const eopsBusinessIds = eops.map((item) => item.businessId).filter((id): id is string => Boolean(id));
+    if (includeMissingFinal) {
+      const finals = await this.repo.listFinals(clientId, taxYear);
+      return validateItsaYear({
+        taxYear,
+        businesses,
+        eopsBusinessIds,
+        hasFinalDeclaration: finals.length > 0,
+      });
+    }
+    return validateItsaFinalDeclaration({ taxYear, businesses, eopsBusinessIds });
   }
 
   private async rollUpFromLedger(clientId: string, businessType: string, periodStart: string, periodEnd: string) {
     const profile = chartProfileForBusinessType(businessType);
-    const start = new Date(periodStart);
-    const end = new Date(periodEnd);
-    const accounts = await this.prisma.ledger.findMany({
-      where: { clientId, profile },
-      include: {
-        transactions: { where: { date: { gte: start, lte: end } } },
-      },
-    });
+    const accounts = await this.repo.loadLedgersForPeriod(clientId, profile, periodStart, periodEnd);
     const incomes: Record<string, number> = {};
     const expenses: Record<string, number> = {};
     const excluded: Array<{ code: number; category: string; amount: number; reason: string }> = [];
@@ -290,7 +418,20 @@ export class ItsaService {
       });
     }
 
-    return { profile, incomes, expenses, excluded, lines };
+    const transactionCount = await this.repo.countTransactions(clientId, profile, periodStart, periodEnd);
+    return { profile, incomes, expenses, excluded, lines, transactionCount };
+  }
+
+  private assertValid(validation: ItsaValidationResult) {
+    if (validation.errors.length === 0) {
+      return;
+    }
+    throw new BadRequestException({
+      message: "ITSA submission failed validation",
+      errors: validation.errors,
+      warnings: validation.warnings,
+      issues: validation.issues,
+    });
   }
 
   private async requireItsaClient(user: AuthUser, clientId: string) {
@@ -302,10 +443,17 @@ export class ItsaService {
   }
 
   private async requireBusiness(clientId: string, businessId: string) {
-    const business = await this.prisma.business.findFirst({ where: { id: businessId, clientId } });
+    if (!businessId) {
+      throw new BadRequestException("businessId is required");
+    }
+    const business = await this.repo.findBusiness(clientId, businessId);
     if (!business) {
       throw new BadRequestException("Business does not belong to this client");
     }
     return business;
   }
+}
+
+function toIsoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
 }

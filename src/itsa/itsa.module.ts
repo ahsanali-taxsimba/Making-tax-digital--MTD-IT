@@ -1,12 +1,13 @@
 import { Module } from "@nestjs/common";
 import { ClientsModule } from "../clients/clients.module";
 import { HmrcModule } from "../hmrc/hmrc.module";
-import { ItsaController, ItsaMappingController } from "./itsa.controller";
+import { ItsaController, ItsaEngineController } from "./itsa.controller";
+import { ItsaRepository } from "./itsa.repository";
 import { ItsaService } from "./itsa.service";
 
 @Module({
   imports: [ClientsModule, HmrcModule],
-  controllers: [ItsaController, ItsaMappingController],
-  providers: [ItsaService],
+  controllers: [ItsaController, ItsaEngineController],
+  providers: [ItsaService, ItsaRepository],
 })
 export class ItsaModule {}

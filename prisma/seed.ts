@@ -2,6 +2,7 @@ import { PrismaClient, ClientType, UserRole, ObligationStatus, ChartProfile } fr
 import * as bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
 import { getChart, toLedgerAccountType } from "../src/ledger/chart-of-accounts.catalog";
+import { flattenItsaCatalog } from "../src/itsa/mtd-itsa.mapping";
 
 const prisma = new PrismaClient();
 
@@ -190,6 +191,26 @@ async function main() {
   await seedChart(soleTrader.id, ChartProfile.LANDLORD);
   await seedChart(landlord.id, ChartProfile.LANDLORD);
   await seedChart(company.id, ChartProfile.COMPANY);
+
+  for (const mapping of flattenItsaCatalog()) {
+    await prisma.itsaAccountMapping.upsert({
+      where: { profile_code: { profile: mapping.profile, code: mapping.code } },
+      update: {
+        bucket: mapping.bucket,
+        category: mapping.category,
+        hmrcKey: mapping.hmrcKey,
+        includedInQuarterlyUpdate: mapping.includedInQuarterlyUpdate,
+      },
+      create: {
+        profile: mapping.profile,
+        code: mapping.code,
+        bucket: mapping.bucket,
+        category: mapping.category,
+        hmrcKey: mapping.hmrcKey,
+        includedInQuarterlyUpdate: mapping.includedInQuarterlyUpdate,
+      },
+    });
+  }
 
   // eslint-disable-next-line no-console
   console.log("Seeded Northbridge Accountants LLP");

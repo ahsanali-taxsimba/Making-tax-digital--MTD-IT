@@ -85,6 +85,7 @@ const INCLUDED_BUCKETS = new Set<ItsaMappingBucket>([
 ]);
 
 export interface ItsaAccountMapping {
+  code: number;
   bucket: ItsaMappingBucket;
   category: string;
   hmrcKey: string;
@@ -92,7 +93,7 @@ export interface ItsaAccountMapping {
   profile: ChartProfile;
 }
 
-function toHmrcKey(category: string): string {
+export function toHmrcKey(category: string): string {
   return category
     .replace(/[^A-Za-z0-9]+/g, " ")
     .trim()
@@ -106,6 +107,7 @@ function indexForBuckets(buckets: ItsaMappingBucket[], profile: ChartProfile): M
   for (const bucket of buckets) {
     for (const item of MTD_ITSA_MAPPING[bucket]) {
       index.set(item.code, {
+        code: item.code,
         bucket,
         category: item.category,
         hmrcKey: toHmrcKey(item.category),
@@ -140,4 +142,40 @@ export function chartProfileForBusinessType(type: string): ChartProfile {
 
 export function decorateAccountWithItsa<T extends { code: number; profile: ChartProfile }>(account: T) {
   return { ...account, itsa: lookupItsaMapping(account.profile, account.code) ?? null };
+}
+
+export function catalogForProfile(profile: ChartProfile): ItsaAccountMapping[] {
+  if (profile === ChartProfile.LANDLORD) {
+    return Array.from(LANDLORD_INDEX.values());
+  }
+  if (profile === ChartProfile.SOLE_TRADER) {
+    return Array.from(SOLE_TRADER_INDEX.values());
+  }
+  return [];
+}
+
+export function itsaKeySets(profile: ChartProfile) {
+  const income = new Set<string>();
+  const expense = new Set<string>();
+  const capital = new Set<string>();
+  const disallowable = new Set<string>();
+  for (const mapping of catalogForProfile(profile)) {
+    if (mapping.bucket === "capital_items") {
+      capital.add(mapping.hmrcKey);
+    } else if (mapping.bucket.endsWith("disallowable")) {
+      disallowable.add(mapping.hmrcKey);
+    } else if (mapping.bucket.endsWith("income")) {
+      income.add(mapping.hmrcKey);
+    } else {
+      expense.add(mapping.hmrcKey);
+    }
+  }
+  return { income, expense, capital, disallowable };
+}
+
+export function flattenItsaCatalog() {
+  return [
+    ...catalogForProfile(ChartProfile.SOLE_TRADER).map((item) => ({ ...item, profile: ChartProfile.SOLE_TRADER })),
+    ...catalogForProfile(ChartProfile.LANDLORD).map((item) => ({ ...item, profile: ChartProfile.LANDLORD })),
+  ];
 }
