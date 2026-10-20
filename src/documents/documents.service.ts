@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { AuditService } from "../audit/audit.service";
 import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
+import { AuthorizationError, AUTHZ_ERR } from "../authorization/authorization.errors";
 import { PrismaService } from "../prisma/prisma.service";
 import { decodeUploadContent, detectReceiptType, MAX_RECEIPT_BYTES, mimeFor } from "../receipts/domain/file-types";
 import { OCRService } from "../receipts/ocr.service";
@@ -134,6 +135,9 @@ export class DocumentsService {
   }
 
   async listLibrary(user: AuthUser, query: DocumentsQueryDto) {
+    if (user.principal === "platform") {
+      throw new AuthorizationError(AUTHZ_ERR.PLATFORM_CLIENT_DATA, "Platform staff cannot list client documents");
+    }
     const clientId = await this.resolveLibraryClientId(user, query);
     const kind = parseDocumentKind(query.type);
     const rows = await this.repo.list(clientId, {

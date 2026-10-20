@@ -20,7 +20,9 @@ describe("AuthService", () => {
 
   const prisma = {
     user: { findUnique: jest.fn() },
+    platformUser: { findUnique: jest.fn() },
     refreshToken: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+    platformRefreshToken: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
   };
   const jwt = { signAsync: jest.fn().mockResolvedValue("access.jwt") };
   const config = {
@@ -38,11 +40,13 @@ describe("AuthService", () => {
   });
 
   it("rejects unknown users", async () => {
+    prisma.platformUser.findUnique.mockResolvedValue(null);
     prisma.user.findUnique.mockResolvedValue(null);
     await expect(service.login("nobody@example.com", "x")).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it("issues tokens for a valid password", async () => {
+    prisma.platformUser.findUnique.mockResolvedValue(null);
     prisma.user.findUnique.mockResolvedValue(user);
     prisma.refreshToken.create.mockResolvedValue({});
     const result = await service.login(user.email, "PracticeAdmin123!");
