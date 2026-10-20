@@ -5,8 +5,27 @@ export type ApiFailure = {
 };
 export type ApiEnvelope<T> = ApiSuccess<T> | ApiFailure;
 
-export type UserRole = "ADMIN" | "ACCOUNTANT" | "CLIENT";
+export type UserRole = "ADMIN" | "ACCOUNTANT" | "ASSISTANT" | "CLIENT";
+export type UserStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
+export type ClientType = "INDIVIDUAL" | "COMPANY" | "LANDLORD" | "PARTNERSHIP";
+export type PracticeTaskStatus = "OPEN" | "IN_PROGRESS" | "WAITING_ON_CLIENT" | "COMPLETED" | "CANCELLED";
+export type PracticeTaskType =
+  | "VAT_RETURN"
+  | "ITSA_UPDATE"
+  | "EOPS"
+  | "FINAL_DECLARATION"
+  | "BOOKKEEPING"
+  | "RECONCILIATION"
+  | "MTD_VAT_RETURN"
+  | "MTD_ITSA_UPDATE"
+  | "MTD_ITSA_EOPS"
+  | "MTD_ITSA_FINAL_DECLARATION"
+  | "MTD_TOKEN_EXPIRING"
+  | "PROVIDE_RECORDS"
+  | "APPROVE_RETURN";
 export type HmrcEnvironment = "sandbox" | "live" | "SANDBOX" | "LIVE";
+export type HmrcLinkStatus = "connected" | "disconnected" | "not_connected";
 
 export interface AuthUser {
   id: string;
@@ -24,12 +43,101 @@ export interface LoginResult {
   user: AuthUser;
 }
 
+export interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  clientId?: string | null;
+  createdAt?: string;
+}
+
+export interface FirmRecord {
+  id: string;
+  name: string;
+  address?: string | null;
+  contactEmail: string;
+  planType?: string;
+  billingStatus?: string;
+}
+
+export interface TaskWorkloadRow {
+  userId: string | null;
+  name: string;
+  role: UserRole | null;
+  status: UserStatus | null;
+  open: number;
+  inProgress: number;
+  waitingOnClient: number;
+  completed: number;
+}
+
+export interface FirmDashboard {
+  firm: FirmRecord;
+  staffCount: number;
+  clientCount: number;
+  openVatObligations: number;
+  openItsaObligations: number;
+  openObligations: number;
+  taskWorkload: TaskWorkloadRow[];
+}
+
+export interface AssignedStaff {
+  id: string;
+  name: string;
+  role: UserRole;
+  status?: UserStatus;
+}
+
 export interface ClientRecord {
   id: string;
   name: string;
-  type?: string;
+  type?: ClientType | string;
   vatRegistrationNumber?: string | null;
   nino?: string | null;
+  utr?: string | null;
+  riskLevel?: RiskLevel;
+  assignedUserId?: string | null;
+  assignedUser?: AssignedStaff | null;
+  mtdConnections?: Array<{
+    id: string;
+    environment: string;
+    scopes: string[];
+    tokenExpiresAt: string;
+    disconnectedAt?: string | null;
+  }>;
+}
+
+export interface PracticeTask {
+  id: string;
+  firmId?: string;
+  clientId: string;
+  type: PracticeTaskType | string;
+  status: PracticeTaskStatus | string;
+  title: string;
+  dueDate?: string | null;
+  assigneeId?: string | null;
+  completedAt?: string | null;
+  client?: { id: string; name: string; type?: string } | null;
+  assignee?: AssignedStaff | null;
+}
+
+export interface HmrcConnectionOverview {
+  clientId: string;
+  clientName: string;
+  environment: string;
+  vatStatus: HmrcLinkStatus;
+  itsaStatus: HmrcLinkStatus;
+  connected: boolean;
+  tokenExpiresAt?: string | null;
+  lastHmrcInteraction?: {
+    at: string;
+    actionType: string;
+    method?: string | null;
+    path?: string | null;
+    statusCode?: number | null;
+  } | null;
 }
 
 export interface HmrcConnectionRow {

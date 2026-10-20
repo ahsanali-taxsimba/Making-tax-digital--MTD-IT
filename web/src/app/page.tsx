@@ -14,8 +14,10 @@ export default function HomePage() {
   useEffect(() => {
     if (user?.role === "CLIENT") {
       router.replace("/portal");
+    } else if (user) {
+      router.replace("/practice");
     }
-  }, [router, user?.role]);
+  }, [router, user]);
 
   return (
     <RequireAuth>

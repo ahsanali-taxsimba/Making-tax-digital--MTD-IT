@@ -21,7 +21,7 @@ controllers  →  VAT / ITSA / OAuth modules  →  repositories / Prisma
 ```
 
 - **Tenancy:** every user belongs to a firm. Accountants see firm clients; client-portal users only see their linked client.
-- **RBAC:** `ADMIN`, `ACCOUNTANT`, `CLIENT`.
+- **RBAC:** `ADMIN`, `ACCOUNTANT`, `ASSISTANT`, `CLIENT`.
 - **HMRC client:** VAT and ITSA never call HMRC directly. `HmrcClientService` is the single HTTP client: it loads a valid access token, refreshes on expiry, retries once after 401, and maps failures onto `HMRC_ERR_*`.
 - **HMRC OAuth:** dedicated `/hmrc/oauth/*` module for start, callback, status, disconnect, encrypted tokens, per-environment app config, and `getValidAccessToken()`. Automatic refresh runs on demand and in the background.
 - **Envelope:** `{ data, error }` on every response.
@@ -57,7 +57,7 @@ npm run start:dev
 npm run web:dev
 ```
 
-VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callback`). Client portal: `/portal`. The browser never sees HMRC tokens. One HMRC grant covers both regimes.
+VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callback`). Client portal: `/portal`. Practice management: `/practice` (staff, clients, task board, HMRC connections). The browser never sees HMRC tokens. One HMRC grant covers both regimes.
 
 ### Seed users
 
@@ -65,6 +65,7 @@ VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callb
 | --- | --- | --- |
 | Firm admin | marco.r@example.org | PracticeAdmin123! |
 | Accountant | carol.w@example.org | PracticeAdmin123! |
+| Assistant | wendy.h@example.net | PracticeAdmin123! |
 | Client portal | tom.h@example.org | PracticeAdmin123! |
 
 `HMRC_MODE=mock` is the default. `HmrcClientService` then returns canned VAT/ITSA obligations and accepts submissions so the full accountant workflow can be exercised without HMRC credentials. In `HMRC_MODE=live` the same `get`/`post` methods refresh tokens and call the official HMRC APIs.

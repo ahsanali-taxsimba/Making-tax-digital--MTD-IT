@@ -85,5 +85,13 @@ export function clearSession(): void {
 }
 
 export function canManageConnection(role?: string | null): boolean {
-  return role === "ADMIN" || role === "ACCOUNTANT";
+  return role === "ADMIN" || role === "ACCOUNTANT" || role === "ASSISTANT";
+}
+
+export function isPracticeStaff(role?: string | null): boolean {
+  return role === "ADMIN" || role === "ACCOUNTANT" || role === "ASSISTANT";
+}
+
+export function canInviteStaff(role?: string | null): boolean {
+  return role === "ADMIN";
 }

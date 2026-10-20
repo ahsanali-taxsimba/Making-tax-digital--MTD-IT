@@ -1,0 +1,26 @@
+import { clientHmrcStatus, matchesQuery, taskColumn, taskTypeLabel } from "./practice";
+
+describe("practice helpers", () => {
+  it("maps board columns", () => {
+    expect(taskColumn("OPEN")).toBe("OPEN");
+    expect(taskColumn("WAITING_ON_CLIENT")).toBe("WAITING_ON_CLIENT");
+    expect(taskColumn("CANCELLED")).toBe("HIDDEN");
+  });
+
+  it("labels VAT and ITSA aliases together", () => {
+    expect(taskTypeLabel("VAT_RETURN")).toBe("VAT return");
+    expect(taskTypeLabel("MTD_VAT_RETURN")).toBe("VAT return");
+    expect(taskTypeLabel("EOPS")).toBe("EOPS");
+  });
+
+  it("derives HMRC status from connections", () => {
+    expect(clientHmrcStatus({ mtdConnections: [] })).toBe("not_connected");
+    expect(clientHmrcStatus({ mtdConnections: [{ disconnectedAt: "2026-01-01" }] })).toBe("disconnected");
+    expect(clientHmrcStatus({ mtdConnections: [{ disconnectedAt: null, scopes: ["read:vat"] }] })).toBe("connected");
+  });
+
+  it("filters search terms", () => {
+    expect(matchesQuery(["Amelia Hartley", "AA123456A"], "hart")).toBe(true);
+    expect(matchesQuery(["James Cole"], "noah")).toBe(false);
+  });
+});

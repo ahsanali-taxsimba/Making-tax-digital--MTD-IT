@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { ClientType } from "@prisma/client";
-import { IsDateString, IsEnum, IsIn, IsOptional, IsString, Matches } from "class-validator";
+import { ClientType, RiskLevel } from "@prisma/client";
+import { IsDateString, IsEnum, IsIn, IsOptional, IsString, IsUUID, Matches, ValidateIf } from "class-validator";
 
 export class CreateClientDto {
   @ApiProperty({ enum: ClientType })
@@ -40,6 +40,16 @@ export class CreateClientDto {
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;
+
+  @ApiPropertyOptional({ enum: RiskLevel })
+  @IsOptional()
+  @IsEnum(RiskLevel)
+  riskLevel?: RiskLevel;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  assignedUserId?: string;
 }
 
 export class UpdateClientDto {
@@ -72,4 +82,15 @@ export class UpdateClientDto {
   @IsOptional()
   @IsString()
   nino?: string;
+
+  @ApiPropertyOptional({ enum: RiskLevel })
+  @IsOptional()
+  @IsEnum(RiskLevel)
+  riskLevel?: RiskLevel;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  assignedUserId?: string | null;
 }

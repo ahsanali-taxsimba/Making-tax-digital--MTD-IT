@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HMRC VAT & ITSA · Making Tax Digital",
-  description: "Connect a client to HMRC VAT or ITSA, review token status, and fetch Making Tax Digital obligations.",
+  title: "Practice workspace · Making Tax Digital",
+  description: "Manage the firm, staff, clients, MTD tasks, and HMRC VAT/ITSA connections.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

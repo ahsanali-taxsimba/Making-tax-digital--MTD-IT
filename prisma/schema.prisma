@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   ADMIN
   ACCOUNTANT
+  ASSISTANT
   CLIENT
 }
 
@@ -64,13 +65,26 @@ enum TaskType {
   MTD_TOKEN_EXPIRING
   PROVIDE_RECORDS
   APPROVE_RETURN
+  VAT_RETURN
+  ITSA_UPDATE
+  EOPS
+  FINAL_DECLARATION
+  BOOKKEEPING
+  RECONCILIATION
 }
 
 enum TaskStatus {
   OPEN
   IN_PROGRESS
+  WAITING_ON_CLIENT
   COMPLETED
   CANCELLED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum NotificationType {
@@ -145,6 +159,8 @@ model User {
   auditLogs     AuditLog[]
   notifications Notification[]
   journalEntries JournalEntry[]
+  assignedClients Client[] @relation("ClientAssignee")
+  assignedTasks   Task[]   @relation("TaskAssignee")
 }
 
 model RefreshToken {
@@ -169,6 +185,9 @@ model Client {
   niNumber              String?
   nino                  String?
   dateOfBirth           DateTime?
+  riskLevel             RiskLevel  @default(MEDIUM)
+  assignedUserId        String?
+  assignedUser          User?      @relation("ClientAssignee", fields: [assignedUserId], references: [id])
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
@@ -197,6 +216,7 @@ model Client {
   accountingPeriods AccountingPeriod[]
 
   @@index([firmId])
+  @@index([assignedUserId])
 }
 
 model Business {
@@ -489,6 +509,8 @@ model Task {
   firm        Firm       @relation(fields: [firmId], references: [id])
   clientId    String
   client      Client     @relation(fields: [clientId], references: [id])
+  assigneeId  String?
+  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
   type        TaskType
   status      TaskStatus @default(OPEN)
   dueDate     DateTime?
@@ -496,6 +518,9 @@ model Task {
   title       String
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  @@index([assigneeId])
+  @@index([firmId, status])
 }
 
 model Notification {

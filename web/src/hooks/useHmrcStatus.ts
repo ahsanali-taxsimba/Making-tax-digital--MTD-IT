@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listHmrcConnections } from "@/lib/firm";
 import { disconnectHmrc, getHmrcStatus, refreshHmrcToken } from "@/lib/hmrc";
 
 export function useHmrcStatus(clientId?: string | null, environment: string = "sandbox") {
@@ -10,6 +11,16 @@ export function useHmrcStatus(clientId?: string | null, environment: string = "s
     enabled: Boolean(clientId),
     refetchInterval: 60_000,
   });
+}
+
+export function useHMRCStatus(clientId?: string | null, environment: string = "sandbox") {
+  const overview = useQuery({
+    queryKey: ["hmrc-connections"],
+    queryFn: listHmrcConnections,
+    enabled: !clientId,
+  });
+  const status = useHmrcStatus(clientId, environment);
+  return clientId ? status : overview;
 }
 
 export function useDisconnectHmrc(clientId?: string | null, environment: string = "sandbox") {
