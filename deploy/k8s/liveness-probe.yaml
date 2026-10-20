@@ -1,0 +1,9 @@
+# Attach to each API / service Deployment.
+# GET /health/live only checks the process. Do not ping the database here.
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 8080
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  failureThreshold: 3

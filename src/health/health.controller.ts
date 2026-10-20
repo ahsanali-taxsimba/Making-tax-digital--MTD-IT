@@ -11,8 +11,14 @@ export class HealthController {
 
   @Get()
   @ApiOperation({ summary: "Legacy liveness alias" })
-  async check() {
-    return { status: "ok", service: "mtd-it-api" };
+  liveAlias() {
+    return this.live();
+  }
+
+  @Get("live")
+  @ApiOperation({ summary: "Kubernetes liveness: process is up (no database check)" })
+  live() {
+    return { status: "live", service: "mtd-it-api" };
   }
 
   @Get("ready")
