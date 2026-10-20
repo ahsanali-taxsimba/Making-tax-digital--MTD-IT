@@ -67,7 +67,8 @@ export class HmrcOAuthService {
       state,
       environment: env,
       redirectUri: app.redirectUri,
-      mode: this.apps.isLiveMode() ? "live" : "mock",
+      mode: this.apps.mode(),
+      sandbox: this.apps.usesSandboxHost(env),
     };
   }
 

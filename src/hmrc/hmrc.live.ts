@@ -16,6 +16,7 @@ import {
   VatReturnBoxes,
   VatSubmitResult,
 } from "./hmrc.types";
+import { expandLiveCalls, isPropertyBusiness } from "./client/hmrc-client.routes";
 import { mapHmrcError } from "./hmrc.errors";
 
 @Injectable()
@@ -160,15 +161,25 @@ export class LiveHmrcItsaGateway implements HmrcItsaGateway {
   }
 
   submitQuarterlyUpdate(ctx: HmrcCallContext, nino: string, payload: QuarterlyUpdatePayload) {
-    const path = `/individuals/business/self-employment/${nino}/${payload.businessId}/period/${payload.taxYear}`;
-    return this.http.request<{ periodId: string }>(ctx, "POST", path, {
-      accept: "application/vnd.hmrc.5.0+json",
-      body: {
+    const calls = expandLiveCalls("PUT", `/income-tax/${nino}/${isPropertyBusiness(payload.typeOfBusiness) ? "uk-property/periodic" : "updates"}`, payload);
+    const call = calls?.[0];
+    return this.http.request<{ periodId: string }>(ctx, call?.method ?? "PUT", call?.path ?? `/individuals/business/self-employment/${nino}/${payload.businessId}/period/${payload.taxYear}`, {
+      accept: call?.accept ?? "application/vnd.hmrc.5.0+json",
+      body: call?.body ?? {
         periodDates: { periodStartDate: payload.periodStart, periodEndDate: payload.periodEnd },
         periodIncome: payload.incomes,
         periodExpenses: payload.expenses,
       },
     });
+  }
+
+  getIncomeExpenses(ctx: HmrcCallContext, nino: string) {
+    return this.http.request<{ obligations: Array<Record<string, string>> }>(
+      ctx,
+      "GET",
+      `/obligations/details/${nino}/income-and-expenditure`,
+      { accept: "application/vnd.hmrc.2.0+json" },
+    );
   }
 
   submitEops(ctx: HmrcCallContext, nino: string, payload: EopsPayload) {

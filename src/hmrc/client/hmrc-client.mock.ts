@@ -33,7 +33,7 @@ export function mockHmrcResponse(method: string, url: string, body?: unknown): H
       finalised: true,
     });
   }
-  if (method === "POST" && /\/organisations\/vat\/[^/]+\/returns$/.test(path)) {
+  if ((method === "POST" || method === "PUT") && /\/organisations\/vat\/[^/]+\/returns$/.test(path)) {
     return result({
       processingDate: new Date().toISOString(),
       formBundleNumber: "123456789012",
@@ -76,16 +76,33 @@ export function mockHmrcResponse(method: string, url: string, body?: unknown): H
       ],
     });
   }
-  if (method === "POST" && /\/income-tax\/[^/]+\/updates$/.test(path)) {
+  if ((method === "POST" || method === "PUT") && /\/income-tax\/[^/]+\/(updates|uk-property\/periodic)$/.test(path)) {
     const payload = (body ?? {}) as { periodId?: string };
     return result({ periodId: payload.periodId ?? "p1" });
   }
-  if (method === "POST" && /\/income-tax\/[^/]+\/eops$/.test(path)) {
+  if ((method === "POST" || method === "PUT") && /\/income-tax\/[^/]+\/(eops|uk-property\/eops)$/.test(path)) {
     return result({ processingDate: new Date().toISOString() });
   }
-  if (method === "POST" && /\/income-tax\/[^/]+\/final-declaration$/.test(path)) {
+  if ((method === "POST" || method === "PUT") && /\/income-tax\/[^/]+\/(final-declaration|calculations\/final-declaration)$/.test(path)) {
     const payload = (body ?? {}) as { calculationId?: string };
     return result({ calculationId: payload.calculationId ?? randomUUID() });
+  }
+  if (method === "GET" && /\/income-tax\/[^/]+\/income-expenses$/.test(path)) {
+    return result({
+      incomes: { turnover: 5000, otherIncome: 0 },
+      expenses: { officeCosts: 250 },
+      obligations: [
+        {
+          type: "QUARTERLY_UPDATE",
+          taxYear: "2025-26",
+          periodId: "2026-04-06_2026-07-05",
+          start: "2026-04-06",
+          end: "2026-07-05",
+          due: "2026-08-07",
+          status: "Open",
+        },
+      ],
+    });
   }
   return null;
 }

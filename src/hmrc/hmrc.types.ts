@@ -70,6 +70,7 @@ export interface QuarterlyUpdatePayload {
   periodEnd: string;
   incomes: Record<string, number>;
   expenses: Record<string, number>;
+  typeOfBusiness?: string;
 }
 
 export interface EopsPayload {

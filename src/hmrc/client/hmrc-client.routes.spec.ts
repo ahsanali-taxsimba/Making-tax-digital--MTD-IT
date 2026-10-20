@@ -15,6 +15,33 @@ describe("expandLiveCalls", () => {
     ]);
   });
 
+  it("maps a UK property periodic update onto the official PUT path", () => {
+    const calls = expandLiveCalls("PUT", "/income-tax/AA123456A/uk-property/periodic", {
+      businessId: "XAIS1",
+      taxYear: "2025-26",
+      periodId: "q1",
+      periodStart: "2026-04-06",
+      periodEnd: "2026-07-05",
+      incomes: { periodAmount: 100 },
+      expenses: { repairsAndMaintenance: 10 },
+    });
+    expect(calls?.[0].method).toBe("PUT");
+    expect(calls?.[0].path).toBe("/individuals/business/property/uk/AA123456A/XAIS1/2025-26/q1");
+    expect(calls?.[0].body).toEqual(
+      expect.objectContaining({
+        ukProperty: expect.objectContaining({
+          income: expect.objectContaining({ periodAmount: 100 }),
+        }),
+      }),
+    );
+  });
+
+  it("maps income-expenses onto the HMRC income-and-expenditure obligations feed", () => {
+    expect(expandLiveCalls("GET", "/income-tax/AA123456A/income-expenses")?.[0].path).toBe(
+      "/obligations/details/AA123456A/income-and-expenditure",
+    );
+  });
+
   it("maps a quarterly update onto the self-employment period API", () => {
     const calls = expandLiveCalls("POST", "/income-tax/AA123456A/updates", {
       businessId: "XAIS1",

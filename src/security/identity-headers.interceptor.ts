@@ -1,6 +1,9 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Observable, tap } from "rxjs";
 import { AuthUser } from "../common/types";
+import { runHmrcScope } from "../hmrc/sandbox/hmrc-request-context";
+import { parseHmrcMode, resolveRequestSandbox } from "../hmrc/sandbox/hmrc-sandbox.mode";
 import { AlertsService } from "./alerts.service";
 import { MetricsService } from "./metrics.service";
 import { IDENTITY_HEADERS, serviceForPath } from "./service-catalog";
@@ -10,6 +13,7 @@ export class IdentityHeadersInterceptor implements NestInterceptor {
   constructor(
     private readonly metrics: MetricsService,
     private readonly alerts: AlertsService,
+    private readonly config: ConfigService,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -20,12 +24,31 @@ export class IdentityHeadersInterceptor implements NestInterceptor {
       url?: string;
       path?: string;
       method?: string;
+      query?: Record<string, unknown>;
+      body?: unknown;
       headers: Record<string, string>;
     }>();
     const response = http.getResponse<{ setHeader: (name: string, value: string) => void; statusCode?: number }>();
     const path = request.originalUrl ?? request.url ?? request.path ?? "/";
     const service = serviceForPath(path);
     const user = request.user;
+    const hmrcMode = parseHmrcMode(this.config.get<string>("hmrc.mode"));
+    const scope = resolveRequestSandbox({
+      query: request.query,
+      headers: request.headers,
+      body: request.body,
+      mode: hmrcMode,
+      defaultEnvironment: this.config.get<string>("hmrc.environment") ?? "sandbox",
+      envSandbox: this.config.get<boolean>("hmrc.sandboxFlag"),
+    });
+    const hmrcEnvironment = scope.environment;
+    const sandbox = scope.sandbox;
+    request.headers[IDENTITY_HEADERS.hmrcMode] = hmrcMode;
+    request.headers[IDENTITY_HEADERS.hmrcEnvironment] = hmrcEnvironment;
+    request.headers[IDENTITY_HEADERS.hmrcSandbox] = sandbox ? "true" : "false";
+    response.setHeader(IDENTITY_HEADERS.hmrcMode, hmrcMode);
+    response.setHeader(IDENTITY_HEADERS.hmrcEnvironment, hmrcEnvironment);
+    response.setHeader(IDENTITY_HEADERS.hmrcSandbox, sandbox ? "true" : "false");
     if (user) {
       request.headers[IDENTITY_HEADERS.userId] = user.id;
       request.headers[IDENTITY_HEADERS.principal] = user.principal ?? "firm";
@@ -42,15 +65,24 @@ export class IdentityHeadersInterceptor implements NestInterceptor {
     }
     this.metrics.inc("mtd_http_requests_total", { service, method: String(request.method ?? "GET").toUpperCase() });
     this.alerts.httpHit(service);
-    return next.handle().pipe(
-      tap({
-        next: () => {
-          this.metrics.inc("mtd_http_responses_total", {
-            service,
-            status: String(response.statusCode ?? 200),
-          });
-        },
-      }),
-    );
+    return new Observable((subscriber) => {
+      let inner: { unsubscribe: () => void } | undefined;
+      runHmrcScope(scope, () => {
+        inner = next
+          .handle()
+          .pipe(
+            tap({
+              next: () => {
+                this.metrics.inc("mtd_http_responses_total", {
+                  service,
+                  status: String(response.statusCode ?? 200),
+                });
+              },
+            }),
+          )
+          .subscribe(subscriber);
+      });
+      return () => inner?.unsubscribe();
+    });
   }
 }

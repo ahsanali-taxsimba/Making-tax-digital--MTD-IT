@@ -1,6 +1,7 @@
 import { HmrcEnvironment } from "@prisma/client";
 import { HMRC_OAUTH_ERR, HmrcOAuthError } from "../oauth/hmrc-oauth.errors";
 import { HMRC_ERR, HmrcClientError } from "./hmrc-client.errors";
+import { runHmrcScope } from "../sandbox/hmrc-request-context";
 import { HmrcClientService } from "./hmrc-client.service";
 
 describe("HmrcClientService", () => {
@@ -8,6 +9,11 @@ describe("HmrcClientService", () => {
   const http = { send: jest.fn() };
   const apps = {
     isLiveMode: jest.fn().mockReturnValue(false),
+    isMockMode: jest.fn().mockReturnValue(true),
+    callsHmrc: jest.fn().mockReturnValue(false),
+    forceSandbox: jest.fn().mockReturnValue(false),
+    usesSandboxHost: jest.fn().mockReturnValue(true),
+    mode: jest.fn().mockReturnValue("mock"),
     defaultEnvironment: jest.fn().mockReturnValue(HmrcEnvironment.SANDBOX),
   };
   const audit = { record: jest.fn() };
@@ -16,6 +22,11 @@ describe("HmrcClientService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     apps.isLiveMode.mockReturnValue(false);
+    apps.isMockMode.mockReturnValue(true);
+    apps.callsHmrc.mockReturnValue(false);
+    apps.forceSandbox.mockReturnValue(false);
+    apps.usesSandboxHost.mockReturnValue(true);
+    apps.mode.mockReturnValue("mock");
     apps.defaultEnvironment.mockReturnValue(HmrcEnvironment.SANDBOX);
     oauth.getValidAccessToken.mockResolvedValue("access-token");
   });
@@ -34,9 +45,11 @@ describe("HmrcClientService", () => {
 
   it("returns mock ITSA quarterly, EOPS, and final-declaration payloads", async () => {
     const update = await service.post("/income-tax/AA123456A/updates", { periodId: "q1" }, "client-1");
+    const property = await service.put("/income-tax/AA123456A/uk-property/periodic", { periodId: "q1" }, "client-1");
     const eops = await service.post("/income-tax/AA123456A/eops", { finalised: true }, "client-1");
-    const final = await service.post("/income-tax/AA123456A/final-declaration", { calculationId: "calc-1" }, "client-1");
+    const final = await service.post("/income-tax/AA123456A/calculations/final-declaration", { calculationId: "calc-1" }, "client-1");
     expect(update.data).toEqual({ periodId: "q1" });
+    expect(property.data).toEqual({ periodId: "q1" });
     expect(eops.data).toEqual(expect.objectContaining({ processingDate: expect.any(String) }));
     expect(final.data).toEqual({ calculationId: "calc-1" });
   });
@@ -69,6 +82,9 @@ describe("HmrcClientService", () => {
 
   it("refreshes the access token and retries once after a 401", async () => {
     apps.isLiveMode.mockReturnValue(true);
+    apps.isMockMode.mockReturnValue(false);
+    apps.callsHmrc.mockReturnValue(true);
+    apps.mode.mockReturnValue("sandbox");
     oauth.getValidAccessToken.mockResolvedValueOnce("expired-token").mockResolvedValueOnce("fresh-token");
     http.send
       .mockResolvedValueOnce({
@@ -103,6 +119,9 @@ describe("HmrcClientService", () => {
 
   it("maps a live 429 onto HMRC_ERR_RATE_LIMIT and audits the failure", async () => {
     apps.isLiveMode.mockReturnValue(true);
+    apps.isMockMode.mockReturnValue(false);
+    apps.callsHmrc.mockReturnValue(true);
+    apps.mode.mockReturnValue("sandbox");
     http.send.mockResolvedValue({ ok: false, status: 429, body: { message: "slow down" }, correlationId: "c" });
     await expect(service.get("/organisations/vat/888888888/payments", "client-1", "live")).rejects.toBeInstanceOf(
       HmrcClientError,
@@ -120,6 +139,9 @@ describe("HmrcClientService", () => {
 
   it("expands live ITSA obligation URLs onto the official HMRC feeds", async () => {
     apps.isLiveMode.mockReturnValue(true);
+    apps.isMockMode.mockReturnValue(false);
+    apps.callsHmrc.mockReturnValue(true);
+    apps.mode.mockReturnValue("sandbox");
     http.send.mockResolvedValue({ ok: true, status: 200, body: { obligations: [] }, correlationId: "c" });
     await service.get("/income-tax/AA123456A/obligations", "client-1", "sandbox");
     expect(http.send.mock.calls.map((call) => call[2])).toEqual([
@@ -134,6 +156,27 @@ describe("HmrcClientService", () => {
     await expect(service.handleTokenRefresh({ clientId: "client-1", environment: "sandbox" })).rejects.toMatchObject({
       errorCode: HMRC_ERR.TOKEN_REFRESH_FAILED,
     });
+  });
+
+  it("routes every HMRC call to sandbox when sandbox=true on the request scope", async () => {
+    apps.isLiveMode.mockReturnValue(true);
+    apps.isMockMode.mockReturnValue(false);
+    apps.callsHmrc.mockReturnValue(true);
+    apps.forceSandbox.mockReturnValue(false);
+    apps.mode.mockReturnValue("live");
+    http.send.mockResolvedValue({ ok: true, status: 200, body: { payments: [] }, correlationId: "s" });
+    await runHmrcScope({ sandbox: true, environment: "sandbox" }, () =>
+      service.get("/organisations/vat/888888888/payments", "client-1", "live"),
+    );
+    expect(http.send).toHaveBeenCalledWith(
+      expect.objectContaining({ environment: HmrcEnvironment.SANDBOX }),
+      "GET",
+      "/organisations/vat/888888888/payments",
+      expect.any(Object),
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ sandbox: true, environment: HmrcEnvironment.SANDBOX }) }),
+    );
   });
 
   it("exposes handleHMRCError as a structured HmrcClientError", () => {

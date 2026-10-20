@@ -149,6 +149,8 @@ curl -s -X POST http://localhost:3000/hmrc/oauth/disconnect \
 
 Legacy aliases `POST /clients/:id/mtd/start-auth`, `GET /mtd/callback`, and `GET /clients/:id/mtd/status` still work.
 
+For the real HMRC sandbox, set `HMRC_MODE=sandbox` (or `HMRC_SANDBOX=true`). `GET /hmrc/environment` shows the gateway flag; `POST /hmrc/environment` `{ "sandbox": true }` switches hosts. Create a test user with `POST /hmrc/sandbox/test-users` (`organisation` for VAT, `individual` for ITSA), then `POST /hmrc/sandbox/test-users/:id/login` to get the grant URL and password. ITSA quarterly updates and EOPS are submitted with PUT.
+
 ## 4. Fetch obligations and work the task list
 
 ```bash

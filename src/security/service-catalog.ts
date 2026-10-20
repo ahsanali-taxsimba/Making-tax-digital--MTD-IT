@@ -42,6 +42,7 @@ const PREFIXES: Array<{ prefix: string; service: LogicalService }> = [
   { prefix: "/admin", service: "platform-admin" },
   { prefix: "/audit", service: "platform-admin" },
   { prefix: "/digital-links", service: "platform-admin" },
+  { prefix: "/hmrc", service: "api-gateway" },
 ];
 
 export const IDENTITY_HEADERS = {
@@ -51,6 +52,9 @@ export const IDENTITY_HEADERS = {
   firmId: "x-mtd-firm-id",
   clientId: "x-mtd-client-id",
   service: "x-mtd-service",
+  hmrcMode: "x-mtd-hmrc-mode",
+  hmrcEnvironment: "x-mtd-hmrc-environment",
+  hmrcSandbox: "x-mtd-hmrc-sandbox",
 } as const;
 
 export function serviceForPath(path: string): LogicalService {

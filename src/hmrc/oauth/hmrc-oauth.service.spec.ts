@@ -47,6 +47,9 @@ describe("HmrcOAuthService", () => {
     scopes: jest.fn().mockReturnValue(["read:vat", "write:vat"]),
     refreshSkewMs: jest.fn().mockReturnValue(60_000),
     isLiveMode: jest.fn().mockReturnValue(false),
+    isMockMode: jest.fn().mockReturnValue(true),
+    mode: jest.fn().mockReturnValue("mock"),
+    usesSandboxHost: jest.fn().mockReturnValue(true),
   };
   const audit = { record: jest.fn() };
   const webhooks = { emit: jest.fn() };
