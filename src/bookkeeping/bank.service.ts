@@ -7,9 +7,14 @@ import { defaultProfileForClientType } from "../ledger/chart-of-accounts.catalog
 import { BookkeepingError, BK_ERR } from "./bookkeeping.errors";
 import { BookkeepingRepository } from "./bookkeeping.repository";
 import {
+  BankSplitDto,
   CreateBankAccountDto,
   ImportBankDto,
   ReconcileBankDto,
+  ReconciliationIgnoreDto,
+  ReconciliationMatchDto,
+  ReconciliationQueryDto,
+  ReconciliationSummaryQueryDto,
 } from "./dto/bookkeeping.dto";
 import { LedgerSnapshot } from "./domain/journal.rules";
 import {
@@ -33,7 +38,9 @@ export class BankService {
 
   async listAccounts(user: AuthUser, clientId: string) {
     await this.clients.get(user, clientId);
-    return this.repo.listBankAccounts(clientId);
+    const accounts = await this.repo.listBankAccounts(clientId);
+    const counts = await this.repo.countTransactionsByStatus(accounts.map((account) => account.id));
+    return accounts.map((account) => this.publicAccount(account, counts));
   }
 
   async createAccount(user: AuthUser, dto: CreateBankAccountDto) {
@@ -80,7 +87,119 @@ export class BankService {
         total: journalGross(journal.lines),
       })),
     );
-    return { account, transactions: rows, suggestions };
+    return {
+      account: this.publicAccount({ ...account, _count: { transactions: rows.length } }, this.countsFromRows(account.id, rows)),
+      transactions: rows.map((row) => this.publicTransaction(row)),
+      suggestions: this.decorateSuggestions(suggestions, journals),
+    };
+  }
+
+  async suggestions(user: AuthUser, query: ReconciliationQueryDto) {
+    if (query.bankAccountId) {
+      const feed = await this.transactions(user, query.bankAccountId);
+      return {
+        accounts: [feed.account],
+        transactions: feed.transactions,
+        suggestions: feed.suggestions,
+      };
+    }
+    if (!query.clientId) {
+      throw new BookkeepingError(BK_ERR.INVALID_ACCOUNT, "clientId or bankAccountId is required");
+    }
+    const accounts = await this.listAccounts(user, query.clientId);
+    const packs = await Promise.all(accounts.map((account) => this.transactions(user, account.id)));
+    return {
+      accounts,
+      transactions: packs.flatMap((pack) => pack.transactions),
+      suggestions: packs.flatMap((pack) => pack.suggestions),
+    };
+  }
+
+  async matchOne(user: AuthUser, dto: ReconciliationMatchDto) {
+    const txn = await this.requireTransaction(user, dto.bankTransactionId);
+    this.assertOpen(txn);
+    const journal = await this.repo.findJournal(dto.journalEntryId);
+    if (!journal || journal.clientId !== txn.bankAccount.clientId) {
+      throw new BookkeepingError(BK_ERR.INVALID_ACCOUNT, "Journal does not belong to this client");
+    }
+    const updated = await this.repo.updateBankTransaction(txn.id, {
+      matchedJournal: { connect: { id: journal.id } },
+      status: BankTxnStatus.MATCHED,
+    });
+    await this.audit.record({
+      actor: user,
+      clientId: txn.bankAccount.clientId,
+      actionType: "bookkeeping.reconciliation.matched",
+      metadata: { bankTransactionId: txn.id, journalEntryId: journal.id },
+    });
+    return { transaction: this.publicTransaction(updated), journal };
+  }
+
+  async ignoreOne(user: AuthUser, dto: ReconciliationIgnoreDto) {
+    const txn = await this.requireTransaction(user, dto.bankTransactionId);
+    const updated = await this.repo.updateBankTransaction(txn.id, {
+      status: BankTxnStatus.IGNORED,
+      matchedJournal: { disconnect: true },
+    });
+    await this.audit.record({
+      actor: user,
+      clientId: txn.bankAccount.clientId,
+      actionType: "bookkeeping.reconciliation.ignored",
+      metadata: { bankTransactionId: txn.id },
+    });
+    return { transaction: this.publicTransaction(updated) };
+  }
+
+  async splitOne(user: AuthUser, dto: BankSplitDto) {
+    const txn = await this.requireTransaction(user, dto.bankTransactionId);
+    this.assertOpen(txn);
+    const client = await this.clients.get(user, txn.bankAccount.clientId);
+    const journal = await this.postSplit(user, client, txn.bankAccount, txn, dto);
+    await this.audit.record({
+      actor: user,
+      clientId: client.id,
+      actionType: "bookkeeping.reconciliation.split",
+      metadata: { bankTransactionId: txn.id, journalId: journal.id },
+    });
+    const updated = await this.repo.findBankTransaction(txn.id);
+    return { transaction: this.publicTransaction(updated!), journal };
+  }
+
+  async summary(user: AuthUser, query: ReconciliationSummaryQueryDto) {
+    const account = await this.requireBankAccount(user, query.bankAccountId);
+    const client = await this.clients.get(user, account.clientId);
+    const ledgers = await this.repo.listLedgers(client.id);
+    const profile = defaultProfileForClientType(client.type);
+    const bankLedger = account.ledgerId
+      ? (ledgers.find((item) => item.id === account.ledgerId) as (LedgerSnapshot & { currentBalance?: unknown }) | undefined)
+      : requireAccount(ledgers as LedgerSnapshot[], controlCodes(profile).bank, profile);
+    const rows = await this.repo.listBankTransactions(account.id);
+    const dates = rows.map((row) => row.date.toISOString().slice(0, 10)).sort();
+    const periodStart = query.periodStart ?? dates[0] ?? new Date().toISOString().slice(0, 10);
+    const periodEnd = query.periodEnd ?? dates[dates.length - 1] ?? periodStart;
+    const report = this.reconciliationReport(rows, { currentBalance: Number((bankLedger as { currentBalance?: unknown } | null)?.currentBalance ?? 0) }, {
+      periodStart,
+      periodEnd,
+      statementBalance: query.statementBalance,
+    });
+    const reconciled = rows.filter((row) => row.status === "MATCHED" || row.status === "RECONCILED" || row.status === "IGNORED");
+    return {
+      account: this.publicAccount(account),
+      periodStart,
+      periodEnd,
+      total: rows.length,
+      reconciledCount: reconciled.length,
+      remainingCount: report.unmatchedCount,
+      unmatchedCount: report.unmatchedCount,
+      matchedCount: rows.filter((row) => row.status === "MATCHED" || row.status === "RECONCILED").length,
+      ignoredCount: rows.filter((row) => row.status === "IGNORED").length,
+      bankCredits: report.bankCredits,
+      bankDebits: report.bankDebits,
+      ledgerBalance: report.ledgerBalance,
+      statementBalance: report.statementBalance,
+      variance: report.difference,
+      unmatched: report.unmatched.map((row) => this.publicTransaction(row as never)),
+    };
   }
 
   async import(user: AuthUser, bankAccountId: string, dto: ImportBankDto) {
@@ -132,47 +251,9 @@ export class BankService {
     for (const split of dto.splits ?? []) {
       const txn = (await this.repo.findBankTransactions([split.bankTransactionId]))[0];
       if (!txn) {
-        throw new BookkeepingError(BK_ERR.INVALID_ACCOUNT, "Bank transaction not found for split");
+        throw new BookkeepingError(BK_ERR.TRANSACTION_NOT_FOUND, "Bank transaction not found for split");
       }
-      const allocated = money(sumMoney(split.allocations.map((item) => item.amount)));
-      if (allocated !== money(Number(txn.amount))) {
-        throw new BookkeepingError(BK_ERR.UNBALANCED_JOURNAL, "Split allocations must equal the bank amount");
-      }
-      const lines =
-        txn.type === "CREDIT"
-          ? [
-              { ledgerAccountId: bankLedger.id, debit: allocated, credit: 0, description: txn.description },
-              ...split.allocations.map((item) => ({
-                ledgerAccountId: item.ledgerAccountId,
-                debit: 0,
-                credit: item.amount,
-                taxCodeId: item.taxCodeId,
-                description: item.description ?? txn.description,
-              })),
-            ]
-          : [
-              ...split.allocations.map((item) => ({
-                ledgerAccountId: item.ledgerAccountId,
-                debit: item.amount,
-                credit: 0,
-                taxCodeId: item.taxCodeId,
-                description: item.description ?? txn.description,
-              })),
-              { ledgerAccountId: bankLedger.id, debit: 0, credit: allocated, description: txn.description },
-            ];
-      const journal = await this.journals.post(user, {
-        clientId: client.id,
-        firmId: client.firmId,
-        date: txn.date.toISOString().slice(0, 10),
-        description: `Split ${txn.description}`,
-        source: JournalSource.BANK_FEED,
-        lines,
-        profile,
-      });
-      await this.repo.updateBankTransaction(txn.id, {
-        matchedJournal: { connect: { id: journal.id } },
-        status: BankTxnStatus.MATCHED,
-      });
+      await this.postSplit(user, client, account, txn, split, profile, bankLedger);
     }
 
     if (dto.autoPostUnmatched) {
@@ -221,7 +302,7 @@ export class BankService {
     });
 
     const refreshed = await this.repo.listBankTransactions(account.id);
-    const report = this.reconciliationReport(refreshed, bankLedger, dto);
+    const report = this.reconciliationReport(refreshed, { currentBalance: Number((bankLedger as { currentBalance?: unknown }).currentBalance ?? 0) }, dto);
     await this.audit.record({
       actor: user,
       clientId: client.id,
@@ -231,10 +312,70 @@ export class BankService {
     return { session, report, transactions: refreshed };
   }
 
+  private async postSplit(
+    user: AuthUser,
+    client: { id: string; firmId: string; type: Parameters<typeof defaultProfileForClientType>[0] },
+    account: { id: string; ledgerId?: string | null; clientId: string },
+    txn: { id: string; date: Date; amount: unknown; type: string; description: string },
+    split: BankSplitDto,
+    profile = defaultProfileForClientType(client.type),
+    bankLedger?: LedgerSnapshot,
+  ) {
+    const ledgers = await this.repo.listLedgers(client.id);
+    const bank =
+      bankLedger ??
+      (account.ledgerId
+        ? (ledgers.find((item) => item.id === account.ledgerId) as LedgerSnapshot | undefined)
+        : requireAccount(ledgers as LedgerSnapshot[], controlCodes(profile).bank, profile));
+    if (!bank) {
+      throw new BookkeepingError(BK_ERR.INVALID_ACCOUNT, "Bank ledger account is missing");
+    }
+    const allocated = money(sumMoney(split.allocations.map((item) => item.amount)));
+    if (allocated !== money(Number(txn.amount))) {
+      throw new BookkeepingError(BK_ERR.UNBALANCED_JOURNAL, "Split allocations must equal the bank amount");
+    }
+    const lines =
+      txn.type === "CREDIT"
+        ? [
+            { ledgerAccountId: bank.id, debit: allocated, credit: 0, description: txn.description },
+            ...split.allocations.map((item) => ({
+              ledgerAccountId: item.ledgerAccountId,
+              debit: 0,
+              credit: item.amount,
+              taxCodeId: item.taxCodeId,
+              description: item.description ?? txn.description,
+            })),
+          ]
+        : [
+            ...split.allocations.map((item) => ({
+              ledgerAccountId: item.ledgerAccountId,
+              debit: item.amount,
+              credit: 0,
+              taxCodeId: item.taxCodeId,
+              description: item.description ?? txn.description,
+            })),
+            { ledgerAccountId: bank.id, debit: 0, credit: allocated, description: txn.description },
+          ];
+    const journal = await this.journals.post(user, {
+      clientId: client.id,
+      firmId: client.firmId,
+      date: txn.date.toISOString().slice(0, 10),
+      description: `Split ${txn.description}`,
+      source: JournalSource.BANK_FEED,
+      lines,
+      profile,
+    });
+    await this.repo.updateBankTransaction(txn.id, {
+      matchedJournal: { connect: { id: journal.id } },
+      status: BankTxnStatus.MATCHED,
+    });
+    return journal;
+  }
+
   private reconciliationReport(
-    rows: Array<{ date: Date; amount: unknown; type: string; status: string; description: string }>,
-    bankLedger: LedgerSnapshot & { currentBalance?: unknown },
-    dto: ReconcileBankDto,
+    rows: Array<{ id?: string; date: Date; amount: unknown; type: string; status: string; description: string }>,
+    bankLedger: { currentBalance?: unknown },
+    dto: { periodStart: string; periodEnd: string; statementBalance?: number },
   ) {
     const inPeriod = rows.filter((row) => {
       const iso = row.date.toISOString().slice(0, 10);
@@ -278,6 +419,140 @@ export class BankService {
     }
     await this.clients.get(user, account.clientId);
     return account;
+  }
+
+  private async requireTransaction(user: AuthUser, id: string) {
+    const txn = await this.repo.findBankTransaction(id);
+    if (!txn) {
+      throw new BookkeepingError(BK_ERR.TRANSACTION_NOT_FOUND, "Bank transaction not found");
+    }
+    await this.clients.get(user, txn.bankAccount.clientId);
+    return txn;
+  }
+
+  private assertOpen(txn: { status: string }) {
+    if (txn.status !== BankTxnStatus.UNMATCHED) {
+      throw new BookkeepingError(BK_ERR.ALREADY_MATCHED, "Bank transaction is already matched or ignored");
+    }
+  }
+
+  private publicAccount(
+    account: {
+      id: string;
+      clientId: string;
+      name: string;
+      sortCode?: string | null;
+      accountNumber?: string | null;
+      provider?: string | null;
+      externalId?: string | null;
+      currency?: string | null;
+      balance?: unknown;
+      ledgerId?: string | null;
+      createdAt: Date;
+      updatedAt?: Date;
+      _count?: { transactions: number };
+    },
+    counts: Array<{ bankAccountId: string; status: string; _count: { _all: number } }> = [],
+  ) {
+    const rows = counts.filter((row) => row.bankAccountId === account.id);
+    const byStatus = (status: string) => rows.find((row) => row.status === status)?._count._all ?? 0;
+    const unmatchedCount = byStatus("UNMATCHED");
+    const matchedCount = byStatus("MATCHED");
+    const ignoredCount = byStatus("IGNORED");
+    const reconciledCount = byStatus("RECONCILED");
+    return {
+      id: account.id,
+      clientId: account.clientId,
+      name: account.name,
+      sortCode: account.sortCode ?? null,
+      accountNumber: account.accountNumber ?? null,
+      provider: account.provider ?? null,
+      externalId: account.externalId ?? null,
+      currency: account.currency ?? "GBP",
+      balance: Number(account.balance ?? 0),
+      ledgerId: account.ledgerId ?? null,
+      transactionCount: account._count?.transactions ?? unmatchedCount + matchedCount + ignoredCount + reconciledCount,
+      unmatchedCount,
+      matchedCount,
+      ignoredCount,
+      reconciledCount,
+      lastSyncAt: account.updatedAt ?? account.createdAt,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
+    };
+  }
+
+  private publicTransaction(row: {
+    id: string;
+    bankAccountId?: string;
+    date: Date | string;
+    amount: unknown;
+    type: string;
+    description: string;
+    externalRef?: string | null;
+    merchantName?: string | null;
+    category?: string | null;
+    merchantCategoryCode?: string | null;
+    status: string;
+    matchedJournalEntryId?: string | null;
+    matchedJournal?: { id: string; description: string; reference?: string | null } | null;
+  }) {
+    return {
+      id: row.id,
+      bankAccountId: row.bankAccountId,
+      date: row.date,
+      amount: Number(row.amount),
+      type: String(row.type).toUpperCase() === "CREDIT" ? "CREDIT" : "DEBIT",
+      description: row.description,
+      externalRef: row.externalRef ?? null,
+      merchantName: row.merchantName ?? null,
+      category: row.category ?? null,
+      merchantCategoryCode: row.merchantCategoryCode ?? null,
+      status: String(row.status).toUpperCase(),
+      matchedJournalEntryId: row.matchedJournalEntryId ?? null,
+      matchedJournal: row.matchedJournal
+        ? { id: row.matchedJournal.id, description: row.matchedJournal.description, reference: row.matchedJournal.reference ?? null }
+        : null,
+    };
+  }
+
+  private countsFromRows(bankAccountId: string, rows: Array<{ status: string }>) {
+    const statuses = ["UNMATCHED", "MATCHED", "IGNORED", "RECONCILED"];
+    return statuses.map((status) => ({
+      bankAccountId,
+      status,
+      _count: { _all: rows.filter((row) => String(row.status).toUpperCase() === status).length },
+    }));
+  }
+
+  private decorateSuggestions(
+    suggestions: Array<{ bankTransactionId: string; journalEntryId: string; score: number; reasons: string[] }>,
+    journals: Array<{
+      id: string;
+      date: Date;
+      description: string;
+      reference?: string | null;
+      source?: string;
+      lines: Array<{ debit: unknown; credit: unknown }>;
+    }>,
+  ) {
+    const byId = new Map(journals.map((journal) => [journal.id, journal]));
+    return suggestions.map((item) => {
+      const journal = byId.get(item.journalEntryId);
+      return {
+        ...item,
+        journal: journal
+          ? {
+              id: journal.id,
+              date: journal.date,
+              description: journal.description,
+              reference: journal.reference ?? null,
+              source: journal.source ?? null,
+              total: journalGross(journal.lines),
+            }
+          : null,
+      };
+    });
   }
 }
 

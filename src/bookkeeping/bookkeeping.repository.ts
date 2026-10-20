@@ -148,8 +148,26 @@ export class BookkeepingRepository {
     });
   }
 
+  countTransactionsByStatus(bankAccountIds: string[]) {
+    if (bankAccountIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.prisma.bankTransaction.groupBy({
+      by: ["bankAccountId", "status"],
+      where: { bankAccountId: { in: bankAccountIds } },
+      _count: { _all: true },
+    });
+  }
+
   findBankAccount(id: string) {
     return this.prisma.bankAccount.findUnique({ where: { id } });
+  }
+
+  findBankTransaction(id: string) {
+    return this.prisma.bankTransaction.findUnique({
+      where: { id },
+      include: { bankAccount: true, matchedJournal: true },
+    });
   }
 
   createBankAccount(data: Prisma.BankAccountCreateInput) {

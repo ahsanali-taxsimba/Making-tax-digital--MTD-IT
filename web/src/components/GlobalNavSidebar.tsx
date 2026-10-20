@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/practice/clients", label: "Clients" },
   { href: "/practice/tasks", label: "Workflow" },
   { href: "/practice/hmrc", label: "HMRC" },
+  { href: "/reconciliation", label: "Bank" },
   { href: "/vat", label: "VAT" },
   { href: "/itsa", label: "ITSA" },
   { href: "/portal", label: "Portal" },

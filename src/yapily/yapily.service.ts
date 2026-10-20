@@ -254,7 +254,7 @@ export class YapilyService {
     const feed = await this.bank.transactions(user, account.id);
     return {
       account: this.publicAccount(account),
-      unmatched: feed.transactions.filter((row) => row.status === BankTxnStatus.UNMATCHED).map(this.publicTransaction),
+      unmatched: feed.transactions.filter((row) => String(row.status).toUpperCase() === "UNMATCHED"),
       suggestions: feed.suggestions,
     };
   }
