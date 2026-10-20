@@ -753,3 +753,19 @@ Today the API is a NestJS modular monolith and the UI is Next.js. The target pro
 ```
 
 Ingress paths stay aligned with `RoleRouter`: platform staff hit `/admin`, firm users hit `/practice`, clients hit `/client`. OCR and AI extraction land on the compute-heavy node pool. Bank sync, OCR, extraction, HMRC submit, and document index jobs run as workers, not on the request path.
+
+### Readiness probe
+
+`GET /health/ready` is unauthenticated and skips rate limiting. It pings PostgreSQL. Kubernetes removes the pod from Service endpoints after 3 failures.
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+```
+
+Map container port `8080` to the NestJS listen port (`PORT`, default 3000). A 200 means the process can take traffic. A 503 means the database is unreachable.
