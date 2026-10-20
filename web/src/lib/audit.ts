@@ -362,9 +362,9 @@ export function digitalLinkResourceId(entry: AuditLogEntry): string | null {
 function nodesToEntities(links: DigitalLinks): LinkedEntity[] {
   const nodes: Array<[LinkedEntity["type"], DigitalLinkNode, string]> = [
     ["document", links.document, documentHref(links.document.id)],
-    ["bank_transaction", links.bankTransaction, "/practice/reconciliation"],
-    ["invoice", links.invoice, links.invoice.id ? `/invoices/${links.invoice.id}` : "/practice/documents"],
-    ["vat_return", links.vatReturn, "/practice/vat"],
+    ["bank_transaction", links.bankTransaction, links.bankTransaction.id ? `/practice/digital-links/${links.bankTransaction.id}` : "/practice/reconciliation"],
+    ["invoice", links.invoice, links.invoice.id ? `/practice/digital-links/${links.invoice.id}` : "/practice/documents"],
+    ["vat_return", links.vatReturn, links.vatReturn.id ? `/practice/digital-links/${links.vatReturn.id}` : "/practice/vat"],
     ["itsa_submission", links.quarterlyUpdate, "/practice/itsa"],
     ["itsa_submission", links.eops, "/practice/itsa"],
     ["itsa_submission", links.finalDeclaration, "/practice/itsa"],
@@ -404,7 +404,7 @@ function metadataEntities(entry: AuditLogEntry): LinkedEntity[] {
 }
 
 function documentHref(id?: string | null) {
-  return id ? `/invoices/extraction/${id}` : "/practice/documents";
+  return id ? `/practice/digital-links/${id}` : "/practice/digital-links";
 }
 
 function hmrcDetail(detail: Record<string, unknown> | null): string | null {

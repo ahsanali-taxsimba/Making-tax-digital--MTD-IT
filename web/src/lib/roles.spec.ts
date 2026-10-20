@@ -69,8 +69,10 @@ describe("role routing", () => {
     expect(canAccessPath(accountant, "/admin/firms")).toBe(false);
     expect(canAccessPath(accountant, "/practice/vat")).toBe(true);
     expect(canAccessPath(accountant, "/practice/audit")).toBe(true);
+    expect(canAccessPath(accountant, "/practice/digital-links/doc-1")).toBe(true);
     expect(canAccessPath(staff, "/practice/vat")).toBe(true);
     expect(canAccessPath(staff, "/practice/audit")).toBe(false);
+    expect(canAccessPath(staff, "/practice/digital-links/doc-1")).toBe(false);
     expect(canAccessPath(client, "/practice/clients")).toBe(false);
     expect(canAccessPath(client, "/practice/audit")).toBe(false);
     expect(canAccessPath(client, "/client/documents")).toBe(true);
@@ -99,6 +101,8 @@ describe("role routing", () => {
     expect(canViewAudit("firm_accountant")).toBe(true);
     expect(canViewAudit("firm_staff")).toBe(false);
     expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/audit")).toBe(true);
+    expect(practiceNavFor("firm_accountant").some((item) => item.href === "/practice/digital-links")).toBe(true);
     expect(practiceNavFor("firm_staff").some((item) => item.href === "/practice/audit")).toBe(false);
+    expect(practiceNavFor("firm_staff").some((item) => item.href === "/practice/digital-links")).toBe(false);
   });
 });

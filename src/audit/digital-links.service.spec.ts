@@ -67,6 +67,7 @@ describe("DigitalLinksService", () => {
     expect(links.journalEntry.linked).toBe(true);
     expect(links.vatReturn.linked).toBe(true);
     expect(links.vatReturn.detail).toMatchObject({ periodKey: "26A1", hmrcSubmissionId: "FB1" });
+    expect(links.vatReturn.detail).toMatchObject({ box1: expect.any(Number), box5: expect.any(Number) });
   });
 
   it("builds Document → Extraction → Invoice → VAT", async () => {

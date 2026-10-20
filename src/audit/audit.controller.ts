@@ -85,4 +85,22 @@ export class AuditController {
   vatLinks(@CurrentUser() user: AuthUser, @Param("resourceId") resourceId: string) {
     return this.links.build(user, resourceId, "vat");
   }
+
+  @Get("bank-transactions/:id")
+  @ApiOperation({ summary: "Firm-scoped bank transaction for a digital-link node" })
+  bankTransaction(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.links.getBankTransaction(user, id);
+  }
+
+  @Get("journal-entries/:id")
+  @ApiOperation({ summary: "Firm-scoped journal entry with ledger lines" })
+  journalEntry(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.links.getJournalEntry(user, id);
+  }
+
+  @Get("vat/returns/id/:id")
+  @ApiOperation({ summary: "Stored VAT return boxes 1–9 for a digital-link node" })
+  vatReturn(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return this.links.getVatReturn(user, id);
+  }
 }
