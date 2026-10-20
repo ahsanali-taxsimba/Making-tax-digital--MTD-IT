@@ -9,6 +9,8 @@ describe("DocumentsService", () => {
     find: jest.fn(),
     list: jest.fn(),
     update: jest.fn(),
+    findInvoice: jest.fn(),
+    findBill: jest.fn(),
   };
   const attachments = { attach: jest.fn(), detach: jest.fn(), syncAttachedTo: jest.fn() };
   const tags = { apply: jest.fn(), list: jest.fn() };
@@ -133,6 +135,30 @@ describe("DocumentsService", () => {
     expect(listed.documents[0].type).toBe("receipt");
     const found = await service.search(actor, { clientId: "c1", q: "bp" });
     expect(found.documents[0].score).toBe(5);
+  });
+
+  it("lists documents attached to an invoice", async () => {
+    repo.findInvoice.mockResolvedValue({ id: "inv-1", clientId: "c1" });
+    repo.list.mockResolvedValue([
+      {
+        id: "d2",
+        clientId: "c1",
+        type: DocumentKind.RECEIPT,
+        fileName: "receipt.jpg",
+        fileType: "jpg",
+        fileSize: 12,
+        storageUrl: "/x",
+        tags: [],
+        attachedTo: { invoiceId: "inv-1" },
+        uploadedByUserId: "u1",
+        uploadedAt: new Date(),
+        invoiceId: "inv-1",
+      },
+    ]);
+    const listed = await service.listLibrary(actor, { invoiceId: "inv-1" });
+    expect(repo.findInvoice).toHaveBeenCalledWith("inv-1");
+    expect(repo.list).toHaveBeenCalledWith("c1", expect.objectContaining({ invoiceId: "inv-1" }));
+    expect(listed.documents[0].fileName).toBe("receipt.jpg");
   });
 
   it("keeps the portal supporting-document list", async () => {

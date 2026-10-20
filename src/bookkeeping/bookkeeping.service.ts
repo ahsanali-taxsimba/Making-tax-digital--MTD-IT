@@ -136,6 +136,30 @@ export class BookkeepingService {
     return this.invoices.listBills(user, clientId);
   }
 
+  getInvoice(user: AuthUser, id: string) {
+    return this.invoices.getInvoice(user, id);
+  }
+
+  getBill(user: AuthUser, id: string) {
+    return this.invoices.getBill(user, id);
+  }
+
+  postDraftInvoice(user: AuthUser, id: string) {
+    return this.invoices.postDraftInvoice(user, id);
+  }
+
+  postDraftBill(user: AuthUser, id: string) {
+    return this.invoices.postDraftBill(user, id);
+  }
+
+  journalPreviewForInvoice(user: AuthUser, id: string) {
+    return this.invoices.journalPreviewForInvoice(user, id);
+  }
+
+  journalPreviewForBill(user: AuthUser, id: string) {
+    return this.invoices.journalPreviewForBill(user, id);
+  }
+
   createPeriod(user: AuthUser, dto: CreatePeriodDto) {
     return this.charts.createPeriod(user, dto);
   }

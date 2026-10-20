@@ -84,6 +84,16 @@ export class DocumentsQueryDto {
   @IsOptional()
   @IsString()
   tag?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  invoiceId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  billId?: string;
 }
 
 export class DocumentSearchQueryDto {

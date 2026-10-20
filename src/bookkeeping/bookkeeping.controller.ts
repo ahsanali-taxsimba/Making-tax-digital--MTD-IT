@@ -184,6 +184,25 @@ export class BookkeepingController {
     return this.bookkeeping.createInvoice(user, dto);
   }
 
+  @Get("invoices/:id")
+  @ApiOperation({ summary: "Get a sales invoice with lines, attachments, and journal" })
+  getInvoice(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.bookkeeping.getInvoice(user, id);
+  }
+
+  @Post("invoices/:id/post")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @ApiOperation({ summary: "Post a draft sales invoice to the ledger" })
+  postInvoice(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.bookkeeping.postDraftInvoice(user, id);
+  }
+
+  @Get("invoices/:id/journal-preview")
+  @ApiOperation({ summary: "Preview the journal that posting a draft invoice would create" })
+  invoiceJournalPreview(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.bookkeeping.journalPreviewForInvoice(user, id);
+  }
+
   @Get("bills")
   @ApiOperation({ summary: "List purchase bills" })
   bills(@CurrentUser() user: AuthUser, @Query() query: ClientScopedQueryDto) {
@@ -195,6 +214,25 @@ export class BookkeepingController {
   @ApiOperation({ summary: "Post a purchase bill to expenses, VAT and creditors" })
   createBill(@CurrentUser() user: AuthUser, @Body() dto: CreateBillDto) {
     return this.bookkeeping.createBill(user, dto);
+  }
+
+  @Get("bills/:id")
+  @ApiOperation({ summary: "Get a purchase bill with lines, attachments, and journal" })
+  getBill(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.bookkeeping.getBill(user, id);
+  }
+
+  @Post("bills/:id/post")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @ApiOperation({ summary: "Post a draft purchase bill to the ledger" })
+  postBill(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.bookkeeping.postDraftBill(user, id);
+  }
+
+  @Get("bills/:id/journal-preview")
+  @ApiOperation({ summary: "Preview the journal that posting a draft bill would create" })
+  billJournalPreview(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.bookkeeping.journalPreviewForBill(user, id);
   }
 
   @Get("periods")

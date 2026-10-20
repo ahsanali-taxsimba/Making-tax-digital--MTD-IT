@@ -22,11 +22,17 @@ export class AuditController {
     @Query("clientId") clientId?: string,
     @Query("firmId") firmId?: string,
     @Query("actorUserId") actorUserId?: string,
+    @Query("documentId") documentId?: string,
+    @Query("invoiceId") invoiceId?: string,
+    @Query("billId") billId?: string,
   ) {
     return this.audit.list({
       firmId: firmId && user.role === UserRole.ADMIN ? firmId : user.firmId,
       clientId,
       actorUserId,
+      documentId,
+      invoiceId,
+      billId,
     });
   }
 }

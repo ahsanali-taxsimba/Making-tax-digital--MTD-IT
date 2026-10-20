@@ -18,7 +18,7 @@ export class DocumentsRepository {
     return this.prisma.documentFile.findUnique({ where: { id }, include });
   }
 
-  list(clientId: string, filters?: { type?: DocumentKind; tag?: string }) {
+  list(clientId: string, filters?: { type?: DocumentKind; tag?: string; invoiceId?: string; billId?: string }) {
     return this.prisma.documentFile.findMany({
       where: {
         clientId,
@@ -26,6 +26,8 @@ export class DocumentsRepository {
         ...(filters?.tag
           ? { tagLinks: { some: { tag: { name: { equals: filters.tag, mode: "insensitive" } } } } }
           : {}),
+        ...(filters?.invoiceId ? { invoiceId: filters.invoiceId } : {}),
+        ...(filters?.billId ? { billId: filters.billId } : {}),
       },
       include,
       orderBy: { uploadedAt: "desc" },

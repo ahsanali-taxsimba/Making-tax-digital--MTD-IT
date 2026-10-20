@@ -15,6 +15,7 @@ const LINKS = [
   { href: "/categorisation", label: "Categorise" },
   { href: "/matching", label: "Matching" },
   { href: "/receipts", label: "Receipts" },
+  { href: "/invoices/extraction", label: "Invoices" },
   { href: "/vat", label: "VAT" },
   { href: "/itsa", label: "ITSA" },
   { href: "/portal", label: "Portal" },

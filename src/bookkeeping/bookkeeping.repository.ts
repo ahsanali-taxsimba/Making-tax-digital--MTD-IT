@@ -263,6 +263,19 @@ export class BookkeepingRepository {
     return this.prisma.salesInvoice.create({ data, include: { lines: true, customer: true, journal: { include: journalInclude } } });
   }
 
+  findInvoice(id: string) {
+    return this.prisma.salesInvoice.findUnique({
+      where: { id },
+      include: {
+        lines: { include: { taxCode: true } },
+        customer: true,
+        journal: { include: journalInclude },
+        documents: true,
+        receipts: true,
+      },
+    });
+  }
+
   listInvoices(clientId: string) {
     return this.prisma.salesInvoice.findMany({
       where: { clientId },
@@ -273,6 +286,19 @@ export class BookkeepingRepository {
 
   createBill(data: Prisma.PurchaseBillCreateInput) {
     return this.prisma.purchaseBill.create({ data, include: { lines: true, supplier: true, journal: { include: journalInclude } } });
+  }
+
+  findBill(id: string) {
+    return this.prisma.purchaseBill.findUnique({
+      where: { id },
+      include: {
+        lines: { include: { taxCode: true } },
+        supplier: true,
+        journal: { include: journalInclude },
+        documents: true,
+        receipts: true,
+      },
+    });
   }
 
   listBills(clientId: string) {

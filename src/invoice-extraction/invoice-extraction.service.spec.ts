@@ -22,6 +22,12 @@ describe("InvoiceExtractionService", () => {
     log: jest.fn(),
     attachBill: jest.fn(),
     attachInvoice: jest.fn(),
+    listForClient: jest.fn(),
+    listLogs: jest.fn(),
+    listSupporting: jest.fn(),
+    attachManyToInvoice: jest.fn(),
+    attachManyToBill: jest.fn(),
+    listAudit: jest.fn(),
   };
   const clients = { get: jest.fn() };
   const books = {
@@ -65,6 +71,12 @@ describe("InvoiceExtractionService", () => {
     repo.findDocument.mockResolvedValue(document);
     repo.writeExtraction.mockResolvedValue(document);
     repo.markStatus.mockResolvedValue(document);
+    repo.listSupporting.mockResolvedValue([]);
+    repo.listLogs.mockResolvedValue([]);
+    repo.listAudit.mockResolvedValue([]);
+    repo.listForClient.mockResolvedValue([]);
+    repo.attachManyToInvoice.mockResolvedValue({ count: 0 });
+    repo.attachManyToBill.mockResolvedValue({ count: 0 });
     books.listParties.mockResolvedValue([{ id: "p1", name: "North Ads Agency Ltd" }]);
     books.listTaxCodes.mockResolvedValue([{ id: "S", type: "VAT_STANDARD", rate: 20 }]);
     books.findPartyByName.mockResolvedValue({ id: "p1", name: "North Ads Agency Ltd" });
@@ -108,5 +120,37 @@ describe("InvoiceExtractionService", () => {
   it("refuses a second confirm", async () => {
     repo.findDocument.mockResolvedValue({ ...document, billId: "bill-1" });
     await expect(service.confirm(actor, "doc-1", {})).rejects.toMatchObject({ errorCode: EXTRACT_ERR.ALREADY_CONFIRMED });
+  });
+
+  it("returns a not-started extraction instead of 404", async () => {
+    const result = await service.getExtraction(actor, "doc-1");
+    expect(result.status).toBe("not_started");
+    expect(result.reviewStatus).toBe("not_started");
+    expect(result.extracted.invoiceNumber).toBeNull();
+  });
+
+  it("saves accountant corrections as a draft without creating a bill", async () => {
+    repo.findDocument.mockResolvedValue({
+      ...document,
+      extractedData: { supplierName: "North Ads", invoiceNumber: "INV-4412", invoiceDate: "2026-01-21", lineItems: [], confidence: 0.8 },
+    });
+    const draft = await service.saveDraft(actor, "doc-1", { supplierName: "North Ads Agency Ltd", invoiceNumber: "INV-4412-A" });
+    expect(books.createBill).not.toHaveBeenCalled();
+    expect(repo.writeExtraction).toHaveBeenCalled();
+    expect(draft.extracted.supplierName).toBe("North Ads Agency Ltd");
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "invoice.extraction.draft_saved" }));
+  });
+
+  it("rejects an extraction that has not been confirmed", async () => {
+    const rejected = await service.reject(actor, "doc-1", "Unreadable scan");
+    expect(rejected.status).toBe("rejected");
+    expect(repo.markStatus).toHaveBeenCalledWith("doc-1", "REJECTED");
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ actionType: "invoice.extraction.rejected" }));
+  });
+
+  it("reprocesses by running extraction again", async () => {
+    const result = await service.reprocess(actor, "doc-1");
+    expect(result.status).toBe("completed");
+    expect(repo.writeExtraction).toHaveBeenCalled();
   });
 });
