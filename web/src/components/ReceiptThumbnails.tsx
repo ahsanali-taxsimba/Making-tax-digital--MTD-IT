@@ -1,20 +1,42 @@
 "use client";
 
+import Link from "next/link";
 import { receiptKindLabel, type ReceiptRecord } from "@/lib/receipts";
 
-export function ReceiptThumbnails({ receipts }: { receipts: ReceiptRecord[] }) {
+export function ReceiptThumbnails({
+  receipts,
+  hrefBase = "/receipts",
+  onOpen,
+}: {
+  receipts: ReceiptRecord[];
+  hrefBase?: string;
+  onOpen?: (receipt: ReceiptRecord) => void;
+}) {
   if (!receipts.length) {
     return <p className="text-sm text-ink-muted">No receipts attached.</p>;
   }
   return (
     <ul className="flex flex-wrap gap-2">
       {receipts.map((receipt) => (
-        <li
-          key={receipt.id}
-          className="flex h-16 w-20 flex-col items-center justify-center rounded-lg border border-line bg-paper px-1 text-center"
-        >
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-teal">{receiptKindLabel(receipt.fileType)}</span>
-          <span className="mt-1 w-full truncate text-[10px] text-ink-muted">{receipt.fileName}</span>
+        <li key={receipt.id}>
+          {onOpen ? (
+            <button
+              type="button"
+              onClick={() => onOpen(receipt)}
+              className="flex h-16 w-20 flex-col items-center justify-center rounded-lg border border-line bg-paper px-1 text-center hover:border-teal/40"
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-teal">{receiptKindLabel(receipt.fileType)}</span>
+              <span className="mt-1 w-full truncate text-[10px] text-ink-muted">{receipt.fileName}</span>
+            </button>
+          ) : (
+            <Link
+              href={`${hrefBase}/${receipt.id}`}
+              className="flex h-16 w-20 flex-col items-center justify-center rounded-lg border border-line bg-paper px-1 text-center hover:border-teal/40"
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-teal">{receiptKindLabel(receipt.fileType)}</span>
+              <span className="mt-1 w-full truncate text-[10px] text-ink-muted">{receipt.fileName}</span>
+            </Link>
+          )}
         </li>
       ))}
     </ul>

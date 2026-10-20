@@ -5,7 +5,7 @@ import { ClientsService } from "../clients/clients.service";
 import { AuthUser } from "../common/types";
 import { decodeUploadContent, detectReceiptType, MAX_RECEIPT_BYTES, mimeFor } from "./domain/file-types";
 import { scoreReceiptAgainstTxn } from "./domain/ocr";
-import { ReceiptEvidenceQueryDto, ReceiptsQueryDto, UploadReceiptDto } from "./dto/receipts.dto";
+import { ReceiptEvidenceQueryDto, ReceiptsQueryDto, UpdateReceiptTagsDto, UploadReceiptDto } from "./dto/receipts.dto";
 import { OCRService } from "./ocr.service";
 import { ReceiptAttachmentService } from "./receipt-attachment.service";
 import { RECEIPT_ERR, ReceiptError } from "./receipts.errors";
@@ -207,6 +207,21 @@ export class ReceiptsService {
 
   async tags() {
     return { tags: await this.repo.listTags() };
+  }
+
+  async updateTags(user: AuthUser, id: string, dto: UpdateReceiptTagsDto) {
+    const receipt = await this.require(user, id);
+    const names = [...new Set(dto.tags.map((tag) => tag.trim()).filter(Boolean))];
+    const tagRows = names.length ? await this.repo.ensureTags(names) : [];
+    await this.repo.setTagLinks(receipt.id, tagRows.map((tag) => tag.id));
+    const saved = await this.repo.update(receipt.id, { tags: names });
+    await this.audit.record({
+      actor: user,
+      clientId: receipt.clientId,
+      actionType: "receipt.tagged",
+      metadata: { receiptId: receipt.id, tags: names },
+    });
+    return this.publicReceipt((await this.repo.find(saved.id)) ?? saved);
   }
 
   private async listTarget(
