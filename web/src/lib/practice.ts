@@ -168,6 +168,8 @@ export function pageTitle(pathname: string): string {
   if (pathname.startsWith("/practice/hmrc")) return "HMRC connections";
   if (pathname.startsWith("/practice")) return "Practice";
   if (pathname.startsWith("/reconciliation")) return "Bank reconciliation";
+  if (pathname.startsWith("/categorisation")) return "Auto-categorisation";
+  if (pathname.startsWith("/matching")) return "Invoice & bill matching";
   if (pathname.startsWith("/vat")) return "VAT";
   if (pathname.startsWith("/itsa")) return "ITSA";
   if (pathname.startsWith("/portal")) return "Client portal";
