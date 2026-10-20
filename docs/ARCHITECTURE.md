@@ -668,3 +668,88 @@ Platform users have no `firmId`. Every firm-scoped row carries `firmId`. Client-
 ```
 
 Tenant rule: a query that returns `BankTransaction`, `DocumentFile`, `Invoice`, `VATReturn`, or `ITSASubmission` must include `WHERE firmId = user.firmId`. Client portal queries also require `clientId = user.clientId`. Platform Admin queries `Firm` counts only and never these client-level tables.
+
+---
+
+## 5. Deployment (DigitalOcean Kubernetes)
+
+Today the API is a NestJS modular monolith and the UI is Next.js. The target production topology is a DigitalOcean Kubernetes cluster with one Deployment per logical service. Ingress still splits the three workspaces: `/admin`, `/practice`, `/client`.
+
+```
++------------------------------------------------------------------+
+| INTERNET USERS                                                   |
+|  Platform staff (admin_super, admin_owner, ...)                  |
+|  Accountancy firms (firm_admin, accountants, staff)              |
+|  Clients (firm_client)                                           |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| DIGITALOCEAN LOAD BALANCER (HTTPS)                               |
+|  TLS termination · optional WAF · route to K8s Ingress           |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| DIGITALOCEAN KUBERNETES CLUSTER                                  |
+|  3-5 nodes (autoscaling)                                         |
+|  Node pools: general · compute-heavy (AI/OCR) · workers          |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| INGRESS CONTROLLER  (NGINX or Traefik)                           |
+|  /api      -> API Gateway                                        |
+|  /admin    -> Admin Console                                      |
+|  /practice -> Firm Dashboard                                     |
+|  /client   -> Client Portal                                      |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| API GATEWAY POD                                                  |
+|  Auth routing · role routing · tenant isolation                  |
+|  Rate limiting · JWT validation                                  |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| MICROSERVICES (PODS)                                             |
+|  Each service: Deployment · ClusterIP · HTTP/gRPC                |
+|  Optional service mesh (Istio / Linkerd)                         |
+|                                                                  |
+|  Auth · Tenant Management · Platform Admin                       |
+|  Accountant Practice · Client Portal                             |
+|  HMRC Integration · Bank Feeds · OCR · AI Extraction             |
+|  Document Management · Bookkeeping                               |
++-------------------------------+----------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+| BACKGROUND WORKERS (JOBS)                                        |
+|  Bank feed sync · OCR · AI extraction                            |
+|  HMRC submission · document indexing                             |
++-------------------------------+----------------------------------+
+                                |
+          +---------------------+---------------------+
+          |                     |                     |
+          v                     v                     v
++---------------------+ +-------------------+ +-------------------+
+| DO MANAGED POSTGRES | | DO SPACES (S3)    | | DO REDIS          |
+| Multi-tenant schema | | Documents         | | Cache / sessions  |
+| Read replicas       | | Receipts/invoices | | Rate-limit tokens |
+| Backups + PITR      | | Version + lifecycle| | Job queues       |
++---------------------+ +-------------------+ +-------------------+
+
++------------------------------------------------------------------+
+| DIGITALOCEAN MONITORING                                          |
+|  Prometheus · Grafana · Loki / DO Logs · Alertmanager            |
++------------------------------------------------------------------+
+
++------------------------------------------------------------------+
+| DIGITALOCEAN REGISTRY                                            |
+|  CI/CD pushes images · cluster pulls images                      |
++------------------------------------------------------------------+
+```
+
+Ingress paths stay aligned with `RoleRouter`: platform staff hit `/admin`, firm users hit `/practice`, clients hit `/client`. OCR and AI extraction land on the compute-heavy node pool. Bank sync, OCR, extraction, HMRC submit, and document index jobs run as workers, not on the request path.
