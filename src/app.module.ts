@@ -16,6 +16,7 @@ import { HmrcModule } from "./hmrc/hmrc.module";
 import { ItsaModule } from "./itsa/itsa.module";
 import { ChartOfAccountsModule } from "./ledger/chart-of-accounts.module";
 import { LedgerModule } from "./ledger/ledger.module";
+import { MessagesModule } from "./messages/messages.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PortalModule } from "./portal/portal.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -49,6 +50,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
     VatModule,
     ItsaModule,
     DocumentsModule,
+    MessagesModule,
     ChartOfAccountsModule,
     LedgerModule,
     BookkeepingModule,

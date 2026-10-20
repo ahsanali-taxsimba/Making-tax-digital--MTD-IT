@@ -1,4 +1,4 @@
-import { ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 import { AuthUser } from "./types";
 
@@ -17,4 +17,20 @@ export function assertClientScope(user: AuthUser, client: { id: string; firmId: 
 
 export function staffRoles(): UserRole[] {
   return [UserRole.ADMIN, UserRole.ACCOUNTANT];
+}
+
+export function resolveScopedClientId(user: AuthUser, requested?: string): string {
+  if (user.role === UserRole.CLIENT) {
+    if (!user.clientId) {
+      throw new ForbiddenException("Client portal user is not linked to a client");
+    }
+    if (requested && requested !== user.clientId) {
+      throw new ForbiddenException("Clients can only access their own records");
+    }
+    return user.clientId;
+  }
+  if (!requested) {
+    throw new BadRequestException("clientId is required");
+  }
+  return requested;
 }

@@ -10,6 +10,7 @@ import { AuthUser } from "../common/types";
 import {
   CreateBusinessDto,
   ItsaClientQueryDto,
+  ItsaListQueryDto,
   ItsaEngineEopsDto,
   ItsaEngineFinalDto,
   ItsaEngineQuarterlyDto,
@@ -72,6 +73,24 @@ export class ItsaEngineController {
   @Get("businesses")
   listBusinesses(@CurrentUser() user: AuthUser, @Query() query: ItsaClientQueryDto) {
     return this.itsa.listBusinesses(user, query.clientId);
+  }
+
+  @Get("updates")
+  @ApiOperation({ summary: "List quarterly updates stored for a client" })
+  listUpdates(@CurrentUser() user: AuthUser, @Query() query: ItsaClientQueryDto) {
+    return this.itsa.listUpdates(user, query.clientId);
+  }
+
+  @Get("eops")
+  @ApiOperation({ summary: "List End of Period Statements for a client" })
+  listEops(@CurrentUser() user: AuthUser, @Query() query: ItsaListQueryDto) {
+    return this.itsa.listEops(user, query.clientId, query.taxYear);
+  }
+
+  @Get("final-declaration")
+  @ApiOperation({ summary: "List Final Declarations for a client" })
+  listFinals(@CurrentUser() user: AuthUser, @Query() query: ItsaListQueryDto) {
+    return this.itsa.listFinals(user, query.clientId, query.taxYear);
   }
 }
 

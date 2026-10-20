@@ -1,12 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useSession } from "@/hooks/useSession";
 import { RequireAuth } from "@/components/RequireAuth";
 
 export default function HomePage() {
-  const { clientId } = useSession();
+  const { clientId, user } = useSession();
+  const router = useRouter();
   const query = clientId ? `?clientId=${clientId}` : "";
+
+  useEffect(() => {
+    if (user?.role === "CLIENT") {
+      router.replace("/portal");
+    }
+  }, [router, user?.role]);
 
   return (
     <RequireAuth>
@@ -38,6 +47,16 @@ export default function HomePage() {
             <h2 className="mt-2 text-xl font-semibold">ITSA connection</h2>
             <p className="mt-2 text-sm text-ink-muted">
               Review token status, connect or disconnect HMRC ITSA, and open quarterly obligations.
+            </p>
+          </Link>
+          <Link
+            href="/portal"
+            className="rounded-2xl border border-line bg-white p-6 shadow-sm transition hover:border-teal/40 md:col-span-2"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">Client portal</p>
+            <h2 className="mt-2 text-xl font-semibold">Preview Amelia&apos;s portal</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Due dates, VAT boxes, ITSA updates, document uploads, and the notes thread.
             </p>
           </Link>
         </div>

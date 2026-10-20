@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { logout } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
 import { ClientPicker } from "./ClientPicker";
+import { SimpleNavBar } from "./SimpleNavBar";
 
 function NavLink({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
@@ -39,10 +40,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="block text-xs text-ink-muted">HMRC VAT &amp; ITSA</span>
               </span>
             </Link>
-            {user ? (
-              <nav className="flex items-center gap-1" aria-label="Regimes">
+            {user?.role === "CLIENT" ? (
+              <SimpleNavBar />
+            ) : user ? (
+              <nav className="flex items-center gap-1" aria-label="Practice">
                 <NavLink href="/vat" label="VAT" />
                 <NavLink href="/itsa" label="ITSA" />
+                <NavLink href="/portal" label="Portal" />
               </nav>
             ) : null}
           </div>

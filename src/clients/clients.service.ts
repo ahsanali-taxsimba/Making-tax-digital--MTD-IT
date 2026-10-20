@@ -22,6 +22,17 @@ export class ClientsService {
     return this.repo.list(user.firmId, scopedId);
   }
 
+  async me(user: AuthUser) {
+    if (user.clientId) {
+      return this.get(user, user.clientId);
+    }
+    const clients = await this.list(user);
+    if (!clients.length) {
+      throw new NotFoundException("No client is linked to this account");
+    }
+    return clients[0];
+  }
+
   async get(user: AuthUser, id: string) {
     const client = await this.repo.findInFirm(user.firmId, id);
     if (!client) {

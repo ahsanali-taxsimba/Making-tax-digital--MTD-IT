@@ -101,6 +101,8 @@ VAT and ITSA both talk to HMRC only through `HmrcClientService`. Tokens are refr
 
 The connection UI at http://localhost:2327 walks accountants and clients through Connect → HMRC callback → status → obligations for both VAT (`/vat`) and ITSA (`/itsa`). Live HMRC returns to `/hmrc/callback`; mock mode completes the grant locally on `/vat/callback` or `/itsa/callback` with the stored OAuth `state`. HMRC tokens never appear in the browser.
 
+Clients sign in at the same URL and land on `/portal` to see due dates, VAT boxes, ITSA updates, documents, and a notes thread. They can confirm records and approve a draft without seeing HMRC tokens.
+
 ## 3. Connect HMRC
 
 ```bash

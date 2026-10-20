@@ -62,6 +62,8 @@ enum TaskType {
   MTD_ITSA_EOPS
   MTD_ITSA_FINAL_DECLARATION
   MTD_TOKEN_EXPIRING
+  PROVIDE_RECORDS
+  APPROVE_RETURN
 }
 
 enum TaskStatus {
@@ -184,6 +186,7 @@ model Client {
   ledgers         Ledger[]
   transactions    Transaction[]
   documents       SupportingDocument[]
+  messages        ClientMessage[]
   tasks           Task[]
   auditLogs       AuditLog[]
   journalEntries  JournalEntry[]
@@ -532,16 +535,36 @@ model WebhookEvent {
   createdAt   DateTime         @default(now())
 }
 
+enum EvidenceStatus {
+  PENDING
+  USED
+}
+
 model SupportingDocument {
-  id         String   @id @default(uuid())
+  id         String         @id @default(uuid())
   clientId   String
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client     Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   fileName   String
   mimeType   String
   sizeBytes  Int
   storageKey String
+  category   String?
+  status     EvidenceStatus @default(PENDING)
   uploadedBy String?
+  createdAt  DateTime       @default(now())
+}
+
+model ClientMessage {
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  authorId   String
+  authorRole UserRole
+  authorName String
+  body       String
   createdAt  DateTime @default(now())
+
+  @@index([clientId, createdAt])
 }
 
 enum JournalSource {

@@ -21,6 +21,11 @@ export class ClientsController {
     return this.clients.list(user);
   }
 
+  @Get("me")
+  me(@CurrentUser() user: AuthUser) {
+    return this.clients.me(user);
+  }
+
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateClientDto) {

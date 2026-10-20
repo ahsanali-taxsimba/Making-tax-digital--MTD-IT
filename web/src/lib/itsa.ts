@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import type { ItsaBusiness, ItsaObligation, ItsaValidation } from "./types";
+import type { ItsaBusiness, ItsaEopsRecord, ItsaFinalRecord, ItsaObligation, ItsaUpdateRecord, ItsaValidation } from "./types";
 
 export function listItsaObligations(clientId: string) {
   const query = new URLSearchParams({ clientId });
@@ -23,6 +23,23 @@ export function validateItsaUpdate(params: {
   if (params.periodEnd) query.set("periodEnd", params.periodEnd);
   if (params.fromLedger) query.set("fromLedger", "true");
   return apiFetch<ItsaValidation>(`/itsa/validate?${query.toString()}`);
+}
+
+export function listItsaUpdates(clientId: string) {
+  const query = new URLSearchParams({ clientId });
+  return apiFetch<ItsaUpdateRecord[]>(`/itsa/updates?${query.toString()}`);
+}
+
+export function listItsaEops(clientId: string, taxYear?: string) {
+  const query = new URLSearchParams({ clientId });
+  if (taxYear) query.set("taxYear", taxYear);
+  return apiFetch<ItsaEopsRecord[]>(`/itsa/eops?${query.toString()}`);
+}
+
+export function listItsaFinals(clientId: string, taxYear?: string) {
+  const query = new URLSearchParams({ clientId });
+  if (taxYear) query.set("taxYear", taxYear);
+  return apiFetch<ItsaFinalRecord[]>(`/itsa/final-declaration?${query.toString()}`);
 }
 
 export function listItsaBusinesses(clientId: string) {

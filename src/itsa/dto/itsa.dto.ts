@@ -148,6 +148,13 @@ export class ItsaClientQueryDto {
   clientId!: string;
 }
 
+export class ItsaListQueryDto extends ItsaClientQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  taxYear?: string;
+}
+
 export class ItsaEngineQuarterlyDto extends SubmitItsaUpdateDto {
   @ApiProperty()
   @IsUUID()
