@@ -69,11 +69,30 @@ export class FirmWorkspaceController {
   @ApiOperation({ summary: "ITSA submissions for clients in this firm" })
   async itsaSubmissions(@CurrentUser() user: AuthUser) {
     this.authz.assertFirm(user, "view", "itsa_submission", { firmId: user.firmId });
-    return this.prisma.itsaUpdate.findMany({
-      where: { client: { firmId: user.firmId } },
-      select: { id: true, clientId: true, taxYear: true, status: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
+    const [updates, eops, finals] = await Promise.all([
+      this.prisma.itsaUpdate.findMany({
+        where: { client: { firmId: user.firmId } },
+        select: { id: true, clientId: true, taxYear: true, periodId: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      this.prisma.itsaEndOfPeriodStatement.findMany({
+        where: { client: { firmId: user.firmId } },
+        select: { id: true, clientId: true, taxYear: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      this.prisma.itsaFinalDeclaration.findMany({
+        where: { client: { firmId: user.firmId } },
+        select: { id: true, clientId: true, taxYear: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+    ]);
+    return [
+      ...updates.map((row) => ({ ...row, kind: "quarterly" as const, label: `${row.taxYear} ${row.periodId}` })),
+      ...eops.map((row) => ({ ...row, kind: "eops" as const, label: `EOPS ${row.taxYear}` })),
+      ...finals.map((row) => ({ ...row, kind: "final" as const, label: `Final ${row.taxYear}` })),
+    ].sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
   }
 }

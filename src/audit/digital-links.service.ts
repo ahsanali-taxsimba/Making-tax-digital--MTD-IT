@@ -105,15 +105,15 @@ export class DigitalLinksService {
         quarterly?.id,
         quarterly ? `${quarterly.taxYear} ${quarterly.periodId}` : "Quarterly update",
         quarterly,
-        quarterly,
+        quarterly ? presentQuarterly(quarterly) : null,
       ),
-      eops: node("itsa_eops", eops?.id, eops ? `EOPS ${eops.taxYear}` : "EOPS", eops, eops),
+      eops: node("itsa_eops", eops?.id, eops ? `EOPS ${eops.taxYear}` : "EOPS", eops, eops ? presentEops(eops) : null),
       finalDeclaration: node(
         "itsa_final",
         final?.id,
         final ? `Final ${final.taxYear}` : "Final declaration",
         final,
-        final,
+        final ? presentFinal(final) : null,
       ),
     };
 
@@ -222,6 +222,33 @@ export class DigitalLinksService {
     return presentVat(row);
   }
 
+  async getQuarterlyUpdate(user: AuthUser, id: string) {
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId });
+    const row = await this.findItsaUpdate(user.firmId, id);
+    if (!row) {
+      throw new NotFoundException("Quarterly update not found");
+    }
+    return presentQuarterly(row);
+  }
+
+  async getEops(user: AuthUser, id: string) {
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId });
+    const row = await this.findEopsById(user.firmId, id);
+    if (!row) {
+      throw new NotFoundException("EOPS not found");
+    }
+    return presentEops(row);
+  }
+
+  async getFinalDeclaration(user: AuthUser, id: string) {
+    this.authz.assertCanAccessClientData(user, { firmId: user.firmId });
+    const row = await this.findFinalById(user.firmId, id);
+    if (!row) {
+      throw new NotFoundException("Final declaration not found");
+    }
+    return presentFinal(row);
+  }
+
   private findJournal(firmId: string, id: string) {
     return this.prisma.journalEntry.findFirst({
       where: { id, firmId },
@@ -280,6 +307,131 @@ export class DigitalLinksService {
   private findFinalById(firmId: string, id: string) {
     return this.prisma.itsaFinalDeclaration.findFirst({ where: { id, client: { firmId } } });
   }
+}
+
+function presentQuarterly(update: {
+  id: string;
+  taxYear: string;
+  periodId: string;
+  periodStart?: Date | null;
+  periodEnd?: Date | null;
+  status: string;
+  hmrcPeriodId?: string | null;
+  correlationId?: string | null;
+  incomes?: unknown;
+  expenses?: unknown;
+  rawPayload?: unknown;
+}) {
+  return {
+    id: update.id,
+    taxYear: update.taxYear,
+    periodId: update.periodId,
+    periodStart: update.periodStart,
+    periodEnd: update.periodEnd,
+    status: update.status,
+    hmrcSubmissionId: update.correlationId ?? update.hmrcPeriodId,
+    hmrcPeriodId: update.hmrcPeriodId ?? null,
+    correlationId: update.correlationId ?? null,
+    incomes: categoryMap(update.incomes),
+    expenses: categoryMap(update.expenses),
+    adjustments: adjustmentsOf(update.rawPayload),
+    rawPayload: recordOrNull(update.rawPayload),
+  };
+}
+
+function presentEops(eops: {
+  id: string;
+  taxYear: string;
+  typeOfBusiness: string;
+  accountingPeriodStart?: Date | null;
+  accountingPeriodEnd?: Date | null;
+  finalised: boolean;
+  status: string;
+  correlationId?: string | null;
+  rawPayload?: unknown;
+}) {
+  return {
+    id: eops.id,
+    taxYear: eops.taxYear,
+    typeOfBusiness: eops.typeOfBusiness,
+    periodStart: eops.accountingPeriodStart,
+    periodEnd: eops.accountingPeriodEnd,
+    finalised: eops.finalised,
+    status: eops.status,
+    hmrcSubmissionId: eops.correlationId,
+    correlationId: eops.correlationId ?? null,
+    adjustments: adjustmentsOf(eops.rawPayload),
+    summary: {
+      taxYear: eops.taxYear,
+      typeOfBusiness: eops.typeOfBusiness,
+      finalised: eops.finalised,
+      periodStart: eops.accountingPeriodStart,
+      periodEnd: eops.accountingPeriodEnd,
+    },
+    rawPayload: recordOrNull(eops.rawPayload),
+  };
+}
+
+function presentFinal(declaration: {
+  id: string;
+  taxYear: string;
+  calculationId?: string | null;
+  finalised: boolean;
+  status: string;
+  correlationId?: string | null;
+  rawPayload?: unknown;
+}) {
+  const payload = asRecord(declaration.rawPayload);
+  const calculation = asRecord(payload.calculation ?? payload.taxCalculation ?? payload);
+  return {
+    id: declaration.id,
+    taxYear: declaration.taxYear,
+    calculationId: declaration.calculationId ?? null,
+    finalised: declaration.finalised,
+    status: declaration.status,
+    hmrcSubmissionId: declaration.correlationId ?? declaration.calculationId,
+    correlationId: declaration.correlationId ?? null,
+    calculation,
+    rawPayload: recordOrNull(declaration.rawPayload),
+  };
+}
+
+function categoryMap(value: unknown): Record<string, number> {
+  const record = asRecord(value);
+  const out: Record<string, number> = {};
+  for (const [key, amount] of Object.entries(record)) {
+    const number = Number(amount);
+    if (Number.isFinite(number)) {
+      out[key] = number;
+    }
+  }
+  return out;
+}
+
+function adjustmentsOf(raw: unknown): Record<string, number> {
+  const payload = asRecord(raw);
+  if (payload.adjustments) {
+    return categoryMap(payload.adjustments);
+  }
+  if (Array.isArray(payload.excluded)) {
+    const out: Record<string, number> = {};
+    for (const item of payload.excluded) {
+      const row = asRecord(item);
+      const key = String(row.category ?? row.reason ?? row.code ?? "adjustment");
+      out[key] = Number(row.amount ?? 0);
+    }
+    return out;
+  }
+  return {};
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function recordOrNull(value: unknown): Record<string, unknown> | null {
+  const record = asRecord(value);
+  return Object.keys(record).length ? record : null;
 }
 
 function presentVat(vat: {

@@ -17,6 +17,7 @@ export function JournalPreview({ journal }: { journal: JournalDetail }) {
           <thead className="text-xs uppercase tracking-wide text-ink-muted">
             <tr>
               <th className="py-2 font-semibold">Account</th>
+              <th className="py-2 font-semibold">Code</th>
               <th className="py-2 font-semibold">Debit</th>
               <th className="py-2 font-semibold">Credit</th>
             </tr>
@@ -28,6 +29,7 @@ export function JournalPreview({ journal }: { journal: JournalDetail }) {
                   <p className="font-medium text-ink">{line.account}</p>
                   {line.description ? <p className="text-xs text-ink-muted">{line.description}</p> : null}
                 </td>
+                <td className="py-2 font-mono text-xs text-ink-muted">{line.code ?? "—"}</td>
                 <td className="py-2">{line.debit ? formatMoney(line.debit) : "—"}</td>
                 <td className="py-2">{line.credit ? formatMoney(line.credit) : "—"}</td>
               </tr>

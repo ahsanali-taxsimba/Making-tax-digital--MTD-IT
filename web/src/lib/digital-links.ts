@@ -45,6 +45,7 @@ export interface TransactionDetail {
 
 export interface JournalLineDetail {
   account: string;
+  code?: string | null;
   debit: number;
   credit: number;
   description?: string | null;
@@ -232,6 +233,7 @@ export function journalFrom(node?: DigitalLinkNode | null, extra?: Record<string
       const ledger = asRecord(row.ledger);
       return {
         account: stringOrNull(ledger.name) ?? stringOrNull(ledger.code) ?? stringOrNull(row.account) ?? "Ledger",
+        code: stringOrNull(ledger.code) ?? stringOrNull(row.accountCode) ?? stringOrNull(row.code),
         debit: numberOrNull(row.debit) ?? 0,
         credit: numberOrNull(row.credit) ?? 0,
         description: stringOrNull(row.description),
