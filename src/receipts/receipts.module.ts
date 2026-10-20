@@ -37,6 +37,6 @@ import { S3ReceiptStorage } from "./storage/s3-receipt-storage";
         config.get("receipts.driver") === "s3" ? s3 : local,
     },
   ],
-  exports: [ReceiptsService, ReceiptAttachmentService, OCRService, OcrFeedService],
+  exports: [ReceiptsService, ReceiptAttachmentService, OCRService, OcrFeedService, RECEIPT_STORAGE],
 })
 export class ReceiptsModule {}
