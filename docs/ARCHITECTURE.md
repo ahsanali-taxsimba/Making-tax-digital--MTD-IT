@@ -304,6 +304,99 @@ Every module below is tenant-scoped except Platform Admin, which sees aggregated
 
 Auth and tenant management run on every request. HMRC, bank feeds, OCR, extraction, documents, and bookkeeping are practice modules and stay inside `firmId`. Platform Admin never loads those client-level stores.
 
+### Service map
+
+These are logical services. Today they ship as NestJS modules in one API process, with the same role and tenant guards on every route.
+
+```
++----------------------------------------------------------------------+
+| API GATEWAY / ROUTER                                                 |
+|  - Auth routing                                                      |
+|  - Role routing (platform vs firm vs client)                         |
+|  - Tenant isolation (firmId, clientId)                               |
+|  - Rate limiting                                                     |
++----------------------------------+-----------------------------------+
+                                   |
+                                   v
++----------------------------------------------------------------------+
+| AUTH SERVICE                                                         |
+|  - Login / logout / sessions                                         |
+|  - JWT issuing                                                       |
+|  - RBAC + ABAC enforcement                                           |
+|  - Multi-tenant context injection                                    |
++----------------------------------+-----------------------------------+
+                                   |
+                                   v
++----------------------------------------------------------------------+
+| TENANT MANAGEMENT SERVICE                                            |
+|  - Firms (tenants)                                                   |
+|  - Firm users (admins, accountants, staff)                           |
+|  - Firm clients                                                      |
+|  - Subscription plans                                                |
+|  - Tenant isolation rules                                            |
++----------------------------------+-----------------------------------+
+                                   |
+              +--------------------+--------------------+
+              |                                         |
+              v                                         v
++--------------------------------+     +--------------------------------+
+| PLATFORM ADMIN SERVICE         |     | PRACTICE / CLIENT SERVICES     |
+|  - View firms (no client data) |     |  scoped by firmId / clientId   |
+|  - Aggregated stats per firm   |     +----------------+---------------+
+|  - Feature flags               |                      |
+|  - Logs and system health      |                      |
+|  - Marketing console           |                      |
+|  - Developer console           |                      |
++--------------------------------+                      |
+                                                        v
++----------------------------------------------------------------------+
+| HMRC INTEGRATION SERVICE                                             |
+|  VAT obligations / submissions · ITSA quarterly · EOPS · Final       |
+|  OAuth token store · API health                                      |
++----------------------------------+-----------------------------------+
+                                   v
++----------------------------------------------------------------------+
+| BANK FEEDS SERVICE                                                   |
+|  Yapily · CSV · sync · enrich · reconciliation · journal posting     |
++----------------------------------+-----------------------------------+
+                                   v
++----------------------------------------------------------------------+
+| OCR SERVICE                                                          |
+|  PDF/JPG/PNG · text cleaning · merchant/date/amount · VAT lines      |
++----------------------------------+-----------------------------------+
+                                   v
++----------------------------------------------------------------------+
+| AI EXTRACTION SERVICE                                                |
+|  Invoices / receipts · confidence · draft bills · bank matching      |
++----------------------------------+-----------------------------------+
+                                   v
++----------------------------------------------------------------------+
+| DOCUMENT MANAGEMENT SERVICE                                          |
+|  Upload · tags · OCR text · attach · search · audit                  |
++----------------------------------+-----------------------------------+
+                                   v
++----------------------------------------------------------------------+
+| BOOKKEEPING SERVICE                                                  |
+|  Chart of accounts · journals · ledger · trial balance · VAT/ITSA    |
++----------------------------------+-----------------------------------+
+                                   |
+              +--------------------+--------------------+
+              |                                         |
+              v                                         v
++--------------------------------+     +--------------------------------+
+| CLIENT PORTAL SERVICE          |     | ACCOUNTANT PRACTICE SERVICE    |
+|  - Client dashboard            |     |  - Practice dashboard          |
+|  - Upload receipts             |     |  - Client management           |
+|  - View VAT / ITSA             |     |  - VAT / ITSA workflows        |
+|  - Approve returns             |     |  - Bank feeds and recon        |
+|  - View documents              |     |  - Document review             |
+|  - Messages with accountant    |     |  - Invoice extraction review   |
+|                                |     |  - Tasks / workflows           |
++--------------------------------+     +--------------------------------+
+```
+
+After tenant context is set, platform staff stop at Platform Admin Service. Firm staff enter Accountant Practice Service, which calls HMRC, bank feeds, OCR, extraction, documents, and bookkeeping. Firm clients enter Client Portal Service only.
+
 ---
 
 ## 3. Tenant isolation
