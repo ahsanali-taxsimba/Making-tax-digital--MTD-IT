@@ -25,7 +25,7 @@ function downloadSummary(periodKey: string, boxes: Record<string, number | undef
 export default function PortalVatDetailPage() {
   const params = useParams<{ periodKey: string }>();
   const periodKey = decodeURIComponent(params.periodKey);
-  const { clientId, user, canManage } = useSession();
+  const { clientId, user, canManage, ready } = useSession();
   const client = useClient();
   const resolvedId = client.data?.id ?? clientId ?? user?.clientId;
   const { vat } = useClientObligations(resolvedId);
@@ -107,7 +107,7 @@ export default function PortalVatDetailPage() {
           >
             Review draft VAT return
           </button>
-          {!canManage ? (
+          {ready && !canManage ? (
             <button
               type="button"
               onClick={() => confirm.mutate({ kind: "vat", note: `I approve VAT return ${periodKey}.` })}

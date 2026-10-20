@@ -11,7 +11,7 @@ import { StatusCard } from "@/components/StatusCard";
 import { SuccessBanner } from "@/components/SuccessBanner";
 
 export default function PortalHomePage() {
-  const { user, clientId, canManage } = useSession();
+  const { user, clientId, canManage, ready } = useSession();
   const client = useClient();
   const resolvedId = client.data?.id ?? clientId ?? user?.clientId;
   const { vat, itsa, tasks } = useClientObligations(resolvedId);
@@ -69,7 +69,7 @@ export default function PortalHomePage() {
           />
         </section>
 
-        {!canManage ? (
+        {ready && !canManage ? (
           <div className="flex flex-wrap gap-3">
             <button
               type="button"

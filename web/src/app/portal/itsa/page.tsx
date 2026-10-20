@@ -15,7 +15,7 @@ function sumRecord(values?: Record<string, number>): number {
 }
 
 export default function PortalItsaPage() {
-  const { clientId, user, canManage } = useSession();
+  const { clientId, user, canManage, ready } = useSession();
   const client = useClient();
   const resolvedId = client.data?.id ?? clientId ?? user?.clientId;
   const { itsa } = useClientObligations(resolvedId);
@@ -121,7 +121,7 @@ export default function PortalItsaPage() {
         </div>
 
         {confirm.isSuccess ? <SuccessBanner title="Approved" message="Your accountant can send the quarterly update to HMRC." /> : null}
-        {!canManage ? (
+        {ready && !canManage ? (
           <button
             type="button"
             onClick={() => confirm.mutate({ kind: "itsa" })}
