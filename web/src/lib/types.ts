@@ -6,6 +6,10 @@ export type ApiFailure = {
 export type ApiEnvelope<T> = ApiSuccess<T> | ApiFailure;
 
 export type UserRole = "ADMIN" | "ACCOUNTANT" | "ASSISTANT" | "CLIENT";
+export type PlatformRole = "admin_super" | "admin_owner" | "admin_marketing" | "admin_developer" | "admin_support";
+export type FirmRole = "firm_admin" | "firm_accountant" | "firm_staff" | "firm_client";
+export type PrincipalKind = "platform" | "firm";
+export type CanonicalRole = PlatformRole | FirmRole;
 export type UserStatus = "ACTIVE" | "INVITED" | "SUSPENDED";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 export type ClientType = "INDIVIDUAL" | "COMPANY" | "LANDLORD" | "PARTNERSHIP";
@@ -34,6 +38,10 @@ export interface AuthUser {
   firmId: string;
   clientId: string | null;
   name: string;
+  principal?: PrincipalKind;
+  platformRole?: PlatformRole;
+  firmRole?: FirmRole;
+  isActive?: boolean;
 }
 
 export interface LoginResult {

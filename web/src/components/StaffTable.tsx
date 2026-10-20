@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { useInviteStaff, useUpdateStaff } from "@/hooks/useStaff";
+import { useSession } from "@/hooks/useSession";
 import { roleLabel, statusLabel } from "@/lib/practice";
 import { canInviteStaff } from "@/lib/session";
 import type { StaffMember, UserRole } from "@/lib/types";
@@ -26,7 +27,8 @@ export function StaffTable({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("ACCOUNTANT");
-  const admin = canInviteStaff(role);
+  const { user } = useSession();
+  const admin = canInviteStaff(role, user);
 
   async function onInvite(event: FormEvent) {
     event.preventDefault();

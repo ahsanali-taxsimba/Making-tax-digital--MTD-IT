@@ -1,8 +1,19 @@
 import { apiFetch } from "./api";
+import { canonicalRole } from "./roles";
+import { getUser } from "./session";
 import type { BookkeepingItsaSummary, PortalDocument, PortalMessage, PortalTask } from "./types";
 
+function ownClientId(requested?: string | null): string | null {
+  const user = getUser();
+  if (canonicalRole(user) === "firm_client") {
+    return user?.clientId ?? null;
+  }
+  return requested ?? null;
+}
+
 export function scopedQuery(clientId?: string | null): string {
-  return clientId ? `?clientId=${clientId}` : "";
+  const resolved = ownClientId(clientId);
+  return resolved ? `?clientId=${resolved}` : "";
 }
 
 export function listDocuments(_clientId?: string | null) {
@@ -32,9 +43,10 @@ export function listMessages(clientId?: string | null) {
 }
 
 export function sendMessage(body: string, clientId?: string | null) {
+  const resolved = ownClientId(clientId);
   return apiFetch<PortalMessage>("/messages", {
     method: "POST",
-    body: JSON.stringify({ body, ...(clientId ? { clientId } : {}) }),
+    body: JSON.stringify({ body, ...(resolved ? { clientId: resolved } : {}) }),
   });
 }
 

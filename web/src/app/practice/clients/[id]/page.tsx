@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { RequireStaff } from "@/components/RequireStaff";
+import { WorkspaceGate } from "@/components/WorkspaceGate";
 import { useClients } from "@/hooks/useClients";
+import { useSession } from "@/hooks/useSession";
 import { setSelectedClientId } from "@/lib/session";
 import { clientHmrcStatus, clientTypeLabel, hmrcStatusLabel, riskLabel } from "@/lib/practice";
 
 export default function ClientWorkspacePage() {
   const params = useParams<{ id: string }>();
+  const { user } = useSession();
   const clients = useClients();
   const record = clients.data?.find((item) => item.id === params.id);
 
@@ -21,7 +23,7 @@ export default function ClientWorkspacePage() {
   }, [params.id]);
 
   return (
-    <RequireStaff>
+    <WorkspaceGate allow="practice" firmId={user?.firmId}>
       {!record ? (
         <LoadingSpinner label="Opening client workspace…" />
       ) : (
@@ -34,24 +36,24 @@ export default function ClientWorkspacePage() {
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            <Link href={`/vat?clientId=${record.id}`} className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
+            <Link href={`/practice/vat`} className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">VAT</p>
-              <h3 className="mt-2 text-lg font-semibold">VAT connection</h3>
-              <p className="mt-2 text-sm text-ink-muted">Connect HMRC VAT, fetch obligations, and prepare the return.</p>
+              <h3 className="mt-2 text-lg font-semibold">VAT returns</h3>
+              <p className="mt-2 text-sm text-ink-muted">VAT periods and submissions for this firm.</p>
             </Link>
-            <Link href={`/itsa?clientId=${record.id}`} className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
+            <Link href={`/practice/itsa`} className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">ITSA</p>
-              <h3 className="mt-2 text-lg font-semibold">ITSA connection</h3>
+              <h3 className="mt-2 text-lg font-semibold">ITSA submissions</h3>
               <p className="mt-2 text-sm text-ink-muted">Quarterly updates, EOPS, and the final declaration.</p>
             </Link>
-            <Link href="/portal" className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">Portal</p>
-              <h3 className="mt-2 text-lg font-semibold">Client portal preview</h3>
-              <p className="mt-2 text-sm text-ink-muted">Records, messages, and approval tasks for this client.</p>
+            <Link href="/practice/documents" className="rounded-2xl border border-line bg-white p-5 shadow-sm hover:border-teal/40">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted">Documents</p>
+              <h3 className="mt-2 text-lg font-semibold">Firm documents</h3>
+              <p className="mt-2 text-sm text-ink-muted">Receipts and records uploaded for clients in this practice.</p>
             </Link>
           </div>
         </div>
       )}
-    </RequireStaff>
+    </WorkspaceGate>
   );
 }

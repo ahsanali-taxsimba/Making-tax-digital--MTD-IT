@@ -1,3 +1,4 @@
+import { canonicalRole, isFirmClientRole, isFirmStaffRole, isPlatformRole } from "./roles";
 import type { AuthUser, HmrcEnvironment } from "./types";
 
 const ACCESS = "mtd.accessToken";
@@ -84,14 +85,25 @@ export function clearSession(): void {
   notify();
 }
 
-export function canManageConnection(role?: string | null): boolean {
-  return role === "ADMIN" || role === "ACCOUNTANT" || role === "ASSISTANT";
+export function canManageConnection(role?: string | null, user?: AuthUser | null): boolean {
+  const resolved = user ? canonicalRole(user) : role;
+  return isFirmStaffRole(resolved);
 }
 
-export function isPracticeStaff(role?: string | null): boolean {
-  return role === "ADMIN" || role === "ACCOUNTANT" || role === "ASSISTANT";
+export function isPracticeStaff(role?: string | null, user?: AuthUser | null): boolean {
+  const resolved = user ? canonicalRole(user) : role;
+  return isFirmStaffRole(resolved);
 }
 
-export function canInviteStaff(role?: string | null): boolean {
-  return role === "ADMIN";
+export function isPlatformStaff(user?: AuthUser | null): boolean {
+  return isPlatformRole(canonicalRole(user));
+}
+
+export function isFirmClient(user?: AuthUser | null): boolean {
+  return isFirmClientRole(canonicalRole(user));
+}
+
+export function canInviteStaff(role?: string | null, user?: AuthUser | null): boolean {
+  const resolved = user ? canonicalRole(user) : role;
+  return resolved === "firm_admin" || role === "ADMIN";
 }
