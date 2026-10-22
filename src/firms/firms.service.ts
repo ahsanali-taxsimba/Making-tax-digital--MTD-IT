@@ -1,5 +1,14 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { ObligationStatus, TaskStatus, UserRole } from "@prisma/client";
+import {
+  BankTxnStatus,
+  CategorisationStatus,
+  DocumentStatus,
+  ExtractionStatus,
+  MatchingStatus,
+  ObligationStatus,
+  TaskStatus,
+  UserRole,
+} from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { AuthUser } from "../common/types";
@@ -24,7 +33,27 @@ export class FirmsService {
 
   async dashboard(user: AuthUser) {
     const firm = await this.me(user);
-    const [staffCount, clientCount, openVatObligations, openItsaObligations, staff, tasks] = await Promise.all([
+    const firmClients = { client: { firmId: user.firmId } };
+    const [
+      staffCount,
+      clientCount,
+      openVatObligations,
+      openItsaObligations,
+      staff,
+      tasks,
+      unmatchedBank,
+      overdueInvoices,
+      openTasks,
+      documents,
+      receipts,
+      unattachedReceipts,
+      suggestedCategories,
+      suggestedMatches,
+      extractionReview,
+      hmrcConnected,
+      nextVat,
+      nextItsa,
+    ] = await Promise.all([
       this.prisma.user.count({ where: { firmId: user.firmId, role: { in: STAFF_ROLES } } }),
       this.prisma.client.count({ where: { firmId: user.firmId } }),
       this.prisma.vatObligation.count({
@@ -41,6 +70,54 @@ export class FirmsService {
       this.prisma.task.findMany({
         where: { firmId: user.firmId },
         select: { assigneeId: true, status: true },
+      }),
+      this.prisma.bankTransaction.count({
+        where: { bankAccount: { firmId: user.firmId }, status: BankTxnStatus.UNMATCHED },
+      }),
+      this.prisma.salesInvoice.count({
+        where: { ...firmClients, status: DocumentStatus.POSTED, dueDate: { lt: new Date() } },
+      }),
+      this.prisma.task.count({
+        where: {
+          firmId: user.firmId,
+          status: { in: [TaskStatus.OPEN, TaskStatus.IN_PROGRESS, TaskStatus.WAITING_ON_CLIENT] },
+        },
+      }),
+      this.prisma.documentFile.count({ where: { firmId: user.firmId } }),
+      this.prisma.receiptFile.count({ where: { firmId: user.firmId } }),
+      this.prisma.receiptFile.count({
+        where: {
+          firmId: user.firmId,
+          bankTransactionId: null,
+          invoiceId: null,
+          billId: null,
+          journalEntryId: null,
+        },
+      }),
+      this.prisma.categorisationSuggestion.count({
+        where: { firmId: user.firmId, status: CategorisationStatus.SUGGESTED },
+      }),
+      this.prisma.matchingSuggestion.count({
+        where: { firmId: user.firmId, status: MatchingStatus.SUGGESTED },
+      }),
+      this.prisma.documentFile.count({
+        where: {
+          firmId: user.firmId,
+          extractionStatus: { in: [ExtractionStatus.IN_PROGRESS, ExtractionStatus.COMPLETED] },
+        },
+      }),
+      this.prisma.mtdConnection.count({
+        where: { disconnectedAt: null, client: { firmId: user.firmId } },
+      }),
+      this.prisma.vatObligation.findFirst({
+        where: { status: ObligationStatus.OPEN, client: { firmId: user.firmId } },
+        orderBy: { due: "asc" },
+        include: { client: { select: { name: true } } },
+      }),
+      this.prisma.itsaObligation.findFirst({
+        where: { status: ObligationStatus.OPEN, client: { firmId: user.firmId } },
+        orderBy: { due: "asc" },
+        include: { client: { select: { name: true } } },
       }),
     ]);
 
@@ -84,6 +161,22 @@ export class FirmsService {
       openVatObligations,
       openItsaObligations,
       openObligations: openVatObligations + openItsaObligations,
+      unmatchedBank,
+      overdueInvoices,
+      openTasks,
+      documents,
+      receipts,
+      unattachedReceipts,
+      suggestedCategories,
+      suggestedMatches,
+      extractionReview,
+      hmrcConnected,
+      nextVatDue: nextVat
+        ? { due: nextVat.due, label: nextVat.periodKey, clientName: nextVat.client.name }
+        : null,
+      nextItsaDue: nextItsa
+        ? { due: nextItsa.due, label: `${nextItsa.type} ${nextItsa.taxYear}`, clientName: nextItsa.client.name }
+        : null,
       taskWorkload,
     };
   }

@@ -63,7 +63,7 @@ npm run start:dev
 npm run web:dev
 ```
 
-VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callback`). Client portal: `/portal`. Practice management: `/practice` (staff, clients, task board, HMRC connections, billing, bookkeeping agent). Bank feeds: `/reconciliation`, `/categorisation`, `/matching`. Billing: `/practice/pricing`, `/practice/billing`, `/practice/subscription`, `/practice/invoices`. Bookkeeping agent: `/practice/agent`. Platform revenue: `/admin/billing`. The browser never sees HMRC tokens. One HMRC grant covers both regimes.
+VAT and ITSA connection UI: http://localhost:2327 (`/vat`, `/itsa`, `/hmrc/callback`). Client portal: `/portal`. Practice home `/practice/dashboard` links every workspace (VAT, ITSA, HMRC, agent, bank feeds, recon, categorisation, matching, documents, receipts, invoice extraction, clients, staff, tasks, audit, digital links, billing) with live counts. Bank feeds: `/reconciliation`, `/categorisation`, `/matching`. Billing: `/practice/pricing`, `/practice/billing`, `/practice/subscription`, `/practice/invoices`. Bookkeeping agent: `/practice/agent`. Platform revenue: `/admin/billing`. The browser never sees HMRC tokens. One HMRC grant covers both regimes.
 
 ### Seed users
 

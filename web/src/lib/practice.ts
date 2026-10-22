@@ -1,5 +1,5 @@
-import { canonicalRoleLabel } from "./roles";
-import type { HmrcLinkStatus, PracticeTaskStatus, PracticeTaskType } from "./types";
+import { canViewAudit, canonicalRoleLabel } from "./roles";
+import type { FirmDashboard, HmrcLinkStatus, PracticeTaskStatus, PracticeTaskType } from "./types";
 
 export const TASK_BOARD_COLUMNS = [
   { id: "OPEN", title: "Not started" },
@@ -182,6 +182,7 @@ export function pageTitle(pathname: string): string {
   if (pathname.startsWith("/client/documents")) return "Documents";
   if (pathname.startsWith("/client/messages")) return "Messages";
   if (pathname.startsWith("/client")) return "Home";
+  if (pathname.startsWith("/invoices/extraction")) return "Invoice extraction";
   if (pathname.startsWith("/reconciliation")) return "Bank reconciliation";
   if (pathname.startsWith("/categorisation")) return "Auto-categorisation";
   if (pathname.startsWith("/matching")) return "Invoice & bill matching";
@@ -198,3 +199,169 @@ export const CREATEABLE_TASK_STATUSES: PracticeTaskStatus[] = [
   "WAITING_ON_CLIENT",
   "COMPLETED",
 ];
+
+export type PracticeHomeGroup = "mtd" | "books" | "records" | "practice";
+
+export interface PracticeHomeTile {
+  href: string;
+  kicker: string;
+  title: string;
+  detail: string;
+  metric: string;
+  group: PracticeHomeGroup;
+  auditOnly?: boolean;
+}
+
+export const PRACTICE_HOME_GROUPS: Array<{ id: PracticeHomeGroup; title: string }> = [
+  { id: "mtd", title: "Making Tax Digital" },
+  { id: "books", title: "Bookkeeping" },
+  { id: "records", title: "Documents and evidence" },
+  { id: "practice", title: "Practice" },
+];
+
+export function practiceHomeTiles(dashboard: FirmDashboard, role?: string | null): PracticeHomeTile[] {
+  const tiles: PracticeHomeTile[] = [
+    {
+      href: "/practice/vat",
+      kicker: "VAT",
+      title: "VAT returns",
+      detail: "Obligations, boxes 1–9 and HMRC submit for this firm.",
+      metric: `${dashboard.openVatObligations} open`,
+      group: "mtd",
+    },
+    {
+      href: "/practice/itsa",
+      kicker: "ITSA",
+      title: "ITSA submissions",
+      detail: "Quarterly updates, EOPS and final declarations.",
+      metric: `${dashboard.openItsaObligations} open`,
+      group: "mtd",
+    },
+    {
+      href: "/practice/hmrc",
+      kicker: "HMRC",
+      title: "HMRC connections",
+      detail: "Sandbox and live OAuth grants per client.",
+      metric: `${dashboard.hmrcConnected} connected`,
+      group: "mtd",
+    },
+    {
+      href: "/practice/digital-links",
+      kicker: "Digital links",
+      title: "Digital links",
+      detail: "Source-to-filing chain for VAT and ITSA inspections.",
+      metric: "VAT + ITSA timelines",
+      group: "mtd",
+      auditOnly: true,
+    },
+    {
+      href: "/practice/agent",
+      kicker: "Agent",
+      title: "Bookkeeping copilot",
+      detail: "Ask about unmatched bank, invoices, VAT and ITSA. Nothing posts until you confirm.",
+      metric: `${dashboard.unmatchedBank} unmatched bank`,
+      group: "books",
+    },
+    {
+      href: "/practice/bank-feeds",
+      kicker: "Bank",
+      title: "Bank feeds",
+      detail: "Yapily Open Banking and CSV statements.",
+      metric: `${dashboard.unmatchedBank} unmatched`,
+      group: "books",
+    },
+    {
+      href: "/practice/reconciliation",
+      kicker: "Recon",
+      title: "Reconciliation",
+      detail: "Match bank lines to invoices, bills and journals.",
+      metric: `${dashboard.unmatchedBank} to reconcile`,
+      group: "books",
+    },
+    {
+      href: "/categorisation",
+      kicker: "Code",
+      title: "Auto-categorisation",
+      detail: "Suggested ledger, VAT rate and ITSA bucket.",
+      metric: `${dashboard.suggestedCategories} to review`,
+      group: "books",
+    },
+    {
+      href: "/matching",
+      kicker: "Match",
+      title: "Invoice & bill matching",
+      detail: "Settle unmatched lines against sales invoices and bills.",
+      metric: `${dashboard.suggestedMatches} suggestions`,
+      group: "books",
+    },
+    {
+      href: "/practice/documents",
+      kicker: "Files",
+      title: "Documents",
+      detail: "Firm document library for receipts, invoices and letters.",
+      metric: `${dashboard.documents} files`,
+      group: "records",
+    },
+    {
+      href: "/receipts",
+      kicker: "OCR",
+      title: "Receipts",
+      detail: "Upload, OCR and attach receipts to bank lines.",
+      metric: `${dashboard.unattachedReceipts} unattached`,
+      group: "records",
+    },
+    {
+      href: "/invoices/extraction",
+      kicker: "Extract",
+      title: "Invoice extraction",
+      detail: "Review supplier, totals and line items before posting.",
+      metric: `${dashboard.extractionReview} in review`,
+      group: "records",
+    },
+    {
+      href: "/practice/clients",
+      kicker: "Clients",
+      title: "Clients",
+      detail: "Individuals, companies, landlords and partnerships.",
+      metric: `${dashboard.clientCount} clients`,
+      group: "practice",
+    },
+    {
+      href: "/practice/staff",
+      kicker: "Team",
+      title: "Staff",
+      detail: "Firm admins, accountants and assistants.",
+      metric: `${dashboard.staffCount} staff`,
+      group: "practice",
+    },
+    {
+      href: "/practice/tasks",
+      kicker: "WIP",
+      title: "Tasks",
+      detail: "VAT, ITSA, bookkeeping and waiting-on-client work.",
+      metric: `${dashboard.openTasks} open`,
+      group: "practice",
+    },
+    {
+      href: "/practice/audit",
+      kicker: "Audit",
+      title: "Audit viewer",
+      detail: "Who changed what, with linked entities and diffs.",
+      metric: "Firm-scoped log",
+      group: "practice",
+      auditOnly: true,
+    },
+    {
+      href: "/practice/billing",
+      kicker: "Billing",
+      title: "Subscription",
+      detail: "Plans, VAT invoices and the Stripe customer portal.",
+      metric: dashboard.firm.billingStatus ?? "Trial",
+      group: "practice",
+    },
+  ];
+  if (canViewAudit(role)) {
+    return tiles;
+  }
+  return tiles.filter((tile) => !tile.auditOnly);
+}
