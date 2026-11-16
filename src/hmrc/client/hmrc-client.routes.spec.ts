@@ -15,6 +15,32 @@ describe("expandLiveCalls", () => {
     ]);
   });
 
+  it("maps a property quarterly update onto the UK property period API", () => {
+    const calls = expandLiveCalls("POST", "/income-tax/AA123456A/updates", {
+      businessId: "XAIS1",
+      taxYear: "2025-26",
+      periodId: "p1",
+      periodStart: "2026-04-06",
+      periodEnd: "2026-07-05",
+      incomes: { rentIncome: 100 },
+      expenses: { premisesRunningCosts: 10 },
+      typeOfBusiness: "uk-property",
+    });
+    expect(calls?.[0].path).toBe("/individuals/business/uk-property/AA123456A/XAIS1/period/2025-26");
+  });
+
+  it("maps calculation trigger and fetch onto Individual Calculations", () => {
+    const trigger = expandLiveCalls("POST", "/income-tax/AA123456A/calculations", {
+      taxYear: "2025-26",
+      calculationType: "intent-to-finalise",
+    });
+    expect(trigger?.[0].path).toBe(
+      "/individuals/calculations/AA123456A/self-assessment/2025-26/trigger/intent-to-finalise",
+    );
+    const fetch = expandLiveCalls("GET", "/income-tax/AA123456A/calculations/calc-1?taxYear=2025-26");
+    expect(fetch?.[0].path).toBe("/individuals/calculations/AA123456A/self-assessment/2025-26/calc-1");
+  });
+
   it("maps a quarterly update onto the self-employment period API", () => {
     const calls = expandLiveCalls("POST", "/income-tax/AA123456A/updates", {
       businessId: "XAIS1",

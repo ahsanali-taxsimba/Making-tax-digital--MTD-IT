@@ -6,16 +6,29 @@ export interface LiveCall {
   body?: unknown;
 }
 
-const INCOME_TAX = /^\/income-tax\/([^/]+)\/(obligations|updates|eops|final-declaration)$/;
+const INCOME_TAX = /^\/income-tax\/([^/]+)\/(obligations|updates|eops|final-declaration|calculations)(?:\/([^/]+))?$/;
+
+export function propertyApiKind(typeOfBusiness?: string): "self-employment" | "uk-property" | "foreign-property" {
+  const value = (typeOfBusiness ?? "").toLowerCase();
+  if (value.includes("foreign")) {
+    return "foreign-property";
+  }
+  if (value.includes("property") || value.includes("landlord")) {
+    return "uk-property";
+  }
+  return "self-employment";
+}
 
 export function expandLiveCalls(method: string, url: string, body?: unknown): LiveCall[] | null {
-  const path = url.split("?")[0];
-  const match = INCOME_TAX.exec(path);
+  const [pathPart, queryPart] = url.split("?");
+  const match = INCOME_TAX.exec(pathPart);
   if (!match) {
     return null;
   }
   const nino = match[1];
   const action = match[2];
+  const extra = match[3];
+  const query = new URLSearchParams(queryPart ?? "");
   if (method === "GET" && action === "obligations") {
     return [
       { path: `/obligations/details/${nino}/income-and-expenditure`, accept: "application/vnd.hmrc.2.0+json" },
@@ -25,9 +38,10 @@ export function expandLiveCalls(method: string, url: string, body?: unknown): Li
   }
   if (method === "POST" && action === "updates") {
     const payload = body as QuarterlyUpdatePayload;
+    const kind = propertyApiKind(payload.typeOfBusiness);
     return [
       {
-        path: `/individuals/business/self-employment/${nino}/${payload.businessId}/period/${payload.taxYear}`,
+        path: `/individuals/business/${kind}/${nino}/${payload.businessId}/period/${payload.taxYear}`,
         accept: "application/vnd.hmrc.5.0+json",
         body: {
           periodDates: { periodStartDate: payload.periodStart, periodEndDate: payload.periodEnd },
@@ -60,6 +74,36 @@ export function expandLiveCalls(method: string, url: string, body?: unknown): Li
         body: { finalised: payload.finalised, calculationId: payload.calculationId },
       },
     ];
+  }
+  if (action === "calculations") {
+    const payload = (body ?? {}) as { taxYear?: string; calculationType?: string };
+    const taxYear = payload.taxYear || query.get("taxYear") || "";
+    if (method === "POST") {
+      const calculationType = payload.calculationType || "intent-to-finalise";
+      return [
+        {
+          path: `/individuals/calculations/${nino}/self-assessment/${taxYear}/trigger/${calculationType}`,
+          accept: "application/vnd.hmrc.7.0+json",
+          body: {},
+        },
+      ];
+    }
+    if (method === "GET" && extra) {
+      return [
+        {
+          path: `/individuals/calculations/${nino}/self-assessment/${taxYear}/${extra}`,
+          accept: "application/vnd.hmrc.7.0+json",
+        },
+      ];
+    }
+    if (method === "GET") {
+      return [
+        {
+          path: `/individuals/calculations/${nino}/self-assessment/${taxYear}`,
+          accept: "application/vnd.hmrc.7.0+json",
+        },
+      ];
+    }
   }
   return null;
 }

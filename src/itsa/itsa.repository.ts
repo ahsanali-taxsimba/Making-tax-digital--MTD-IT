@@ -85,6 +85,21 @@ export class ItsaRepository {
     return this.prisma.itsaFinalDeclaration.create({ data });
   }
 
+  createCalculation(data: Prisma.ItsaCalculationUncheckedCreateInput) {
+    return this.prisma.itsaCalculation.create({ data });
+  }
+
+  listCalculations(clientId: string, taxYear?: string) {
+    return this.prisma.itsaCalculation.findMany({
+      where: { clientId, ...(taxYear ? { taxYear } : {}) },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  findCalculation(clientId: string, calculationId: string) {
+    return this.prisma.itsaCalculation.findFirst({ where: { clientId, calculationId } });
+  }
+
   listMappings(profile?: ChartProfile) {
     return this.prisma.itsaAccountMapping.findMany({
       where: profile ? { profile } : {},

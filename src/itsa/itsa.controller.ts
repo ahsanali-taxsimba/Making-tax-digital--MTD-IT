@@ -18,6 +18,9 @@ import {
   SubmitEopsDto,
   SubmitFinalDeclarationDto,
   SubmitItsaUpdateDto,
+  TriggerItsaCalculationDto,
+  ItsaEngineCalculationDto,
+  ItsaCalculationsQueryDto,
 } from "./dto/itsa.dto";
 import { ItsaService } from "./itsa.service";
 
@@ -61,6 +64,18 @@ export class ItsaEngineController {
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   submitFinal(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineFinalDto) {
     return this.itsa.submitFinal(user, dto.clientId, dto);
+  }
+
+  @Post("calculations")
+  @ApiOperation({ summary: "Trigger an HMRC Individual Calculation before Final Declaration" })
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  triggerCalculation(@CurrentUser() user: AuthUser, @Body() dto: ItsaEngineCalculationDto) {
+    return this.itsa.triggerCalculation(user, dto.clientId, dto);
+  }
+
+  @Get("calculations")
+  listCalculations(@CurrentUser() user: AuthUser, @Query() query: ItsaCalculationsQueryDto) {
+    return this.itsa.listCalculations(user, query.clientId, query.taxYear);
   }
 
   @Get("validate")
@@ -121,6 +136,25 @@ export class ItsaController {
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   submitFinal(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: SubmitFinalDeclarationDto) {
     return this.itsa.submitFinal(user, id, dto);
+  }
+
+  @Get("calculations")
+  listCalculations(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("taxYear") taxYear?: string,
+  ) {
+    return this.itsa.listCalculations(user, id, taxYear);
+  }
+
+  @Post("calculations")
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  triggerCalculation(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: TriggerItsaCalculationDto,
+  ) {
+    return this.itsa.triggerCalculation(user, id, dto);
   }
 
   @Post("businesses")

@@ -26,6 +26,7 @@ services:
     environment:
       DATABASE_URL: postgresql://mtd:mtd@postgres:5432/mtd?schema=public
       APP_BASE_URL: http://localhost:3000
+      SEED_ON_START: "true"
     ports:
       - "3000:3000"
     depends_on:

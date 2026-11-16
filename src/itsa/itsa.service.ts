@@ -14,6 +14,7 @@ import {
   SubmitEopsDto,
   SubmitFinalDeclarationDto,
   SubmitItsaUpdateDto,
+  TriggerItsaCalculationDto,
   ValidateItsaDto,
 } from "./dto/itsa.dto";
 import {
@@ -67,7 +68,7 @@ export class ItsaService {
     return this.repo.listBusinesses(clientId);
   }
 
-  async obligations(user: AuthUser, clientId: string) {
+  async obligations(user: AuthUser, clientId: string, options?: { notify?: boolean }) {
     const client = await this.requireItsaClient(user, clientId);
     const result = await this.hmrc.get<{ obligations: ItsaObligationDto[] }>(
       `/income-tax/${client.nino}/obligations`,
@@ -113,13 +114,15 @@ export class ItsaService {
       actionType: "itsa.obligations.fetched",
       metadata: { correlationId: result.correlationId },
     });
-    await this.notifications.notify({
-      firmId: client.firmId,
-      type: "OBLIGATION_FETCHED",
-      title: "ITSA obligations refreshed",
-      body: `Income Tax obligations synced for ${client.name}.`,
-      metadata: { clientId: client.id },
-    });
+    if (options?.notify !== false) {
+      await this.notifications.notify({
+        firmId: client.firmId,
+        type: "OBLIGATION_FETCHED",
+        title: "ITSA obligations refreshed",
+        body: `Income Tax obligations synced for ${client.name}.`,
+        metadata: { clientId: client.id },
+      });
+    }
     return this.repo.listObligations(client.id);
   }
 
@@ -205,6 +208,7 @@ export class ItsaService {
         periodEnd: dto.periodEnd,
         incomes,
         expenses,
+        typeOfBusiness: dto.typeOfBusiness ?? business.type,
       },
       client.id,
     );
@@ -284,6 +288,38 @@ export class ItsaService {
     return { ...saved, validation };
   }
 
+  async listCalculations(user: AuthUser, clientId: string, taxYear?: string) {
+    await this.requireItsaClient(user, clientId);
+    return this.repo.listCalculations(clientId, taxYear);
+  }
+
+  async triggerCalculation(user: AuthUser, clientId: string, dto: TriggerItsaCalculationDto) {
+    const client = await this.requireItsaClient(user, clientId);
+    const calculationType = dto.calculationType ?? "intent-to-finalise";
+    const result = await this.hmrc.post<{ calculationId: string; taxDue?: number; status?: string }>(
+      `/income-tax/${client.nino}/calculations`,
+      { taxYear: dto.taxYear, calculationType },
+      client.id,
+    );
+    const saved = await this.repo.createCalculation({
+      clientId: client.id,
+      taxYear: dto.taxYear,
+      calculationId: result.data.calculationId,
+      calculationType,
+      status: result.data.status ?? "TRIGGERED",
+      taxDue: result.data.taxDue,
+      correlationId: result.correlationId,
+      rawPayload: result.data,
+    });
+    await this.audit.record({
+      actor: user,
+      clientId: client.id,
+      actionType: "itsa.calculation.triggered",
+      metadata: { taxYear: dto.taxYear, calculationId: saved.calculationId, correlationId: result.correlationId },
+    });
+    return saved;
+  }
+
   async submitFinal(user: AuthUser, clientId: string, dto: SubmitFinalDeclarationDto) {
     if (!dto.finalised) {
       throw new BadRequestException("Final declaration must be finalised");
@@ -291,9 +327,21 @@ export class ItsaService {
     const client = await this.requireItsaClient(user, clientId);
     const validation = await this.finalValidation(client.id, dto.taxYear);
     this.assertValid(validation);
+    let calculationId = dto.calculationId;
+    if (!calculationId) {
+      const latest = (await this.repo.listCalculations(client.id, dto.taxYear))[0];
+      calculationId = latest?.calculationId;
+    }
+    if (!calculationId) {
+      const triggered = await this.triggerCalculation(user, clientId, {
+        taxYear: dto.taxYear,
+        calculationType: "intent-to-finalise",
+      });
+      calculationId = triggered.calculationId;
+    }
     const result = await this.hmrc.post<{ calculationId: string }>(
       `/income-tax/${client.nino}/final-declaration`,
-      dto,
+      { ...dto, calculationId },
       client.id,
     );
     const saved = await this.repo.createFinal({

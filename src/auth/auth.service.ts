@@ -91,7 +91,8 @@ export class AuthService {
   }
 
   private hashToken(token: string): string {
-    return createHash("sha256").update(token).digest("hex");
+    const pepper = this.config.get<string>("jwt.refreshSecret") ?? "";
+    return createHash("sha256").update(`${pepper}:${token}`).digest("hex");
   }
 
   private toAuthUser(user: { id: string; email: string; role: AuthUser["role"]; firmId: string; clientId: string | null; name: string }): AuthUser {

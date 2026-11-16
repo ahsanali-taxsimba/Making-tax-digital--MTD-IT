@@ -9,5 +9,6 @@ import { VatService } from "./vat.service";
   imports: [ClientsModule, HmrcModule],
   controllers: [VatController, VatEngineController],
   providers: [VatService, VatRepository],
+  exports: [VatService],
 })
 export class VatModule {}

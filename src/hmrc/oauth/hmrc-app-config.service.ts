@@ -39,8 +39,16 @@ export class HmrcAppConfigService implements OnModuleInit {
 
   requireSettings(environment: HmrcEnvironment | string, requireSecrets = false): HmrcAppSettings {
     const app = this.settings(environment);
-    const liveMode = this.config.get<string>("hmrc.mode") === "live";
-    assertAppConfigured(app, requireSecrets || liveMode);
+    if (!this.isLiveMode()) {
+      return {
+        ...app,
+        clientId: app.clientId || "mock-hmrc-client-id",
+        redirectUri: app.redirectUri || "http://localhost:3000/hmrc/oauth/callback",
+        baseUrl: app.baseUrl || "https://test-api.service.hmrc.gov.uk",
+        authBaseUrl: app.authBaseUrl || "https://test-www.tax.service.gov.uk",
+      };
+    }
+    assertAppConfigured(app, requireSecrets || true);
     return app;
   }
 

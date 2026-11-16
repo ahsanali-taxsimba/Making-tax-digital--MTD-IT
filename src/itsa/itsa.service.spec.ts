@@ -41,6 +41,8 @@ describe("ItsaService", () => {
     createUpdate: jest.fn().mockResolvedValue({ id: "upd-1" }),
     createEops: jest.fn().mockResolvedValue({ id: "eops-1" }),
     createFinal: jest.fn().mockResolvedValue({ id: "fd-1" }),
+    createCalculation: jest.fn().mockResolvedValue({ id: "calc-row", calculationId: "calc-9" }),
+    listCalculations: jest.fn().mockResolvedValue([]),
   };
   const audit = { record: jest.fn() };
   const tasks = { complete: jest.fn(), ensure: jest.fn() };
@@ -68,6 +70,8 @@ describe("ItsaService", () => {
     });
     hmrc.post.mockResolvedValue({ correlationId: "c1", data: { periodId: "p1" } });
     repo.createUpdate.mockResolvedValue({ id: "upd-1" });
+    repo.listCalculations.mockResolvedValue([]);
+    repo.createCalculation.mockResolvedValue({ id: "calc-row", calculationId: "calc-9" });
   });
 
   it("fetches ITSA obligations through HmrcClientService.get", async () => {
@@ -108,7 +112,11 @@ describe("ItsaService", () => {
     expect(saved.id).toBe("upd-1");
     expect(hmrc.post).toHaveBeenCalledWith(
       "/income-tax/AA123456A/updates",
-      expect.objectContaining({ incomes: { turnover: 5000 }, businessId: "XAIS1" }),
+      expect.objectContaining({
+        incomes: { turnover: 5000 },
+        businessId: "XAIS1",
+        typeOfBusiness: "self-employment",
+      }),
       "client-1",
     );
   });
@@ -148,12 +156,26 @@ describe("ItsaService", () => {
 
   it("submits a final declaration through HmrcClientService.post", async () => {
     hmrc.post.mockResolvedValue({ correlationId: "f1", data: { calculationId: "calc-9" } });
-    const saved = await service.submitFinal(user, client.id, { taxYear: "2025-26", finalised: true });
+    const saved = await service.submitFinal(user, client.id, { taxYear: "2025-26", finalised: true, calculationId: "calc-9" });
     expect(saved.id).toBe("fd-1");
     expect(hmrc.post).toHaveBeenCalledWith(
       "/income-tax/AA123456A/final-declaration",
-      expect.objectContaining({ taxYear: "2025-26", finalised: true }),
+      expect.objectContaining({ taxYear: "2025-26", finalised: true, calculationId: "calc-9" }),
       "client-1",
     );
+  });
+
+  it("triggers an Individual Calculation before final declaration when none exists", async () => {
+    hmrc.post
+      .mockResolvedValueOnce({ correlationId: "c1", data: { calculationId: "calc-auto", status: "TRIGGERED" } })
+      .mockResolvedValueOnce({ correlationId: "f1", data: { calculationId: "calc-auto" } });
+    await service.submitFinal(user, client.id, { taxYear: "2025-26", finalised: true });
+    expect(hmrc.post).toHaveBeenNthCalledWith(
+      1,
+      "/income-tax/AA123456A/calculations",
+      expect.objectContaining({ taxYear: "2025-26" }),
+      "client-1",
+    );
+    expect(repo.createCalculation).toHaveBeenCalled();
   });
 });

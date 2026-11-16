@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, forwardRef } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional, forwardRef } from "@nestjs/common";
 import { HmrcEnvironment } from "@prisma/client";
 import { AuditService } from "../../audit/audit.service";
 import { HmrcHttpClient } from "../hmrc.http";
@@ -7,6 +7,7 @@ import { HmrcAppConfigService } from "../oauth/hmrc-app-config.service";
 import { HmrcOAuthError } from "../oauth/hmrc-oauth.errors";
 import { HmrcOAuthService } from "../oauth/hmrc-oauth.service";
 import { parseHmrcEnvironment } from "../oauth/hmrc-oauth.utils";
+import { FraudPreventionStore } from "../fraud-prevention.store";
 import { HMRC_ERR, handleHMRCError, HmrcClientError } from "./hmrc-client.errors";
 import { mockHmrcResponse } from "./hmrc-client.mock";
 import { expandLiveCalls, mergeItsaObligations } from "./hmrc-client.routes";
@@ -26,6 +27,7 @@ export class HmrcClientService {
     private readonly http: HmrcHttpClient,
     private readonly apps: HmrcAppConfigService,
     private readonly audit: AuditService,
+    @Optional() private readonly fraud?: FraudPreventionStore,
   ) {}
 
   getValidAccessToken(clientId: string, environment: "sandbox" | "live" | HmrcEnvironment | string): Promise<string> {
@@ -92,7 +94,12 @@ export class HmrcClientService {
     }
 
     const token = await this.resolveToken(clientId, env);
-    const ctx: HmrcCallContext = { clientId, environment: env, accessToken: token };
+    const ctx: HmrcCallContext = {
+      clientId,
+      environment: env,
+      accessToken: token,
+      fraud: this.fraud?.current(),
+    };
     const calls = expandLiveCalls(method, url, body) ?? [
       { path: url.split("?")[0], accept: options?.accept, body: method === "POST" ? body : undefined },
     ];

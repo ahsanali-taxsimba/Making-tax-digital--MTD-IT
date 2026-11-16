@@ -1,4 +1,4 @@
-import { Module, ValidationPipe } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule, ValidationPipe } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
@@ -12,13 +12,17 @@ import configuration from "./config/configuration";
 import { DocumentsModule } from "./documents/documents.module";
 import { FirmsModule } from "./firms/firms.module";
 import { HealthController } from "./health/health.controller";
+import { FraudPreventionMiddleware } from "./hmrc/fraud-prevention.middleware";
+import { FraudPreventionModule } from "./hmrc/fraud-prevention.module";
 import { HmrcModule } from "./hmrc/hmrc.module";
 import { ItsaModule } from "./itsa/itsa.module";
+import { JobsModule } from "./jobs/jobs.module";
 import { ChartOfAccountsModule } from "./ledger/chart-of-accounts.module";
 import { LedgerModule } from "./ledger/ledger.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PortalModule } from "./portal/portal.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { StorageModule } from "./storage/storage.module";
 import { TasksModule } from "./tasks/tasks.module";
 import { UsersModule } from "./users/users.module";
 import { VatModule } from "./vat/vat.module";
@@ -37,6 +41,8 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
       ],
     }),
     PrismaModule,
+    FraudPreventionModule,
+    StorageModule,
     AuditModule,
     TasksModule,
     NotificationsModule,
@@ -53,6 +59,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
     LedgerModule,
     BookkeepingModule,
     PortalModule,
+    JobsModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -60,6 +67,11 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    FraudPreventionMiddleware,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(FraudPreventionMiddleware).forRoutes("*");
+  }
+}

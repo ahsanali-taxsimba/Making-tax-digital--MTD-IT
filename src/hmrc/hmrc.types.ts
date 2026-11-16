@@ -70,6 +70,7 @@ export interface QuarterlyUpdatePayload {
   periodEnd: string;
   incomes: Record<string, number>;
   expenses: Record<string, number>;
+  typeOfBusiness?: string;
 }
 
 export interface EopsPayload {
@@ -85,6 +86,11 @@ export interface FinalDeclarationPayload {
   taxYear: string;
   calculationId?: string;
   finalised: boolean;
+}
+
+export interface CalculationPayload {
+  taxYear: string;
+  calculationType?: string;
 }
 
 export interface HmrcHttpResult<T> {

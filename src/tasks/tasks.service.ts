@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { TaskStatus, TaskType } from "@prisma/client";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { TaskStatus, TaskType, UserRole } from "@prisma/client";
 import { AuthUser } from "../common/types";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -26,18 +26,29 @@ export class TasksService {
 
   list(user: AuthUser) {
     return this.prisma.task.findMany({
-      where: { firmId: user.firmId, ...(user.clientId ? { clientId: user.clientId } : {}) },
+      where: this.scope(user),
       orderBy: [{ status: "asc" }, { dueDate: "asc" }],
     });
   }
 
-  updateStatus(user: AuthUser, id: string, status: TaskStatus) {
-    return this.prisma.task.update({
-      where: { id },
+  async updateStatus(user: AuthUser, id: string, status: TaskStatus) {
+    const updated = await this.prisma.task.updateMany({
+      where: { id, ...this.scope(user) },
       data: {
         status,
         completedAt: status === TaskStatus.COMPLETED ? new Date() : null,
       },
     });
+    if (updated.count === 0) {
+      throw new NotFoundException("Task not found");
+    }
+    return this.prisma.task.findFirst({ where: { id, ...this.scope(user) } });
+  }
+
+  private scope(user: AuthUser) {
+    return {
+      firmId: user.firmId,
+      ...(user.role === UserRole.CLIENT && user.clientId ? { clientId: user.clientId } : {}),
+    };
   }
 }
