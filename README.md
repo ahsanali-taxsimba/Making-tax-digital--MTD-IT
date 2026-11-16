@@ -91,7 +91,11 @@ HMRC_SANDBOX_BASE_URL=https://test-api.service.hmrc.gov.uk
 6. `GET /hmrc/oauth/start?clientId=&environment=sandbox` and complete the HMRC grant screen.
 7. Fetch obligations, then submit a VAT return or quarterly update.
 
-Fraud-prevention headers are attached on every live HMRC call. Production access still requires HMRC’s own approval process.
+Fraud-prevention headers are taken from incoming `Gov-Client-*` request headers (plus `X-Forwarded-For`) and attached on every live HMRC call. In production with `HMRC_MODE=live`, placeholder telemetry is rejected.
+
+ITSA Final Declaration now triggers an HMRC Individual Calculation when `calculationId` is missing (`POST /itsa/calculations`). Property businesses submit quarterly updates to the UK/foreign property APIs instead of self-employment.
+
+Document bytes are stored through a swap-ready storage port (`STORAGE_DRIVER=local` now, `supabase` later). Production Docker images run migrations only; set `SEED_ON_START=true` when you explicitly want demo users.
 
 ## Tests
 
@@ -102,4 +106,4 @@ npm run test:e2e
 
 ## API surface
 
-Auth, firms, users, clients, HMRC connections, VAT, ITSA, bookkeeping, audit, tasks, notifications, webhooks, documents, ledger, and client-portal routes. See `/docs` or [PLAYBOOK.md](./PLAYBOOK.md) for the accountant journey.
+Auth, firms, users, clients, HMRC connections, VAT, ITSA (including calculations), bookkeeping, audit, tasks, notifications, webhooks, documents (upload + download), ledger, client-portal, and `/health/ready`. See `/docs` or [PLAYBOOK.md](./PLAYBOOK.md) for the accountant journey.

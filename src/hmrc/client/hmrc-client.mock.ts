@@ -87,5 +87,23 @@ export function mockHmrcResponse(method: string, url: string, body?: unknown): H
     const payload = (body ?? {}) as { calculationId?: string };
     return result({ calculationId: payload.calculationId ?? randomUUID() });
   }
+  if (method === "POST" && /\/income-tax\/[^/]+\/calculations$/.test(path)) {
+    const payload = (body ?? {}) as { taxYear?: string; calculationType?: string };
+    return result({
+      calculationId: randomUUID(),
+      taxYear: payload.taxYear,
+      calculationType: payload.calculationType ?? "intent-to-finalise",
+      status: "TRIGGERED",
+      taxDue: 0,
+    });
+  }
+  if (method === "GET" && /\/income-tax\/[^/]+\/calculations(?:\/[^/]+)?$/.test(path)) {
+    const calculationId = path.split("/").pop() && !path.endsWith("/calculations") ? path.split("/").pop() : randomUUID();
+    return result({
+      calculationId,
+      status: "READY",
+      taxDue: 0,
+    });
+  }
   return null;
 }

@@ -111,6 +111,18 @@ describe("HmrcClientService HMRC calls", () => {
     expect(http.send.mock.calls[0][2]).toContain("/individuals/business/end-of-period-statement/nino/AA123456A/XAIS1");
   });
 
+  it("POST ITSA calculation trigger", async () => {
+    http.send.mockResolvedValue({ ok: true, status: 200, body: { calculationId: "calc" }, correlationId: "calc" });
+    await service.post(
+      "/income-tax/AA123456A/calculations",
+      { taxYear: "2025-26", calculationType: "intent-to-finalise" },
+      "client-1",
+    );
+    expect(http.send.mock.calls[0][2]).toBe(
+      "/individuals/calculations/AA123456A/self-assessment/2025-26/trigger/intent-to-finalise",
+    );
+  });
+
   it("POST ITSA final declaration", async () => {
     http.send.mockResolvedValue({ ok: true, status: 200, body: { calculationId: "calc" }, correlationId: "fd" });
     await service.post("/income-tax/AA123456A/final-declaration", { taxYear: "2025-26", finalised: true }, "client-1");

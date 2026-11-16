@@ -15,10 +15,12 @@ import { HmrcOAuthController } from "./oauth/hmrc-oauth.controller";
 import { HmrcOAuthRepository } from "./oauth/hmrc-oauth.repository";
 import { HmrcOAuthService } from "./oauth/hmrc-oauth.service";
 import { HmrcTokenRefreshService } from "./oauth/hmrc-token-refresh.service";
+import { FraudPreventionModule } from "./fraud-prevention.module";
+import { HmrcInteractionsController } from "./hmrc-interactions.controller";
 
 @Module({
-  imports: [ClientsModule],
-  controllers: [MtdController, HmrcOAuthController],
+  imports: [ClientsModule, FraudPreventionModule],
+  controllers: [MtdController, HmrcOAuthController, HmrcInteractionsController],
   providers: [
     TokenCryptoService,
     HmrcHttpClient,
@@ -53,6 +55,14 @@ import { HmrcTokenRefreshService } from "./oauth/hmrc-token-refresh.service";
         config.get("hmrc.mode") === "live" ? live : mock,
     },
   ],
-  exports: [HmrcOAuthService, HmrcClientService, MtdConnectionService, TokenCryptoService, HMRC_VAT, HMRC_ITSA, HMRC_OAUTH],
+  exports: [
+    HmrcOAuthService,
+    HmrcClientService,
+    MtdConnectionService,
+    TokenCryptoService,
+    HMRC_VAT,
+    HMRC_ITSA,
+    HMRC_OAUTH,
+  ],
 })
 export class HmrcModule {}

@@ -120,9 +120,22 @@ describe("MTD API (e2e)", () => {
     mtdConnection: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     hmrcAppConfig: { upsert: jest.fn(), findUnique: jest.fn() },
     auditLog: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
-    webhookEvent: { create: jest.fn(), update: jest.fn() },
-    webhookEndpoint: { findMany: jest.fn().mockResolvedValue([]) },
-    notification: { create: jest.fn() },
+    webhookEvent: {
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+        id: "wh-1",
+        createdAt: new Date(),
+        attempts: 0,
+        deliveredAt: null,
+        ...data,
+      })),
+      update: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    webhookEndpoint: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+    notification: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn(), findFirst: jest.fn() },
+    supportingDocument: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), findFirst: jest.fn() },
+    itsaCalculation: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn() },
   };
 
   beforeAll(async () => {
@@ -168,6 +181,9 @@ describe("MTD API (e2e)", () => {
   });
 
   it("logs in, reads the firm, lists clients, and starts HMRC auth", async () => {
+    const health = await request(app.getHttpServer()).get("/health").expect(200);
+    expect(health.body.data.status).toBe("ok");
+
     const login = await request(app.getHttpServer())
       .post("/auth/login")
       .send({ email: "marco.r@example.org", password: "PracticeAdmin123!" })

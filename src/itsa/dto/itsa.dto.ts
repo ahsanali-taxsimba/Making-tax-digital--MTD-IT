@@ -28,6 +28,11 @@ export class SubmitItsaUpdateDto {
   @IsBoolean()
   fromLedger?: boolean;
 
+  @ApiPropertyOptional({ description: "self-employment | uk-property | foreign-property" })
+  @IsOptional()
+  @IsString()
+  typeOfBusiness?: string;
+
   @ApiPropertyOptional({ type: "object", additionalProperties: { type: "number" } })
   @ValidateIf((dto: SubmitItsaUpdateDto) => !dto.fromLedger)
   @IsObject()
@@ -94,6 +99,23 @@ export class SubmitFinalDeclarationDto {
   finalised!: boolean;
 }
 
+export class TriggerItsaCalculationDto {
+  @ApiProperty()
+  @IsString()
+  taxYear!: string;
+
+  @ApiPropertyOptional({ enum: ["in-year", "intent-to-finalise", "final-declaration"] })
+  @IsOptional()
+  @IsIn(["in-year", "intent-to-finalise", "final-declaration"])
+  calculationType?: "in-year" | "intent-to-finalise" | "final-declaration";
+}
+
+export class ItsaEngineCalculationDto extends TriggerItsaCalculationDto {
+  @ApiProperty()
+  @IsUUID()
+  clientId!: string;
+}
+
 export class ValidateItsaDto {
   @ApiPropertyOptional({ enum: ["quarterly", "eops", "final", "year"] })
   @IsOptional()
@@ -146,6 +168,13 @@ export class ItsaClientQueryDto {
   @ApiProperty()
   @IsUUID()
   clientId!: string;
+}
+
+export class ItsaCalculationsQueryDto extends ItsaClientQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  taxYear?: string;
 }
 
 export class ItsaEngineQuarterlyDto extends SubmitItsaUpdateDto {

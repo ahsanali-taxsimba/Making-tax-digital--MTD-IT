@@ -4,13 +4,15 @@ import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { assertProductionConfig, parseCorsOrigins } from "./config/validate-env";
 
 async function bootstrap() {
+  assertProductionConfig();
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
   app.use(helmet());
   app.enableCors({
-    origin: config.get<string>("frontendOrigin") ?? true,
+    origin: parseCorsOrigins(config.get<string>("frontendOrigin"), config.get<string>("nodeEnv")),
     credentials: true,
   });
 

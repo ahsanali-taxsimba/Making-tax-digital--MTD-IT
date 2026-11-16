@@ -181,6 +181,7 @@ model Client {
   itsaUpdates     ItsaUpdate[]
   itsaEops        ItsaEndOfPeriodStatement[]
   itsaFinals      ItsaFinalDeclaration[]
+  itsaCalculations ItsaCalculation[]
   ledgers         Ledger[]
   transactions    Transaction[]
   documents       SupportingDocument[]
@@ -409,6 +410,24 @@ model ItsaFinalDeclaration {
   rawPayload    Json?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+}
+
+/// HMRC Individual Calculations API result, required before a Final Declaration.
+model ItsaCalculation {
+  id               String   @id @default(uuid())
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taxYear          String
+  calculationId    String
+  calculationType  String   @default("intent-to-finalise")
+  status           String   @default("TRIGGERED")
+  taxDue           Decimal? @db.Decimal(14, 2)
+  correlationId    String?
+  rawPayload       Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([clientId, taxYear])
 }
 
 model ItsaAccountMapping {

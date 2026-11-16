@@ -1,10 +1,11 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { HmrcEnvironment } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { mapHmrcError } from "./hmrc.errors";
 import { buildFraudPreventionHeaders } from "./fraud-prevention";
+import { isPlaceholderFraudContext } from "./fraud-prevention.store";
 import { HmrcCallContext, HmrcHttpResult } from "./hmrc.types";
 
 @Injectable()
@@ -39,6 +40,12 @@ export class HmrcHttpClient {
     Object.entries(options?.query ?? {}).forEach(([key, value]) => {
       if (value) url.searchParams.set(key, value);
     });
+
+    if (this.config.get<boolean>("hmrc.requireFraudHeaders") && isPlaceholderFraudContext(ctx.fraud)) {
+      throw new BadRequestException(
+        "HMRC fraud-prevention headers are required. Forward Gov-Client-* telemetry from the browser before calling HMRC.",
+      );
+    }
 
     const headers: Record<string, string> = {
       Accept: options?.accept ?? "application/vnd.hmrc.1.0+json",

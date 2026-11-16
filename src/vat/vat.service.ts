@@ -103,7 +103,7 @@ export class VatService {
     };
   }
 
-  async obligations(user: AuthUser, clientId: string) {
+  async obligations(user: AuthUser, clientId: string, options?: { notify?: boolean }) {
     const client = await this.requireVatClient(user, clientId);
     const result = await this.hmrc.get<{ obligations: VatObligationDto[] }>(
       `/organisations/vat/${client.vatRegistrationNumber}/obligations`,
@@ -143,13 +143,15 @@ export class VatService {
       actionType: "vat.obligations.fetched",
       metadata: { correlationId: result.correlationId, count: result.data.obligations.length },
     });
-    await this.notifications.notify({
-      firmId: client.firmId,
-      type: "OBLIGATION_FETCHED",
-      title: "VAT obligations refreshed",
-      body: `${result.data.obligations.length} VAT obligation(s) synced for ${client.name}.`,
-      metadata: { clientId: client.id },
-    });
+    if (options?.notify !== false) {
+      await this.notifications.notify({
+        firmId: client.firmId,
+        type: "OBLIGATION_FETCHED",
+        title: "VAT obligations refreshed",
+        body: `${result.data.obligations.length} VAT obligation(s) synced for ${client.name}.`,
+        metadata: { clientId: client.id },
+      });
+    }
     return this.prisma.vatObligation.findMany({ where: { clientId: client.id }, orderBy: { start: "desc" } });
   }
 
