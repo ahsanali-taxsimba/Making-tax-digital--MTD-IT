@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "regions": ["lhr1"],
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm ci",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 60,
+      "includeFiles": "prisma/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
+  ]
+}

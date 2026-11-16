@@ -29,3 +29,5 @@ coverage
 uploads
 mongo-data
 combined.log
+.next
+web/.next

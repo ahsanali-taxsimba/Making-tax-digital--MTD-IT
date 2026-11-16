@@ -29,10 +29,16 @@ export function assertProductionConfig(env: NodeJS.ProcessEnv = process.env): vo
     problems.push("TOKEN_ENCRYPTION_KEY must be 32 bytes encoded as 64 hex characters");
   }
   if (!env.FRONTEND_ORIGIN) {
-    problems.push("FRONTEND_ORIGIN must be set so CORS is not left open");
+    problems.push("FRONTEND_ORIGIN must be the web app URL so CORS is not left open");
   }
-  if (!env.DATABASE_URL && !env.SUPABASE_DB_URL && !(env.SUPABASE_URL && env.SUPABASE_DB_PASSWORD)) {
-    problems.push("DATABASE_URL or SUPABASE_DB_URL is required");
+  const databaseUrl = env.SUPABASE_DB_URL || env.DATABASE_URL || "";
+  if (!databaseUrl) {
+    problems.push("SUPABASE_DB_URL is required");
+  } else if (!/supabase\.(co|com)/i.test(databaseUrl)) {
+    problems.push("Production database must be Supabase (SUPABASE_DB_URL)");
+  }
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    problems.push("Production requires Supabase URL and service role for file storage");
   }
   if ((env.HMRC_MODE ?? "mock") === "live") {
     const sandboxId = env.HMRC_SANDBOX_CLIENT_ID || env.HMRC_CLIENT_ID;
@@ -47,10 +53,8 @@ export function assertProductionConfig(env: NodeJS.ProcessEnv = process.env): vo
       problems.push("HMRC_MODE=live requires HMRC client id and secret for the selected environment");
     }
   }
-  if ((env.STORAGE_DRIVER ?? "local") === "supabase") {
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-      problems.push("STORAGE_DRIVER=supabase requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
-    }
+  if ((env.STORAGE_DRIVER ?? "supabase") === "local") {
+    problems.push("Production storage must use Supabase, not local disk");
   }
 
   if (problems.length > 0) {

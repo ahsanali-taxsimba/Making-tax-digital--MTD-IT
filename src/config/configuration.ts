@@ -6,7 +6,7 @@ export default () => {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: parseInt(process.env.PORT ?? "3000", 10),
   appBaseUrl: process.env.APP_BASE_URL ?? "http://localhost:3000",
-  frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:2327",
+  frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:2327",
   seedOnStart: process.env.SEED_ON_START === "true",
   databaseProvider: supabase.provider,
   supabase: {

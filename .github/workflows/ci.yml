@@ -16,6 +16,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://mtd:mtd@localhost:5432/mtd
+      - run: npm ci
+        working-directory: web
       - run: npm run lint
       - run: npm test -- --runInBand
       - run: npm run test:e2e
