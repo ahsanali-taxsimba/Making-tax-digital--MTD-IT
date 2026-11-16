@@ -4,9 +4,11 @@ import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { applySupabaseEnv } from "./config/supabase";
 import { assertProductionConfig, parseCorsOrigins } from "./config/validate-env";
 
 async function bootstrap() {
+  const database = applySupabaseEnv();
   assertProductionConfig();
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
@@ -34,7 +36,11 @@ async function bootstrap() {
 
   const port = config.get<number>("port") ?? 3000;
   await app.listen(port);
-  Logger.log(`MTD IT API listening on ${port} — OpenAPI at /docs`, "Bootstrap");
+  const storageDriver = config.get<string>("storage.driver") ?? "local";
+  Logger.log(
+    `MTD IT API listening on ${port} — OpenAPI at /docs — database=${database.provider} storage=${storageDriver}`,
+    "Bootstrap",
+  );
 }
 
 void bootstrap();

@@ -25,14 +25,22 @@ export class HealthController {
   async ready() {
     await this.prisma.$queryRaw`SELECT 1`;
     const storageReady = await this.storage.ready();
+    const storageDriver = this.config.get<string>("storage.driver") ?? "local";
+    const databaseProvider = this.config.get<string>("databaseProvider") ?? "local";
+    const supabaseConfigured = Boolean(this.config.get<boolean>("supabase.configured"));
+    const degraded = !storageReady || (storageDriver === "supabase" && !supabaseConfigured);
     return {
-      status: storageReady ? "ok" : "degraded",
+      status: degraded ? "degraded" : "ok",
       service: "mtd-it-api",
       checks: {
-        database: "ok",
+        database: { status: "ok", provider: databaseProvider },
         storage: {
-          driver: this.config.get<string>("storage.driver") ?? "local",
+          driver: storageDriver,
           ready: storageReady,
+        },
+        supabase: {
+          configured: supabaseConfigured,
+          projectRef: this.config.get<string>("supabase.projectRef") ?? null,
         },
         hmrcMode: this.config.get<string>("hmrc.mode") ?? "mock",
       },

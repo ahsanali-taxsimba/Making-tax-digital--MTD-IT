@@ -35,6 +35,16 @@ describe("assertProductionConfig", () => {
     ).toThrow(/HMRC_MODE=live/);
   });
 
+  it("accepts SUPABASE_DB_URL in place of DATABASE_URL", () => {
+    const { DATABASE_URL: _ignored, ...rest } = valid;
+    expect(() =>
+      assertProductionConfig({
+        ...rest,
+        SUPABASE_DB_URL: "postgresql://postgres:secret@db.abcdxyzabcdefgh.supabase.co:5432/postgres",
+      }),
+    ).not.toThrow();
+  });
+
   it("skips checks outside production", () => {
     expect(() => assertProductionConfig({ NODE_ENV: "development" })).not.toThrow();
   });

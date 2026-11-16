@@ -31,8 +31,8 @@ export function assertProductionConfig(env: NodeJS.ProcessEnv = process.env): vo
   if (!env.FRONTEND_ORIGIN) {
     problems.push("FRONTEND_ORIGIN must be set so CORS is not left open");
   }
-  if (!env.DATABASE_URL) {
-    problems.push("DATABASE_URL is required");
+  if (!env.DATABASE_URL && !env.SUPABASE_DB_URL && !(env.SUPABASE_URL && env.SUPABASE_DB_PASSWORD)) {
+    problems.push("DATABASE_URL or SUPABASE_DB_URL is required");
   }
   if ((env.HMRC_MODE ?? "mock") === "live") {
     const sandboxId = env.HMRC_SANDBOX_CLIENT_ID || env.HMRC_CLIENT_ID;
