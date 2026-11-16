@@ -95,7 +95,16 @@ Fraud-prevention headers are taken from incoming `Gov-Client-*` request headers 
 
 ITSA Final Declaration now triggers an HMRC Individual Calculation when `calculationId` is missing (`POST /itsa/calculations`). Property businesses submit quarterly updates to the UK/foreign property APIs instead of self-employment.
 
-Document bytes are stored through a swap-ready storage port (`STORAGE_DRIVER=local` now, `supabase` later). Production Docker images run migrations only; set `SEED_ON_START=true` when you explicitly want demo users.
+Document bytes go through a storage port. Local disk is the default; when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set the API stores files in the `mtd-documents` bucket and Prisma uses `SUPABASE_DB_URL` (or `DATABASE_URL`) with `sslmode=require`. Production Docker images run migrations only; set `SEED_ON_START=true` when you explicitly want demo users.
+
+## Connect to Supabase
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Copy **Project URL**, **anon key**, and **service role key** from Project Settings → API.
+3. Copy the **URI** from Project Settings → Database (use the direct connection or session-mode pooler; transaction mode breaks Prisma).
+4. Put them in `.env` as `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL`.
+5. Restart the API. `GET /health/ready` should show `database.provider: "supabase"` and `storage.driver: "supabase"`.
+6. Apply schema: `npx prisma migrate deploy`.
 
 ## Tests
 

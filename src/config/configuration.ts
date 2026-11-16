@@ -1,14 +1,25 @@
-export default () => ({
+import { applySupabaseEnv, resolveStorageDriver } from "./supabase";
+
+export default () => {
+  const supabase = applySupabaseEnv();
+  return {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: parseInt(process.env.PORT ?? "3000", 10),
   appBaseUrl: process.env.APP_BASE_URL ?? "http://localhost:3000",
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:2327",
   seedOnStart: process.env.SEED_ON_START === "true",
+  databaseProvider: supabase.provider,
+  supabase: {
+    url: process.env.SUPABASE_URL ?? "",
+    projectRef: supabase.projectRef,
+    configured: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
+  },
   storage: {
-    driver: (process.env.STORAGE_DRIVER ?? "local") as "local" | "supabase",
+    driver: resolveStorageDriver(),
     localDir: process.env.STORAGE_LOCAL_DIR ?? "uploads",
     supabaseUrl: process.env.SUPABASE_URL ?? "",
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? "",
     supabaseBucket: process.env.SUPABASE_BUCKET ?? "mtd-documents",
     maxUploadBytes: parseInt(process.env.STORAGE_MAX_UPLOAD_BYTES ?? String(10 * 1024 * 1024), 10),
   },
@@ -17,7 +28,7 @@ export default () => ({
     webhookRetryMs: parseInt(process.env.WEBHOOK_RETRY_INTERVAL_MS ?? "60000", 10),
     webhookMaxAttempts: parseInt(process.env.WEBHOOK_MAX_ATTEMPTS ?? "5", 10),
   },
-  databaseUrl: process.env.DATABASE_URL,
+  databaseUrl: supabase.databaseUrl ?? process.env.DATABASE_URL,
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET ?? "dev-access-secret-change-me-please-32ch",
     refreshSecret: process.env.JWT_REFRESH_SECRET ?? "dev-refresh-secret-change-me-please-32",
@@ -77,4 +88,5 @@ export default () => ({
     ttl: parseInt(process.env.THROTTLE_TTL_SECONDS ?? "60", 10) * 1000,
     limit: parseInt(process.env.THROTTLE_LIMIT ?? "60", 10),
   },
-});
+  };
+};

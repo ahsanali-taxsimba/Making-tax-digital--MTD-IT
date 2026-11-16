@@ -24,9 +24,15 @@ services:
       dockerfile: Dockerfile
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://mtd:mtd@postgres:5432/mtd?schema=public
+      DATABASE_URL: ${SUPABASE_DB_URL:-postgresql://mtd:mtd@postgres:5432/mtd?schema=public}
       APP_BASE_URL: http://localhost:3000
-      SEED_ON_START: "true"
+      SEED_ON_START: ${SEED_ON_START:-true}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL:-}
+      SUPABASE_DB_DIRECT_URL: ${SUPABASE_DB_DIRECT_URL:-}
     ports:
       - "3000:3000"
     depends_on:
