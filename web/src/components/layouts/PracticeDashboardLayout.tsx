@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { DemoBanner } from "../DemoBanner";
 import { TopBar } from "../TopBar";
 import { PracticeSidebar } from "../nav/PracticeSidebar";
 
@@ -9,6 +10,7 @@ export function PracticeDashboardLayout({ children, firmId }: { children: React.
     <div className="flex min-h-screen">
       <PracticeSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
+        <DemoBanner />
         <Suspense fallback={<div className="h-[73px] border-b border-line bg-white" />}>
           <TopBar />
         </Suspense>

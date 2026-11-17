@@ -14,5 +14,9 @@ if [ "${SKIP_MIGRATE:-}" = "1" ]; then
   echo "Skipping prisma migrate deploy (no Supabase URL on this build)"
 else
   npx prisma migrate deploy
+  if [ "${SEED_ON_START:-}" = "true" ]; then
+    echo "Seeding demo practice users"
+    npx prisma db seed
+  fi
 fi
 npx nest build

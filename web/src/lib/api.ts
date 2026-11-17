@@ -1,4 +1,5 @@
-import { clearSession, getAccessToken, getEnvironment, getRefreshToken, setSession, getUser } from "./session";
+import { clearSession, getAccessToken, getEnvironment, getRefreshToken, isDemoSession, setSession, getUser } from "./session";
+import { handleDemoRequest } from "./demo";
 import { withTenantQuery } from "./roles";
 import type { ApiEnvelope } from "./types";
 import { errorCodeOf } from "./errors";
@@ -97,10 +98,33 @@ export async function apiFetch<T>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
 ): Promise<T> {
+  if (isDemoSession()) {
+    return handleDemoRequest<T>(path, init);
+  }
   return parseEnvelope<T>(await authorizedFetch(path, init));
 }
 
+export async function probeApiHealth(timeoutMs = 4000): Promise<{ ok: boolean; status: number }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${apiBase()}/health`, { signal: controller.signal, cache: "no-store" });
+    return { ok: response.ok, status: response.status };
+  } catch {
+    return { ok: false, status: 0 };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function apiFetchBlob(path: string): Promise<{ blob: Blob; contentType: string; fileName: string }> {
+  if (isDemoSession()) {
+    return {
+      blob: new Blob(["Sample Making Tax Digital file"], { type: "text/plain" }),
+      contentType: "text/plain",
+      fileName: "sample.txt",
+    };
+  }
   const response = await authorizedFetch(path);
   const contentType = response.headers.get("content-type") ?? "application/octet-stream";
   if (!response.ok || contentType.includes("application/json")) {

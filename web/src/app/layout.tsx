@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Making Tax Digital",
-  description: "Role-based workspaces for platform staff, accountancy firms, and firm clients.",
+  description: "HMRC Making Tax Digital for VAT and Income Tax. Practice, client and platform workspaces.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

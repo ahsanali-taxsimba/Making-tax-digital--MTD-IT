@@ -34,6 +34,11 @@ export class PortalController {
     private readonly documents: DocumentsService,
   ) {}
 
+  @Get("me")
+  me(@CurrentUser() user: AuthUser) {
+    return this.prisma.client.findUnique({ where: { id: this.clientId(user) } });
+  }
+
   @Get("obligations")
   async obligations(@CurrentUser() user: AuthUser) {
     const clientId = this.clientId(user);

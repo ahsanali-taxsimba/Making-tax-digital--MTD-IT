@@ -133,7 +133,7 @@ export function homePath(user?: AuthUser | null): string {
 }
 
 export function workspaceForPath(pathname: string): "admin" | "practice" | "client" | "public" | "other" {
-  if (pathname === "/login" || pathname === "/access-denied") {
+  if (pathname === "/" || pathname === "/login" || pathname === "/access-denied") {
     return "public";
   }
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
