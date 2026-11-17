@@ -7,11 +7,13 @@ describe("assertProductionConfig", () => {
     JWT_REFRESH_SECRET: "b".repeat(32),
     TOKEN_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     FRONTEND_ORIGIN: "https://app.example.com",
-    DATABASE_URL: "postgresql://mtd:mtd@localhost:5432/mtd",
+    SUPABASE_URL: "https://abcdxyzabcdefgh.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "service-role",
+    SUPABASE_DB_URL: "postgresql://postgres:secret@db.abcdxyzabcdefgh.supabase.co:5432/postgres",
     HMRC_MODE: "mock",
   };
 
-  it("allows a complete production configuration", () => {
+  it("allows a complete production configuration on Supabase", () => {
     expect(() => assertProductionConfig(valid)).not.toThrow();
   });
 
@@ -21,6 +23,7 @@ describe("assertProductionConfig", () => {
         ...valid,
         JWT_ACCESS_SECRET: "dev-access-secret-change-me-please-32ch",
         FRONTEND_ORIGIN: "",
+        VERCEL_URL: "",
       }),
     ).toThrow(ProductionConfigError);
   });
@@ -35,14 +38,24 @@ describe("assertProductionConfig", () => {
     ).toThrow(/HMRC_MODE=live/);
   });
 
-  it("accepts SUPABASE_DB_URL in place of DATABASE_URL", () => {
-    const { DATABASE_URL: _ignored, ...rest } = valid;
+  it("rejects a local Postgres URL in production", () => {
     expect(() =>
       assertProductionConfig({
-        ...rest,
-        SUPABASE_DB_URL: "postgresql://postgres:secret@db.abcdxyzabcdefgh.supabase.co:5432/postgres",
+        ...valid,
+        SUPABASE_DB_URL: "",
+        DATABASE_URL: "postgresql://mtd:mtd@localhost:5432/mtd",
       }),
-    ).not.toThrow();
+    ).toThrow(/Supabase/);
+  });
+
+  it("requires FRONTEND_ORIGIN even when VERCEL_URL is set", () => {
+    expect(() =>
+      assertProductionConfig({
+        ...valid,
+        FRONTEND_ORIGIN: "",
+        VERCEL_URL: "mtd-it.vercel.app",
+      }),
+    ).toThrow(/FRONTEND_ORIGIN/);
   });
 
   it("skips checks outside production", () => {

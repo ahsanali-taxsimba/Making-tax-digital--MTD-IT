@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "framework": "nestjs",
+  "regions": ["lhr1"],
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 60,
+      "includeFiles": "prisma/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
+  ]
+}

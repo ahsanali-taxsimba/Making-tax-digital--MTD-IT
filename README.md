@@ -95,7 +95,25 @@ Fraud-prevention headers are taken from incoming `Gov-Client-*` request headers 
 
 ITSA Final Declaration now triggers an HMRC Individual Calculation when `calculationId` is missing (`POST /itsa/calculations`). Property businesses submit quarterly updates to the UK/foreign property APIs instead of self-employment.
 
-Document bytes go through a storage port. Local disk is the default; when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set the API stores files in the `mtd-documents` bucket and Prisma uses `SUPABASE_DB_URL` (or `DATABASE_URL`) with `sslmode=require`. Production Docker images run migrations only; set `SEED_ON_START=true` when you explicitly want demo users.
+Document bytes go through a storage port. Local disk is the default in development; when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set the API stores files in the `mtd-documents` bucket and Prisma uses `SUPABASE_DB_URL` (or `DATABASE_URL`) with `sslmode=require`. Production (Vercel or Docker) must use Supabase for both Postgres and files. Production Docker images run migrations only; set `SEED_ON_START=true` when you explicitly want demo users.
+
+## Connect to Vercel
+
+Create **two** Vercel projects from this GitHub repo (GitHub → Vercel). Preview and production deploy on every push.
+
+1. **API** — root directory `.` (this `vercel.json`). London region `lhr1`. Build runs `scripts/vercel-build.sh`: Prisma generate, `prisma migrate deploy` against `SUPABASE_DB_DIRECT_URL` (fallback `SUPABASE_DB_URL`), then Nest.
+2. **Web** — root directory `web` (`web/vercel.json`). Set `NEXT_PUBLIC_API_URL` to the API project URL (for example `https://mtd-api.vercel.app`).
+
+API project environment (same names as `.env.example`):
+
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL` — Session pooler URI from Supabase → Database (transaction-mode port 6543 breaks Prisma)
+- `SUPABASE_DB_DIRECT_URL` — Direct URI for migrations (enable the IPv4 add-on if Vercel cannot reach IPv6-only hosts)
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `TOKEN_ENCRYPTION_KEY`
+- `FRONTEND_ORIGIN` — the web project URL, comma-separated if you have preview hosts
+- `NODE_ENV=production`
+
+After the web project exists, paste its URL into the API project's `FRONTEND_ORIGIN` and redeploy the API so CORS allows the UI. Production refuses to boot on local Postgres or local disk storage.
 
 ## Connect to Supabase
 
