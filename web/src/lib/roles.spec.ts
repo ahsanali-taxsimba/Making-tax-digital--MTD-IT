@@ -7,6 +7,7 @@ import {
   tenantMismatch,
   tenantQuery,
   withTenantQuery,
+  workspaceForPath,
 } from "./roles";
 import type { AuthUser } from "./types";
 
@@ -81,6 +82,8 @@ describe("role routing", () => {
     expect(canAccessPath(client, "/practice/clients")).toBe(false);
     expect(canAccessPath(client, "/practice/audit")).toBe(false);
     expect(canAccessPath(client, "/client/documents")).toBe(true);
+    expect(canAccessPath(null, "/")).toBe(true);
+    expect(workspaceForPath("/")).toBe("public");
   });
 
   it("flags cross-tenant route params", () => {

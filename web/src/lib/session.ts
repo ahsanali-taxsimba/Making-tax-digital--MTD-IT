@@ -8,6 +8,8 @@ const CLIENT = "mtd.clientId";
 const ENV = "mtd.environment";
 
 export const SESSION_EVENT = "mtd-session-change";
+export const DEMO_ACCESS_TOKEN = "mtd-demo-access";
+export const DEMO_REFRESH_TOKEN = "mtd-demo-refresh";
 
 function notify(): void {
   if (typeof window === "undefined") {
@@ -74,6 +76,14 @@ export function setSelectedClientId(clientId: string): void {
 export function setEnvironment(environment: HmrcEnvironment): void {
   store()?.setItem(ENV, environment.toLowerCase() === "live" ? "live" : "sandbox");
   notify();
+}
+
+export function isDemoSession(): boolean {
+  return getAccessToken() === DEMO_ACCESS_TOKEN;
+}
+
+export function startDemoSession(user: AuthUser): void {
+  setSession(DEMO_ACCESS_TOKEN, DEMO_REFRESH_TOKEN, user);
 }
 
 export function clearSession(): void {

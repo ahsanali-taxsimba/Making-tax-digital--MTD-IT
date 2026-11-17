@@ -2,26 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { LandingPage } from "@/components/LandingPage";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useSession } from "@/hooks/useSession";
 import { homePath } from "@/lib/roles";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { RequireAuth } from "@/components/RequireAuth";
 
 export default function HomePage() {
-  const { user } = useSession();
+  const { user, ready } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (user) {
+    if (ready && user) {
       router.replace(homePath(user));
     }
-  }, [router, user]);
+  }, [ready, router, user]);
 
-  return (
-    <RequireAuth>
+  if (!ready || user) {
+    return (
       <div className="py-16">
-        <LoadingSpinner label="Opening your workspace…" />
+        <LoadingSpinner label={user ? "Opening your workspace…" : "Loading…"} />
       </div>
-    </RequireAuth>
-  );
+    );
+  }
+
+  return <LandingPage />;
 }

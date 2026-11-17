@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import { clearSession, getRefreshToken, setSession } from "./session";
+import { clearSession, getRefreshToken, isDemoSession, setSession } from "./session";
 import type { LoginResult } from "./types";
 
 export async function login(email: string, password: string): Promise<LoginResult> {
@@ -13,6 +13,10 @@ export async function login(email: string, password: string): Promise<LoginResul
 }
 
 export async function logout(): Promise<void> {
+  if (isDemoSession()) {
+    clearSession();
+    return;
+  }
   const refreshToken = getRefreshToken();
   try {
     if (refreshToken) {

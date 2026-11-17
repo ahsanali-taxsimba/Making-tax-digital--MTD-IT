@@ -21,6 +21,16 @@ export class FirmsController {
     return this.firms.me(user);
   }
 
+  @Get("me/dashboard")
+  dashboard(@CurrentUser() user: AuthUser) {
+    return this.firms.dashboard(user);
+  }
+
+  @Get("me/hmrc")
+  hmrc(@CurrentUser() user: AuthUser) {
+    return this.firms.hmrcOverview(user);
+  }
+
   @Patch("me")
   @Roles(UserRole.ADMIN)
   updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateFirmDto) {

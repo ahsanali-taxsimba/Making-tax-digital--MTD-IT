@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -19,6 +19,14 @@ export class ClientsController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.clients.list(user);
+  }
+
+  @Get("me")
+  me(@CurrentUser() user: AuthUser) {
+    if (!user.clientId) {
+      throw new NotFoundException("No client is linked to this account");
+    }
+    return this.clients.get(user, user.clientId);
   }
 
   @Post()

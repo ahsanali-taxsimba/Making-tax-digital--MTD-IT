@@ -10,18 +10,21 @@ import { AdminConsoleLayout } from "./layouts/AdminConsoleLayout";
 import { ClientPortalLayout } from "./layouts/ClientPortalLayout";
 import { PracticeDashboardLayout } from "./layouts/PracticeDashboardLayout";
 
-function PublicChrome({ children }: { children: React.ReactNode }) {
+function PublicChrome({ children, fullBleed }: { children: React.ReactNode; fullBleed?: boolean }) {
+  if (fullBleed) {
+    return <>{children}</>;
+  }
   return (
     <div className="min-h-screen">
       <header className="border-b border-line bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/login" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal text-sm font-bold text-white">
               MT
             </span>
             <span>
               <span className="block text-sm font-semibold text-ink">Making Tax Digital</span>
-              <span className="block text-xs text-ink-muted">Role-based workspaces</span>
+              <span className="block text-xs text-ink-muted">VAT and Income Tax</span>
             </span>
           </Link>
           <Link href="/login" className="text-sm font-semibold text-teal">
@@ -45,7 +48,7 @@ export function RoleRouter({ children }: { children: React.ReactNode }) {
   });
 
   if (!user || pathname === "/login") {
-    return <PublicChrome>{children}</PublicChrome>;
+    return <PublicChrome fullBleed={pathname === "/"}>{children}</PublicChrome>;
   }
 
   if (pathname === "/access-denied") {
